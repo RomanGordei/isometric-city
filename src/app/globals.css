@@ -4,39 +4,42 @@
 
 @layer base {
   :root {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    /* Art Deco Metropolis Color Palette */
+    --background: 220 20% 8%;
+    --foreground: 45 30% 92%;
     
-    --card: 222 47% 14%;
-    --card-foreground: 210 40% 98%;
+    --card: 220 18% 11%;
+    --card-foreground: 45 30% 92%;
     
-    --popover: 222 47% 14%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 220 18% 11%;
+    --popover-foreground: 45 30% 92%;
     
-    --primary: 142 76% 36%;
-    --primary-foreground: 355 100% 100%;
+    /* Gold/Brass as primary - the signature Art Deco accent */
+    --primary: 43 74% 49%;
+    --primary-foreground: 220 20% 8%;
     
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 45 30% 92%;
     
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 220 15% 15%;
+    --muted-foreground: 220 10% 55%;
     
-    --accent: 217 33% 20%;
-    --accent-foreground: 210 40% 98%;
+    /* Teal accent for secondary highlights */
+    --accent: 173 58% 39%;
+    --accent-foreground: 45 30% 92%;
     
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 45 30% 92%;
     
-    --border: 217 33% 22%;
-    --input: 217 33% 22%;
-    --ring: 142 76% 36%;
+    --border: 220 15% 20%;
+    --input: 220 15% 18%;
+    --ring: 43 74% 49%;
     
-    --sidebar: 222 47% 9%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 18%;
+    --sidebar: 220 20% 6%;
+    --sidebar-foreground: 45 30% 92%;
+    --sidebar-border: 43 74% 25%;
     
-    --radius: 0.5rem;
+    --radius: 0.25rem;
   }
 }
 
@@ -50,97 +53,249 @@
   }
 }
 
-/* Custom scrollbar */
+/* Custom Art Deco scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--secondary));
-  border-radius: 4px;
+  background: hsl(220 20% 8%);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground));
-  border-radius: 4px;
+  background: linear-gradient(180deg, hsl(43 74% 35%) 0%, hsl(43 74% 25%) 100%);
+  border-radius: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--foreground));
+  background: linear-gradient(180deg, hsl(43 74% 49%) 0%, hsl(43 74% 35%) 100%);
 }
 
-/* Smooth animations */
+/* Art Deco Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(-20px); }
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes goldShimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(201, 155, 60, 0.2); }
+  50% { box-shadow: 0 0 40px rgba(201, 155, 60, 0.4); }
 }
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-15px); }
+}
+
+@keyframes sunburst {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .animate-fadeIn {
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.4s ease-out;
 }
 
-.animate-slideIn {
-  animation: slideIn 0.3s ease-out;
+.animate-slideInLeft {
+  animation: slideInLeft 0.5s ease-out;
 }
 
-.animate-pulse-slow {
-  animation: pulse 2s ease-in-out infinite;
+.animate-slideInRight {
+  animation: slideInRight 0.5s ease-out;
+}
+
+.animate-goldShimmer {
+  background: linear-gradient(90deg, 
+    hsl(43 74% 49%) 0%, 
+    hsl(48 90% 70%) 50%, 
+    hsl(43 74% 49%) 100%
+  );
+  background-size: 200% auto;
+  animation: goldShimmer 3s linear infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.animate-pulseGlow {
+  animation: pulseGlow 2s ease-in-out infinite;
 }
 
 .animate-float {
-  animation: float 3s ease-in-out infinite;
+  animation: float 4s ease-in-out infinite;
 }
 
-/* Gradient backgrounds */
-.bg-gradient-city {
+/* Art Deco Typography */
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+.font-sans {
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Gold gradient text */
+.text-gold {
   background: linear-gradient(135deg, 
-    hsl(222 47% 8%) 0%, 
-    hsl(180 30% 12%) 50%, 
-    hsl(120 30% 15%) 100%
+    hsl(43 74% 55%) 0%, 
+    hsl(48 90% 70%) 30%,
+    hsl(43 74% 49%) 60%,
+    hsl(38 70% 40%) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Art Deco Decorative Elements */
+.deco-border {
+  position: relative;
+}
+
+.deco-border::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    hsl(43 74% 49%) 20%, 
+    hsl(43 74% 49%) 80%, 
+    transparent 100%
   );
 }
 
-.bg-gradient-sunset {
-  background: linear-gradient(180deg,
-    hsl(30 80% 60%) 0%,
-    hsl(340 70% 50%) 50%,
-    hsl(260 50% 30%) 100%
-  );
+.deco-corner {
+  position: relative;
 }
 
-/* Grid pattern for terrain */
-.grid-pattern {
+.deco-corner::before,
+.deco-corner::after {
+  content: '';
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-color: hsl(43 74% 35%);
+  border-style: solid;
+}
+
+.deco-corner::before {
+  top: 0;
+  left: 0;
+  border-width: 2px 0 0 2px;
+}
+
+.deco-corner::after {
+  bottom: 0;
+  right: 0;
+  border-width: 0 2px 2px 0;
+}
+
+/* Art Deco Card styling */
+.deco-card {
+  background: linear-gradient(135deg, 
+    hsl(220 18% 11%) 0%, 
+    hsl(220 20% 9%) 100%
+  );
+  border: 1px solid hsl(43 74% 20%);
+  position: relative;
+}
+
+.deco-card::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  border: 1px solid hsl(43 74% 15%);
+  pointer-events: none;
+}
+
+/* Sunburst background pattern */
+.sunburst-bg {
+  background: 
+    repeating-conic-gradient(
+      from 0deg at 50% 50%,
+      hsl(220 20% 8%) 0deg 10deg,
+      hsl(220 18% 9%) 10deg 20deg
+    );
+}
+
+/* Geometric pattern overlay */
+.geo-pattern {
   background-image: 
-    linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
-    linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
-  background-size: 40px 40px;
+    linear-gradient(30deg, hsl(43 74% 15% / 0.05) 12%, transparent 12.5%, transparent 87%, hsl(43 74% 15% / 0.05) 87.5%, hsl(43 74% 15% / 0.05)),
+    linear-gradient(150deg, hsl(43 74% 15% / 0.05) 12%, transparent 12.5%, transparent 87%, hsl(43 74% 15% / 0.05) 87.5%, hsl(43 74% 15% / 0.05)),
+    linear-gradient(30deg, hsl(43 74% 15% / 0.05) 12%, transparent 12.5%, transparent 87%, hsl(43 74% 15% / 0.05) 87.5%, hsl(43 74% 15% / 0.05)),
+    linear-gradient(150deg, hsl(43 74% 15% / 0.05) 12%, transparent 12.5%, transparent 87%, hsl(43 74% 15% / 0.05) 87.5%, hsl(43 74% 15% / 0.05)),
+    linear-gradient(60deg, hsl(43 74% 15% / 0.08) 25%, transparent 25.5%, transparent 75%, hsl(43 74% 15% / 0.08) 75%, hsl(43 74% 15% / 0.08)),
+    linear-gradient(60deg, hsl(43 74% 15% / 0.08) 25%, transparent 25.5%, transparent 75%, hsl(43 74% 15% / 0.08) 75%, hsl(43 74% 15% / 0.08));
+  background-size: 80px 140px;
+  background-position: 0 0, 0 0, 40px 70px, 40px 70px, 0 0, 40px 70px;
 }
 
-/* Isometric helpers */
-.iso-tile {
-  transform-origin: center center;
-  transition: transform 0.1s ease-out, filter 0.1s ease-out;
+/* Hero gradient with Art Deco feel */
+.hero-gradient {
+  background: 
+    radial-gradient(ellipse at 30% 20%, hsl(43 74% 15% / 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, hsl(173 58% 20% / 0.1) 0%, transparent 50%),
+    linear-gradient(180deg, hsl(220 20% 6%) 0%, hsl(220 20% 10%) 50%, hsl(220 18% 8%) 100%);
 }
 
-.iso-tile:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.1);
+/* Stepped/Ziggurat decorative line */
+.deco-stepped {
+  position: relative;
+}
+
+.deco-stepped::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 4px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    hsl(43 74% 35%) 10%,
+    hsl(43 74% 35%) 15%,
+    transparent 15%,
+    transparent 25%,
+    hsl(43 74% 35%) 25%,
+    hsl(43 74% 35%) 35%,
+    transparent 35%,
+    transparent 40%,
+    hsl(43 74% 49%) 40%,
+    hsl(43 74% 49%) 60%,
+    transparent 60%,
+    transparent 65%,
+    hsl(43 74% 35%) 65%,
+    hsl(43 74% 35%) 75%,
+    transparent 75%,
+    transparent 85%,
+    hsl(43 74% 35%) 85%,
+    hsl(43 74% 35%) 90%,
+    transparent 100%
+  );
 }
 
 /* Fire animation */
@@ -168,7 +323,7 @@
   left: 50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 60%);
+  background: radial-gradient(circle, rgba(201, 155, 60, 0.2) 0%, transparent 60%);
   transform: translate(-50%, -50%) scale(0);
   transition: transform 0.3s ease-out;
 }
@@ -182,32 +337,11 @@
   animation: fadeIn 0.2s ease-out;
 }
 
-/* Tooltip styles */
-.tooltip-arrow {
-  fill: hsl(var(--popover));
-}
-
-/* Homepage specific styles */
-.hero-gradient {
-  background: 
-    radial-gradient(ellipse at 20% 30%, rgba(34, 197, 94, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 70%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(251, 191, 36, 0.1) 0%, transparent 60%),
-    linear-gradient(180deg, hsl(222 47% 8%) 0%, hsl(222 47% 5%) 100%);
-}
-
-.text-gradient {
-  background: linear-gradient(135deg, #22c55e 0%, #3b82f6 50%, #f59e0b 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
 /* Minimap styles */
 .minimap-container {
-  background: linear-gradient(135deg, hsl(222 47% 10%) 0%, hsl(220 20% 8%) 100%);
-  border: 1px solid hsl(var(--border));
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(135deg, hsl(220 20% 8%) 0%, hsl(220 18% 6%) 100%);
+  border: 1px solid hsl(43 74% 25%);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 hsl(43 74% 20% / 0.2);
 }
 
 /* Building hover effects */
@@ -223,10 +357,11 @@
 /* Stats bar styling */
 .stats-bar {
   background: linear-gradient(90deg, 
-    hsl(var(--card)) 0%, 
-    hsl(217 33% 15%) 50%, 
-    hsl(var(--card)) 100%
+    hsl(220 18% 11%) 0%, 
+    hsl(220 15% 13%) 50%, 
+    hsl(220 18% 11%) 100%
   );
+  border-bottom: 1px solid hsl(43 74% 15%);
 }
 
 /* Zone colors */
@@ -242,21 +377,105 @@
   --zone-color: 38 92% 50%;
 }
 
-/* Utility classes for game UI */
+/* Glass panel with Art Deco styling */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(15, 18, 25, 0.9);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid hsl(43 74% 20%);
 }
 
-.neon-text {
-  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+/* Art Deco divider */
+.deco-divider {
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    hsl(43 74% 25%) 20%,
+    hsl(43 74% 49%) 50%,
+    hsl(43 74% 25%) 80%,
+    transparent 100%
+  );
 }
 
 /* Selection highlight */
 .selected-tile {
   box-shadow: 
-    0 0 0 2px hsl(var(--primary)),
-    0 0 20px rgba(34, 197, 94, 0.4);
+    0 0 0 2px hsl(43 74% 49%),
+    0 0 20px rgba(201, 155, 60, 0.4);
 }
 
+/* Sidebar item hover */
+.sidebar-item {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.sidebar-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: hsl(43 74% 49%);
+  transition: height 0.2s ease;
+}
+
+.sidebar-item:hover::before,
+.sidebar-item.active::before {
+  height: 70%;
+}
+
+/* Ornamental corners for panels */
+.ornament-corners {
+  position: relative;
+}
+
+.ornament-corners::before,
+.ornament-corners::after,
+.ornament-corners > .corner-bl,
+.ornament-corners > .corner-br {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-color: hsl(43 74% 40%);
+  border-style: solid;
+}
+
+.ornament-corners::before {
+  top: -1px;
+  left: -1px;
+  border-width: 2px 0 0 2px;
+}
+
+.ornament-corners::after {
+  top: -1px;
+  right: -1px;
+  border-width: 2px 2px 0 0;
+}
+
+/* Input styling */
+input[type="text"],
+input[type="number"] {
+  background: hsl(220 18% 8%);
+  border: 1px solid hsl(43 74% 20%);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+  border-color: hsl(43 74% 49%);
+  box-shadow: 0 0 0 2px hsl(43 74% 49% / 0.2);
+  outline: none;
+}
+
+/* Custom checkbox/switch styling */
+[role="switch"][data-state="checked"] {
+  background: linear-gradient(135deg, hsl(43 74% 40%) 0%, hsl(43 74% 55%) 100%);
+}
+
+/* Progress bar styling */
+[role="progressbar"] > div {
+  background: linear-gradient(90deg, hsl(43 74% 35%) 0%, hsl(43 74% 55%) 100%);
+}

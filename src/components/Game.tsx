@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useGame } from '@/context/GameContext';
-import { BuildingRenderer, RoadAdjacency } from './buildings/IsometricBuildings';
 import { Tool, TOOL_INFO, Tile } from '@/types/game';
 import {
   PlayIcon,
@@ -38,19 +37,36 @@ import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Isometric tile dimensions
-// HEIGHT_RATIO of 0.65 gives taller tiles (more top-down feel)
 const TILE_WIDTH = 64;
 const HEIGHT_RATIO = 0.65;
 const TILE_HEIGHT = TILE_WIDTH * HEIGHT_RATIO;
+
+// Convert grid coordinates to screen coordinates (isometric)
+function gridToScreen(x: number, y: number, offsetX: number, offsetY: number): { screenX: number; screenY: number } {
+  const screenX = (x - y) * (TILE_WIDTH / 2) + offsetX;
+  const screenY = (x + y) * (TILE_HEIGHT / 2) + offsetY;
+  return { screenX, screenY };
+}
+
+// Convert screen coordinates to grid coordinates
+function screenToGrid(screenX: number, screenY: number, offsetX: number, offsetY: number): { gridX: number; gridY: number } {
+  const adjustedX = screenX - offsetX;
+  const adjustedY = screenY - offsetY;
+  
+  const gridX = (adjustedX / (TILE_WIDTH / 2) + adjustedY / (TILE_HEIGHT / 2)) / 2;
+  const gridY = (adjustedY / (TILE_HEIGHT / 2) - adjustedX / (TILE_WIDTH / 2)) / 2;
+  
+  return { gridX: Math.floor(gridX), gridY: Math.floor(gridY) };
+}
 
 const EVENT_ICON_MAP: Record<string, React.ReactNode> = {
   fire: <FireIcon size={16} />,
@@ -91,47 +107,27 @@ const ADVISOR_ICON_MAP: Record<string, React.ReactNode> = {
   jobs: <JobsIcon size={18} />,
 };
 
-// Convert grid coordinates to screen coordinates (isometric)
-function gridToScreen(x: number, y: number, offsetX: number, offsetY: number): { screenX: number; screenY: number } {
-  const screenX = (x - y) * (TILE_WIDTH / 2) + offsetX;
-  const screenY = (x + y) * (TILE_HEIGHT / 2) + offsetY;
-  return { screenX, screenY };
-}
-
-// Convert screen coordinates to grid coordinates
-function screenToGrid(screenX: number, screenY: number, offsetX: number, offsetY: number): { gridX: number; gridY: number } {
-  const adjustedX = screenX - offsetX;
-  const adjustedY = screenY - offsetY;
-  
-  const gridX = (adjustedX / (TILE_WIDTH / 2) + adjustedY / (TILE_HEIGHT / 2)) / 2;
-  const gridY = (adjustedY / (TILE_HEIGHT / 2) - adjustedX / (TILE_WIDTH / 2)) / 2;
-  
-  return { gridX: Math.floor(gridX), gridY: Math.floor(gridY) };
-}
-
-// Sidebar Component with full height
-function Sidebar() {
+// Memoized Sidebar Component
+const Sidebar = React.memo(function Sidebar() {
   const { state, setTool, setActivePanel } = useGame();
   const { selectedTool, stats, activePanel } = state;
   
-  const toolCategories = {
+  const toolCategories = useMemo(() => ({
     'TOOLS': ['select', 'bulldoze', 'road'] as Tool[],
     'ZONES': ['zone_residential', 'zone_commercial', 'zone_industrial', 'zone_dezone'] as Tool[],
     'SERVICES': ['police_station', 'fire_station', 'hospital', 'school', 'university', 'park'] as Tool[],
     'UTILITIES': ['power_plant', 'water_tower'] as Tool[],
     'SPECIAL': ['stadium', 'airport'] as Tool[],
-  };
+  }), []);
   
   return (
     <div className="w-56 bg-sidebar border-r border-sidebar-border flex flex-col h-full">
-      {/* Logo */}
       <div className="px-4 py-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2">
           <span className="text-sidebar-foreground font-bold tracking-tight">ISOCITY</span>
         </div>
       </div>
       
-      {/* Tool Categories */}
       <ScrollArea className="flex-1 py-2">
         {Object.entries(toolCategories).map(([category, tools]) => (
           <div key={category} className="mb-1">
@@ -145,29 +141,21 @@ function Sidebar() {
                 const canAfford = stats.money >= info.cost;
                 
                 return (
-                  <TooltipProvider key={tool}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={() => setTool(tool)}
-                          disabled={!canAfford && info.cost > 0}
-                          variant={isSelected ? 'default' : 'ghost'}
-                          className={`w-full justify-start gap-3 px-3 py-2 h-auto text-sm ${
-                            isSelected ? 'bg-primary text-primary-foreground' : ''
-                          }`}
-                        >
-                          <span className="flex-1 text-left truncate">{info.name}</span>
-                          {info.cost > 0 && (
-                            <span className="text-xs opacity-60">${info.cost}</span>
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right">
-                        <p>{info.description}</p>
-                        {info.cost > 0 && <p className="text-muted-foreground">Cost: ${info.cost}</p>}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Button
+                    key={tool}
+                    onClick={() => setTool(tool)}
+                    disabled={!canAfford && info.cost > 0}
+                    variant={isSelected ? 'default' : 'ghost'}
+                    className={`w-full justify-start gap-3 px-3 py-2 h-auto text-sm ${
+                      isSelected ? 'bg-primary text-primary-foreground' : ''
+                    }`}
+                    title={`${info.description}${info.cost > 0 ? ` - Cost: $${info.cost}` : ''}`}
+                  >
+                    <span className="flex-1 text-left truncate">{info.name}</span>
+                    {info.cost > 0 && (
+                      <span className="text-xs opacity-60">${info.cost}</span>
+                    )}
+                  </Button>
                 );
               })}
             </div>
@@ -175,96 +163,34 @@ function Sidebar() {
         ))}
       </ScrollArea>
       
-      {/* Bottom Actions */}
       <div className="border-t border-sidebar-border p-2">
         <div className="grid grid-cols-5 gap-1">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={() => setActivePanel(activePanel === 'budget' ? 'none' : 'budget')}
-                  variant={activePanel === 'budget' ? 'default' : 'ghost'}
-                  size="icon-sm"
-                  className="w-full"
-                >
-                  <BudgetIcon size={16} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Budget</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={() => setActivePanel(activePanel === 'statistics' ? 'none' : 'statistics')}
-                  variant={activePanel === 'statistics' ? 'default' : 'ghost'}
-                  size="icon-sm"
-                  className="w-full"
-                >
-                  <ChartIcon size={16} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Statistics</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={() => setActivePanel(activePanel === 'advisors' ? 'none' : 'advisors')}
-                  variant={activePanel === 'advisors' ? 'default' : 'ghost'}
-                  size="icon-sm"
-                  className="w-full"
-                >
-                  <AdvisorIcon size={16} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Advisors</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={() => setActivePanel(activePanel === 'achievements' ? 'none' : 'achievements')}
-                  variant={activePanel === 'achievements' ? 'default' : 'ghost'}
-                  size="icon-sm"
-                  className="w-full"
-                >
-                  <TrophyIcon size={16} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Achievements</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={() => setActivePanel(activePanel === 'settings' ? 'none' : 'settings')}
-                  variant={activePanel === 'settings' ? 'default' : 'ghost'}
-                  size="icon-sm"
-                  className="w-full"
-                >
-                  <SettingsIcon size={16} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Settings</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {[
+            { panel: 'budget' as const, icon: <BudgetIcon size={16} />, label: 'Budget' },
+            { panel: 'statistics' as const, icon: <ChartIcon size={16} />, label: 'Statistics' },
+            { panel: 'advisors' as const, icon: <AdvisorIcon size={16} />, label: 'Advisors' },
+            { panel: 'achievements' as const, icon: <TrophyIcon size={16} />, label: 'Achievements' },
+            { panel: 'settings' as const, icon: <SettingsIcon size={16} />, label: 'Settings' },
+          ].map(({ panel, icon, label }) => (
+            <Button
+              key={panel}
+              onClick={() => setActivePanel(activePanel === panel ? 'none' : panel)}
+              variant={activePanel === panel ? 'default' : 'ghost'}
+              size="icon-sm"
+              className="w-full"
+              title={label}
+            >
+              {icon}
+            </Button>
+          ))}
         </div>
       </div>
     </div>
   );
-}
+});
 
-// Top Stats Bar
-function TopBar() {
+// Memoized TopBar Component
+const TopBar = React.memo(function TopBar() {
   const { state, setSpeed, setTaxRate } = useGame();
   const { stats, year, month, speed, taxRate, cityName, notifications } = state;
   
@@ -273,40 +199,30 @@ function TopBar() {
   
   return (
     <div className="h-14 bg-card border-b border-border flex items-center justify-between px-4">
-      {/* Left - City Name & Date */}
       <div className="flex items-center gap-6">
         <div>
           <h1 className="text-foreground font-semibold text-sm">{cityName}</h1>
           <div className="text-muted-foreground text-xs">{monthNames[month - 1]} {year}</div>
         </div>
         
-        {/* Speed Controls */}
         <div className="flex items-center gap-1 bg-secondary rounded-md p-1">
           {[0, 1, 2, 3].map(s => (
-            <TooltipProvider key={s}>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Button
-                    onClick={() => setSpeed(s as 0 | 1 | 2 | 3)}
-                    variant={speed === s ? 'default' : 'ghost'}
-                    size="icon-sm"
-                    className="h-7 w-7"
-                  >
-                    {s === 0 ? <PauseIcon size={14} /> : 
-                     s === 1 ? <PlayIcon size={14} /> : 
-                     <FastForwardIcon size={14} />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {s === 0 ? 'Pause' : s === 1 ? 'Normal Speed' : s === 2 ? 'Fast' : 'Very Fast'}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Button
+              key={s}
+              onClick={() => setSpeed(s as 0 | 1 | 2 | 3)}
+              variant={speed === s ? 'default' : 'ghost'}
+              size="icon-sm"
+              className="h-7 w-7"
+              title={s === 0 ? 'Pause' : s === 1 ? 'Normal' : s === 2 ? 'Fast' : 'Very Fast'}
+            >
+              {s === 0 ? <PauseIcon size={14} /> : 
+               s === 1 ? <PlayIcon size={14} /> : 
+               <FastForwardIcon size={14} />}
+            </Button>
           ))}
         </div>
       </div>
       
-      {/* Center - Main Stats */}
       <div className="flex items-center gap-6">
         <StatBadge icon={<PopulationIcon size={14} />} value={stats.population.toLocaleString()} label="Pop" />
         <StatBadge icon={<JobsIcon size={14} />} value={stats.jobs.toLocaleString()} label="Jobs" />
@@ -325,9 +241,7 @@ function TopBar() {
         />
       </div>
       
-      {/* Right - Demand & Tax */}
       <div className="flex items-center gap-4">
-        {/* RCI Demand */}
         <div className="flex items-center gap-2">
           <DemandIndicator label="R" demand={stats.demand.residential} color="text-green-500" />
           <DemandIndicator label="C" demand={stats.demand.commercial} color="text-blue-500" />
@@ -336,7 +250,6 @@ function TopBar() {
         
         <Separator orientation="vertical" className="h-8" />
         
-        {/* Tax Rate */}
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground text-xs">Tax</span>
           <Slider
@@ -350,28 +263,20 @@ function TopBar() {
           <span className="text-foreground text-xs font-mono w-8">{taxRate}%</span>
         </div>
         
-        {/* Notifications */}
         <div className="relative">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <Button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  variant="ghost"
-                  size="icon-sm"
-                  className={notifications.length > 0 ? 'text-amber-400' : ''}
-                >
-                  <AlertIcon size={16} />
-                  {notifications.length > 0 && (
-                    <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 text-[10px] flex items-center justify-center">
-                      {notifications.length}
-                    </Badge>
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Notifications</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Button
+            onClick={() => setShowNotifications(!showNotifications)}
+            variant="ghost"
+            size="icon-sm"
+            className={notifications.length > 0 ? 'text-amber-400' : ''}
+          >
+            <AlertIcon size={16} />
+            {notifications.length > 0 && (
+              <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 text-[10px] flex items-center justify-center">
+                {notifications.length}
+              </Badge>
+            )}
+          </Button>
           
           {showNotifications && notifications.length > 0 && (
             <Card className="absolute top-full right-0 mt-2 w-80 z-50">
@@ -384,16 +289,16 @@ function TopBar() {
               <ScrollArea className="max-h-64">
                 <CardContent className="p-0">
                   {notifications.map((notif, i) => (
-                        <div key={i} className="p-3 border-b border-border last:border-0 flex gap-3">
-                          <span className="text-muted-foreground mt-0.5">
-                            {EVENT_ICON_MAP[notif.icon] || <InfoIcon size={14} />}
-                          </span>
-                          <div>
-                            <div className="text-foreground text-sm font-medium">{notif.title}</div>
-                            <div className="text-muted-foreground text-xs mt-1">{notif.description}</div>
-                          </div>
-                        </div>
-                      ))}
+                    <div key={i} className="p-3 border-b border-border last:border-0 flex gap-3">
+                      <span className="text-muted-foreground mt-0.5">
+                        {EVENT_ICON_MAP[notif.icon] || <InfoIcon size={14} />}
+                      </span>
+                      <div>
+                        <div className="text-foreground text-sm font-medium">{notif.title}</div>
+                        <div className="text-muted-foreground text-xs mt-1">{notif.description}</div>
+                      </div>
+                    </div>
+                  ))}
                 </CardContent>
               </ScrollArea>
             </Card>
@@ -402,7 +307,7 @@ function TopBar() {
       </div>
     </div>
   );
-}
+});
 
 function StatBadge({ icon, value, label, variant = 'default' }: { 
   icon: React.ReactNode; 
@@ -435,7 +340,7 @@ function DemandIndicator({ label, demand, color }: { label: string; demand: numb
       <div className="w-3 h-8 bg-secondary relative rounded-sm overflow-hidden">
         <div className="absolute left-0 right-0 top-1/2 h-px bg-border" />
         <div
-          className={`absolute left-0 right-0 transition-all rounded-sm ${color.replace('text-', 'bg-')}`}
+          className={`absolute left-0 right-0 ${color.replace('text-', 'bg-')}`}
           style={{
             height: `${height}%`,
             top: isPositive ? `${50 - height}%` : '50%',
@@ -446,8 +351,8 @@ function DemandIndicator({ label, demand, color }: { label: string; demand: numb
   );
 }
 
-// Stats Panel (secondary bar)
-function StatsPanel() {
+// Memoized Stats Panel
+const StatsPanel = React.memo(function StatsPanel() {
   const { state } = useGame();
   const { stats } = state;
   
@@ -460,7 +365,7 @@ function StatsPanel() {
       <MiniStat icon={<EnvironmentIcon size={12} />} label="Environment" value={stats.environment} />
     </div>
   );
-}
+});
 
 function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   const color = value >= 70 ? 'text-green-500' : value >= 40 ? 'text-amber-500' : 'text-red-500';
@@ -473,11 +378,10 @@ function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-// Minimap Component - Redesigned
-function MiniMap() {
+// Canvas-based Minimap - Memoized
+const MiniMap = React.memo(function MiniMap() {
   const { state } = useGame();
   const { grid, gridSize } = state;
-  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   useEffect(() => {
@@ -490,26 +394,8 @@ function MiniMap() {
     const size = 140;
     const scale = size / gridSize;
     
-    const bgGradient = ctx.createLinearGradient(0, 0, size, size);
-    bgGradient.addColorStop(0, '#0b1723');
-    bgGradient.addColorStop(1, '#0f2a2f');
-    ctx.fillStyle = bgGradient;
+    ctx.fillStyle = '#0b1723';
     ctx.fillRect(0, 0, size, size);
-    
-    // subtle grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth = 0.5;
-    const step = Math.max(1, Math.floor(gridSize / 10));
-    for (let i = 0; i <= gridSize; i += step) {
-      ctx.beginPath();
-      ctx.moveTo(i * scale, 0);
-      ctx.lineTo(i * scale, size);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, i * scale);
-      ctx.lineTo(size, i * scale);
-      ctx.stroke();
-    }
     
     for (let y = 0; y < gridSize; y++) {
       for (let x = 0; x < gridSize; x++) {
@@ -533,13 +419,13 @@ function MiniMap() {
         else if (tile.building.onFire) color = '#ef4444';
         
         ctx.fillStyle = color;
-        ctx.fillRect(x * scale, y * scale, scale, scale);
+        ctx.fillRect(x * scale, y * scale, Math.ceil(scale), Math.ceil(scale));
       }
     }
   }, [grid, gridSize]);
   
   return (
-    <Card className="absolute bottom-4 right-4 p-3 shadow-lg backdrop-blur-sm bg-card/90 border-border/70">
+    <Card className="absolute bottom-4 right-4 p-3 shadow-lg bg-card/90 border-border/70">
       <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold mb-2">
         Minimap
       </div>
@@ -569,7 +455,7 @@ function MiniMap() {
       </div>
     </Card>
   );
-}
+});
 
 // Tile Info Panel
 function TileInfoPanel({ 
@@ -709,7 +595,6 @@ function BudgetPanel() {
         </DialogHeader>
         
         <div className="space-y-6">
-          {/* Summary */}
           <div className="grid grid-cols-3 gap-4 pb-4 border-b border-border">
             <div>
               <div className="text-muted-foreground text-xs mb-1">Income</div>
@@ -727,7 +612,6 @@ function BudgetPanel() {
             </div>
           </div>
           
-          {/* Categories */}
           <div className="space-y-4">
             {categories.map(cat => (
               <div key={cat.key} className="flex items-center gap-4">
@@ -805,7 +689,7 @@ function AchievementsPanel() {
   );
 }
 
-// Statistics Panel with Historical Charts
+// Statistics Panel
 function StatisticsPanel() {
   const { state, setActivePanel } = useGame();
   const { history, stats } = state;
@@ -813,7 +697,6 @@ function StatisticsPanel() {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
-  // Draw chart on canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || history.length < 2) return;
@@ -825,12 +708,12 @@ function StatisticsPanel() {
     const height = canvas.height;
     const padding = 40;
     
-    ctx.fillStyle = 'hsl(var(--secondary))';
+    ctx.fillStyle = '#1a1f2e';
     ctx.fillRect(0, 0, width, height);
     
     let data: number[] = [];
     let color = '#10b981';
-    let formatValue = (v: number) => v.toLocaleString();
+    const formatValue = (v: number) => v.toLocaleString();
     
     switch (activeTab) {
       case 'population':
@@ -840,12 +723,10 @@ function StatisticsPanel() {
       case 'money':
         data = history.map(h => h.money);
         color = '#f59e0b';
-        formatValue = (v) => `$${v.toLocaleString()}`;
         break;
       case 'happiness':
         data = history.map(h => h.happiness);
         color = '#ec4899';
-        formatValue = (v) => `${Math.round(v)}%`;
         break;
     }
     
@@ -855,7 +736,7 @@ function StatisticsPanel() {
     const maxVal = Math.max(...data);
     const range = maxVal - minVal || 1;
     
-    ctx.strokeStyle = 'hsl(var(--border))';
+    ctx.strokeStyle = '#2d3748';
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= 4; i++) {
       const y = padding + (height - padding * 2) * (i / 4);
@@ -863,12 +744,6 @@ function StatisticsPanel() {
       ctx.moveTo(padding, y);
       ctx.lineTo(width - padding, y);
       ctx.stroke();
-      
-      const value = maxVal - (range * (i / 4));
-      ctx.fillStyle = 'hsl(var(--muted-foreground))';
-      ctx.font = '10px monospace';
-      ctx.textAlign = 'right';
-      ctx.fillText(formatValue(value), padding - 5, y + 3);
     }
     
     ctx.strokeStyle = color;
@@ -889,23 +764,6 @@ function StatisticsPanel() {
     });
     
     ctx.stroke();
-    
-    ctx.lineTo(padding + (data.length - 1) * stepX, height - padding);
-    ctx.lineTo(padding, height - padding);
-    ctx.closePath();
-    ctx.fillStyle = color + '20';
-    ctx.fill();
-    
-    ctx.fillStyle = color;
-    data.forEach((val, i) => {
-      if (i % Math.max(1, Math.floor(data.length / 10)) !== 0 && i !== data.length - 1) return;
-      const x = padding + i * stepX;
-      const y = padding + (height - padding * 2) * (1 - (val - minVal) / range);
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    
   }, [history, activeTab]);
   
   return (
@@ -916,7 +774,6 @@ function StatisticsPanel() {
         </DialogHeader>
         
         <div className="space-y-4">
-          {/* Current Stats */}
           <div className="grid grid-cols-4 gap-3">
             <Card className="p-3">
               <div className="text-muted-foreground text-xs mb-1">Population</div>
@@ -938,7 +795,6 @@ function StatisticsPanel() {
             </Card>
           </div>
           
-          {/* Tabs */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="population">Population</TabsTrigger>
@@ -947,7 +803,6 @@ function StatisticsPanel() {
             </TabsList>
           </Tabs>
           
-          {/* Chart */}
           <Card className="p-4">
             {history.length < 2 ? (
               <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
@@ -957,41 +812,11 @@ function StatisticsPanel() {
               <canvas ref={canvasRef} width={536} height={200} className="w-full rounded-md" />
             )}
           </Card>
-          
-          {/* City Ratings */}
-          <div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">City Ratings</div>
-            <div className="grid grid-cols-5 gap-3">
-              <RatingBar label="Happiness" value={stats.happiness} color="bg-pink-500" />
-              <RatingBar label="Health" value={stats.health} color="bg-green-500" />
-              <RatingBar label="Education" value={stats.education} color="bg-blue-500" />
-              <RatingBar label="Safety" value={stats.safety} color="bg-amber-500" />
-              <RatingBar label="Environment" value={stats.environment} color="bg-emerald-500" />
-            </div>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
-
-function RatingBar({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="text-center">
-      <div className="h-20 w-full bg-secondary relative rounded-md overflow-hidden">
-        <div
-          className={`absolute bottom-0 left-0 right-0 transition-all duration-500 ${color}`}
-          style={{ height: `${value}%` }}
-        />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-foreground text-sm font-bold drop-shadow-lg">{Math.round(value)}%</span>
-        </div>
-      </div>
-      <div className="text-muted-foreground text-[10px] mt-2">{label}</div>
-    </div>
-  );
-}
-
 
 // Settings Panel
 function SettingsPanel() {
@@ -1008,7 +833,6 @@ function SettingsPanel() {
         </DialogHeader>
         
         <div className="space-y-6">
-          {/* Game Settings */}
           <div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">Game Settings</div>
             
@@ -1024,7 +848,6 @@ function SettingsPanel() {
             </div>
           </div>
           
-          {/* City Info */}
           <div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">City Information</div>
             <div className="space-y-2 text-sm">
@@ -1039,7 +862,6 @@ function SettingsPanel() {
             </div>
           </div>
           
-          {/* Controls */}
           <div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">Controls</div>
             <div className="space-y-1 text-xs text-muted-foreground">
@@ -1052,7 +874,6 @@ function SettingsPanel() {
           
           <Separator />
           
-          {/* New Game */}
           {!showNewGameConfirm ? (
             <Button
               variant="destructive"
@@ -1113,7 +934,6 @@ function AdvisorsPanel() {
         </DialogHeader>
         
         <div className="space-y-4">
-          {/* City Grade */}
           <Card className="flex items-center gap-4 p-4">
             <div 
               className={`w-16 h-16 flex items-center justify-center text-3xl font-black rounded-md ${gradeColor} bg-secondary`}
@@ -1126,7 +946,6 @@ function AdvisorsPanel() {
             </div>
           </Card>
           
-          {/* Advisor Messages */}
           <ScrollArea className="max-h-[350px]">
             <div className="space-y-3 pr-4">
               {advisorMessages.length === 0 ? (
@@ -1171,159 +990,51 @@ function AdvisorsPanel() {
   );
 }
 
-// Utility Overlay types
 type OverlayMode = 'none' | 'power' | 'water';
 
-// Utility Overlay Component
-function UtilityOverlay({ 
-  mode, 
-  x, 
-  y, 
-  powered, 
-  watered,
-  size 
-}: { 
-  mode: OverlayMode; 
-  x: number; 
-  y: number; 
-  powered: boolean; 
-  watered: boolean;
-  size: number;
-}) {
-  if (mode === 'none') return null;
-  
-  const hasService = mode === 'power' ? powered : watered;
-  const color = hasService ? 'rgba(34, 197, 94, 0.6)' : 'rgba(239, 68, 68, 0.6)';
-  const glowColor = hasService ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)';
-  
-  const h = size * 0.65; // Match HEIGHT_RATIO
-  
-  return (
-    <svg 
-      width={size} 
-      height={h} 
-      viewBox={`0 0 ${size} ${h}`} 
-      style={{ 
-        position: 'absolute', 
-        top: 0, 
-        left: 0, 
-        pointerEvents: 'none',
-        zIndex: 1000,
-      }}
-    >
-      <defs>
-        <filter id={`glow-${x}-${y}`} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-          <feMerge>
-            <feMergeNode in="coloredBlur"/>
-            <feMergeNode in="SourceGraphic"/>
-          </feMerge>
-        </filter>
-      </defs>
-      <polygon
-        points={`${size/2},0 ${size},${h/2} ${size/2},${h} 0,${h/2}`}
-        fill={color}
-        stroke={hasService ? '#22c55e' : '#ef4444'}
-        strokeWidth={1.5}
-        filter={`url(#glow-${x}-${y})`}
-      />
-      {/* Status icon */}
-      <g transform={`translate(${size/2}, ${h/2})`}>
-        {hasService ? (
-          // Checkmark
-          <path 
-            d="M-6,0 L-2,4 L6,-4" 
-            fill="none" 
-            stroke="white" 
-            strokeWidth={2.5} 
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ) : (
-          // X mark
-          <>
-            <line x1={-5} y1={-5} x2={5} y2={5} stroke="white" strokeWidth={2.5} strokeLinecap="round" />
-            <line x1={5} y1={-5} x2={-5} y2={5} stroke="white" strokeWidth={2.5} strokeLinecap="round" />
-          </>
-        )}
-      </g>
-    </svg>
-  );
-}
+// Image cache for building sprites
+const imageCache = new Map<string, HTMLImageElement>();
 
-// Utility Coverage Range Overlay (for placing utilities)
-function CoverageRangeOverlay({
-  centerX,
-  centerY,
-  radius,
-  mode,
-  gridSize,
-  size,
-  offset,
-}: {
-  centerX: number;
-  centerY: number;
-  radius: number;
-  mode: OverlayMode;
-  gridSize: number;
-  size: number;
-  offset: { x: number; y: number };
-}) {
-  if (mode === 'none') return null;
-  
-  const tiles: { x: number; y: number }[] = [];
-  
-  for (let dy = -radius; dy <= radius; dy++) {
-    for (let dx = -radius; dx <= radius; dx++) {
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance <= radius) {
-        const tx = centerX + dx;
-        const ty = centerY + dy;
-        if (tx >= 0 && tx < gridSize && ty >= 0 && ty < gridSize) {
-          tiles.push({ x: tx, y: ty });
-        }
-      }
-    }
+function loadImage(src: string): Promise<HTMLImageElement> {
+  if (imageCache.has(src)) {
+    return Promise.resolve(imageCache.get(src)!);
   }
   
-  const h = size * 0.65;
-  const color = mode === 'power' ? 'rgba(251, 191, 36, 0.3)' : 'rgba(56, 189, 248, 0.3)';
-  const strokeColor = mode === 'power' ? '#fbbf24' : '#38bdf8';
-  
-  return (
-    <>
-      {tiles.map(({ x, y }) => {
-        const screenX = (x - y) * (size / 2);
-        const screenY = (x + y) * (h / 2);
-        return (
-          <div
-            key={`range-${x}-${y}`}
-            className="absolute pointer-events-none"
-            style={{
-              left: screenX,
-              top: screenY,
-              zIndex: 999,
-            }}
-          >
-            <svg width={size} height={h} viewBox={`0 0 ${size} ${h}`}>
-              <polygon
-                points={`${size/2},0 ${size},${h/2} ${size/2},${h} 0,${h/2}`}
-                fill={color}
-                stroke={strokeColor}
-                strokeWidth={1}
-                strokeDasharray="4,2"
-              />
-            </svg>
-          </div>
-        );
-      })}
-    </>
-  );
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      imageCache.set(src, img);
+      resolve(img);
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
 }
 
-// Isometric Grid Component with drag support
-function IsometricGrid({ overlayMode, selectedTile, setSelectedTile }: { overlayMode: OverlayMode; selectedTile: { x: number; y: number } | null; setSelectedTile: (tile: { x: number; y: number } | null) => void }) {
+// Preload building images
+const BUILDING_IMAGES: Record<string, string> = {
+  residential: '/assets/buildings/residential.png',
+  commercial: '/assets/buildings/commercial.png',
+  industrial: '/assets/buildings/industrial.png',
+  fire_station: '/assets/buildings/fire_station.png',
+  hospital: '/assets/buildings/hospital.png',
+  park: '/assets/buildings/park.png',
+  police_station: '/assets/buildings/police_station.png',
+  school: '/assets/buildings/school.png',
+  university: '/assets/buildings/university.png',
+  water_tower: '/assets/buildings/watertower.png',
+  power_plant: '/assets/buildings/powerplant.png',
+  stadium: '/assets/buildings/stadium.png',
+};
+
+// Canvas-based Isometric Grid - HIGH PERFORMANCE
+function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: { 
+  overlayMode: OverlayMode; 
+  selectedTile: { x: number; y: number } | null; 
+  setSelectedTile: (tile: { x: number; y: number } | null) => void;
+}) {
   const { state, placeAtTile } = useGame();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState({ x: 620, y: 160 });
   const [isDragging, setIsDragging] = useState(false);
@@ -1332,16 +1043,308 @@ function IsometricGrid({ overlayMode, selectedTile, setSelectedTile }: { overlay
   const [hoveredTile, setHoveredTile] = useState<{ x: number; y: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [lastPlacedTile, setLastPlacedTile] = useState<{ x: number; y: number } | null>(null);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 });
   
   const { grid, gridSize, selectedTool } = state;
   
-  // Determine if we should show coverage preview based on selected tool
-  const showCoveragePreview = (selectedTool === 'power_plant' || selectedTool === 'water_tower') && hoveredTile;
-  const coverageRadius = selectedTool === 'power_plant' ? 12 : selectedTool === 'water_tower' ? 10 : 0;
-  const coverageMode: OverlayMode = selectedTool === 'power_plant' ? 'power' : selectedTool === 'water_tower' ? 'water' : 'none';
-  
   const supportsDrag = ['road', 'bulldoze', 'zone_residential', 'zone_commercial', 'zone_industrial', 'zone_dezone'].includes(selectedTool);
   
+  // Load all building images on mount
+  useEffect(() => {
+    Promise.all(Object.values(BUILDING_IMAGES).map(src => loadImage(src)))
+      .then(() => setImagesLoaded(true))
+      .catch(console.error);
+  }, []);
+  
+  // Update canvas size on resize with high-DPI support
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current && canvasRef.current) {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = containerRef.current.getBoundingClientRect();
+        
+        // Set display size
+        canvasRef.current.style.width = `${rect.width}px`;
+        canvasRef.current.style.height = `${rect.height}px`;
+        
+        // Set actual size in memory (scaled for DPI)
+        setCanvasSize({
+          width: Math.round(rect.width * dpr),
+          height: Math.round(rect.height * dpr),
+        });
+      }
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+  
+  // Main render function
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !imagesLoaded) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Disable image smoothing for crisp pixel art
+    ctx.imageSmoothingEnabled = false;
+    
+    // Clear canvas with gradient background
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#0f1419');
+    gradient.addColorStop(0.5, '#141c24');
+    gradient.addColorStop(1, '#1a2a1f');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.save();
+    // Scale for device pixel ratio first, then apply zoom
+    ctx.scale(dpr * zoom, dpr * zoom);
+    ctx.translate(offset.x / zoom, offset.y / zoom);
+    
+    // Calculate visible tile range for culling (account for DPR in canvas size)
+    const viewWidth = canvas.width / (dpr * zoom);
+    const viewHeight = canvas.height / (dpr * zoom);
+    const viewLeft = -offset.x / zoom - TILE_WIDTH;
+    const viewTop = -offset.y / zoom - TILE_HEIGHT * 2;
+    const viewRight = viewWidth - offset.x / zoom + TILE_WIDTH;
+    const viewBottom = viewHeight - offset.y / zoom + TILE_HEIGHT * 2;
+    
+    // Draw tiles in isometric order (back to front)
+    for (let sum = 0; sum < gridSize * 2 - 1; sum++) {
+      for (let x = Math.max(0, sum - gridSize + 1); x <= Math.min(sum, gridSize - 1); x++) {
+        const y = sum - x;
+        if (y < 0 || y >= gridSize) continue;
+        
+        const { screenX, screenY } = gridToScreen(x, y, 0, 0);
+        
+        // Viewport culling
+        if (screenX + TILE_WIDTH < viewLeft || screenX > viewRight ||
+            screenY + TILE_HEIGHT * 4 < viewTop || screenY > viewBottom) {
+          continue;
+        }
+        
+        const tile = grid[y][x];
+        const isHovered = hoveredTile?.x === x && hoveredTile?.y === y;
+        const isSelected = selectedTile?.x === x && selectedTile?.y === y;
+        
+        // Draw base tile
+        drawIsometricTile(ctx, screenX, screenY, tile, isHovered || isSelected);
+        
+        // Draw building if present
+        if (tile.building.type !== 'grass' && tile.building.type !== 'empty') {
+          drawBuilding(ctx, screenX, screenY, tile);
+        }
+        
+        // Draw overlay
+        if (overlayMode !== 'none' && tile.building.type !== 'grass' && tile.building.type !== 'water' && tile.building.type !== 'road') {
+          const hasService = overlayMode === 'power' ? tile.building.powered : tile.building.watered;
+          ctx.fillStyle = hasService ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+          ctx.beginPath();
+          ctx.moveTo(screenX + TILE_WIDTH / 2, screenY);
+          ctx.lineTo(screenX + TILE_WIDTH, screenY + TILE_HEIGHT / 2);
+          ctx.lineTo(screenX + TILE_WIDTH / 2, screenY + TILE_HEIGHT);
+          ctx.lineTo(screenX, screenY + TILE_HEIGHT / 2);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
+    
+    ctx.restore();
+  }, [grid, gridSize, offset, zoom, hoveredTile, selectedTile, overlayMode, imagesLoaded, canvasSize]);
+  
+  // Draw isometric tile base
+  function drawIsometricTile(ctx: CanvasRenderingContext2D, x: number, y: number, tile: Tile, highlight: boolean) {
+    const w = TILE_WIDTH;
+    const h = TILE_HEIGHT;
+    
+    // Determine tile colors (top face and shading)
+    let topColor = '#4a7c3f'; // grass
+    let leftColor = '#3d6634';
+    let rightColor = '#5a8f4f';
+    let strokeColor = '#2d4a26';
+    
+    if (tile.building.type === 'water') {
+      topColor = '#2563eb';
+      leftColor = '#1d4ed8';
+      rightColor = '#3b82f6';
+      strokeColor = '#1e3a8a';
+    } else if (tile.building.type === 'road') {
+      topColor = '#4a4a4a';
+      leftColor = '#3a3a3a';
+      rightColor = '#5a5a5a';
+      strokeColor = '#333';
+    } else if (tile.zone === 'residential') {
+      if (tile.building.type !== 'grass' && tile.building.type !== 'empty') {
+        topColor = '#3d7c3f';
+        leftColor = '#2d6634';
+        rightColor = '#4d8f4f';
+      } else {
+        topColor = '#2d5a2d';
+        leftColor = '#1d4a1d';
+        rightColor = '#3d6a3d';
+      }
+      strokeColor = '#22c55e';
+    } else if (tile.zone === 'commercial') {
+      if (tile.building.type !== 'grass' && tile.building.type !== 'empty') {
+        topColor = '#3a5c7c';
+        leftColor = '#2a4c6c';
+        rightColor = '#4a6c8c';
+      } else {
+        topColor = '#2a4a6a';
+        leftColor = '#1a3a5a';
+        rightColor = '#3a5a7a';
+      }
+      strokeColor = '#3b82f6';
+    } else if (tile.zone === 'industrial') {
+      if (tile.building.type !== 'grass' && tile.building.type !== 'empty') {
+        topColor = '#7c5c3a';
+        leftColor = '#6c4c2a';
+        rightColor = '#8c6c4a';
+      } else {
+        topColor = '#6a4a2a';
+        leftColor = '#5a3a1a';
+        rightColor = '#7a5a3a';
+      }
+      strokeColor = '#f59e0b';
+    }
+    
+    // Draw the isometric diamond (top face)
+    ctx.fillStyle = topColor;
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2, y);
+    ctx.lineTo(x + w, y + h / 2);
+    ctx.lineTo(x + w / 2, y + h);
+    ctx.lineTo(x, y + h / 2);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw grid lines (always)
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+    
+    // Draw zone border with dashed line
+    if (tile.zone !== 'none') {
+      ctx.strokeStyle = tile.zone === 'residential' ? '#22c55e' : 
+                        tile.zone === 'commercial' ? '#3b82f6' : '#f59e0b';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 2]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    
+    // Highlight on hover/select
+    if (highlight) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+  
+  // Draw building sprite
+  function drawBuilding(ctx: CanvasRenderingContext2D, x: number, y: number, tile: Tile) {
+    const buildingType = tile.building.type;
+    const w = TILE_WIDTH;
+    const h = TILE_HEIGHT;
+    
+    // Map building types to images
+    let imageSrc: string | null = null;
+    let sizeMultiplier = 1.8; // Default size for buildings
+    
+    if (['house_small', 'house_medium', 'apartment_low', 'apartment_high', 'mansion'].includes(buildingType)) {
+      imageSrc = BUILDING_IMAGES.residential;
+    } else if (['shop_small', 'shop_medium', 'office_low', 'office_high', 'mall'].includes(buildingType)) {
+      imageSrc = BUILDING_IMAGES.commercial;
+    } else if (['factory_small', 'factory_medium', 'factory_large', 'warehouse'].includes(buildingType)) {
+      imageSrc = BUILDING_IMAGES.industrial;
+    } else if (BUILDING_IMAGES[buildingType]) {
+      imageSrc = BUILDING_IMAGES[buildingType];
+      // Larger buildings need bigger sprites
+      if (buildingType === 'power_plant') sizeMultiplier = 2.5;
+      else if (buildingType === 'stadium') sizeMultiplier = 3.5;
+      else if (buildingType === 'university') sizeMultiplier = 2.8;
+      else if (buildingType === 'hospital') sizeMultiplier = 2.2;
+    }
+    
+    if (imageSrc && imageCache.has(imageSrc)) {
+      const img = imageCache.get(imageSrc)!;
+      const imgSize = w * sizeMultiplier;
+      
+      // Calculate position to center building on tile
+      const drawX = x + w / 2 - imgSize / 2;
+      const drawY = y - imgSize + h + imgSize * 0.15;
+      
+      // Draw with crisp rendering
+      ctx.drawImage(
+        img,
+        Math.round(drawX),
+        Math.round(drawY),
+        Math.round(imgSize),
+        Math.round(imgSize)
+      );
+    } else if (buildingType === 'tree') {
+      // Draw tree with trunk and canopy
+      const treeX = x + w / 2;
+      const treeBaseY = y + h * 0.3;
+      
+      // Trunk
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(treeX - 2, treeBaseY - 15, 4, 18);
+      
+      // Canopy (layered ellipses for depth)
+      ctx.fillStyle = '#15803d';
+      ctx.beginPath();
+      ctx.ellipse(treeX, treeBaseY - 22, 12, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.ellipse(treeX - 2, treeBaseY - 25, 8, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (buildingType === 'road') {
+      // Roads are handled in tile drawing, but draw road markings here
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(cx - 5, cy);
+      ctx.lineTo(cx + 5, cy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    
+    // Draw fire effect
+    if (tile.building.onFire) {
+      const fireX = x + w / 2;
+      const fireY = y - 10;
+      
+      // Outer glow
+      ctx.fillStyle = 'rgba(255, 100, 0, 0.5)';
+      ctx.beginPath();
+      ctx.ellipse(fireX, fireY, 18, 25, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner flame
+      ctx.fillStyle = 'rgba(255, 200, 0, 0.8)';
+      ctx.beginPath();
+      ctx.ellipse(fireX, fireY + 5, 10, 15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Core
+      ctx.fillStyle = 'rgba(255, 255, 200, 0.9)';
+      ctx.beginPath();
+      ctx.ellipse(fireX, fireY + 8, 5, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
   
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
@@ -1371,7 +1374,7 @@ function IsometricGrid({ overlayMode, selectedTile, setSelectedTile }: { overlay
         }
       }
     }
-  }, [offset, gridSize, selectedTool, placeAtTile, zoom, supportsDrag]);
+  }, [offset, gridSize, selectedTool, placeAtTile, zoom, supportsDrag, setSelectedTile]);
   
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning) {
@@ -1410,18 +1413,14 @@ function IsometricGrid({ overlayMode, selectedTile, setSelectedTile }: { overlay
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoom(z => Math.max(0.5, Math.min(2, z + delta)));
+    setZoom(z => Math.max(0.3, Math.min(2, z + delta)));
   }, []);
-  
-  const gridWidth = gridSize * TILE_WIDTH;
-  const gridHeight = gridSize * TILE_HEIGHT + 240;
   
   return (
     <div
       ref={containerRef}
       className="relative w-full h-full overflow-hidden"
       style={{ 
-        background: 'linear-gradient(180deg, hsl(var(--background)) 0%, hsl(220 20% 12%) 50%, hsl(150 20% 15%) 100%)',
         cursor: isPanning ? 'grabbing' : isDragging ? 'crosshair' : 'default',
       }}
       onMouseDown={handleMouseDown}
@@ -1430,190 +1429,12 @@ function IsometricGrid({ overlayMode, selectedTile, setSelectedTile }: { overlay
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
     >
-      <div
-        className="absolute"
-        style={{
-          transform: `scale(${zoom})`,
-          transformOrigin: '0 0',
-        }}
-      >
-        <div
-          style={{
-            transform: `translate(${offset.x / zoom}px, ${offset.y / zoom}px)`,
-            width: gridWidth,
-            height: gridHeight,
-          }}
-        >
-          {/* Base tiles layer - always render grass/base tiles */}
-          {Array.from({ length: gridSize }, (_, y) =>
-            Array.from({ length: gridSize }, (_, x) => {
-              const tile = grid[y][x];
-              const { screenX, screenY } = gridToScreen(x, y, 0, 0);
-              const isHovered = hoveredTile?.x === x && hoveredTile?.y === y;
-              const isSelected = selectedTile?.x === x && selectedTile?.y === y;
-              
-              // Determine base tile type - use grass for zoned tiles, or the building type if it's a base tile
-              const baseBuildingType = tile.building.type === 'water' || tile.building.type === 'road' 
-                ? tile.building.type 
-                : tile.zone !== 'none' 
-                  ? 'empty' // Will render as EmptyZonedTile
-                  : 'grass';
-              
-              return (
-                <div
-                  key={`base-${x}-${y}`}
-                  className="absolute"
-                  style={{
-                    left: screenX,
-                    top: screenY,
-                    zIndex: x + y, // Lower z-index for base layer
-                  }}
-                >
-                  <BuildingRenderer
-                    buildingType={baseBuildingType}
-                    zone={tile.zone}
-                    highlight={isHovered || isSelected}
-                    size={TILE_WIDTH}
-                  />
-                </div>
-              );
-            })
-          )}
-          
-          {/* Buildings layer - render buildings on top of base tiles */}
-          {Array.from({ length: gridSize }, (_, y) =>
-            Array.from({ length: gridSize }, (_, x) => {
-              const tile = grid[y][x];
-              const { screenX, screenY } = gridToScreen(x, y, 0, 0);
-              const isHovered = hoveredTile?.x === x && hoveredTile?.y === y;
-              const isSelected = selectedTile?.x === x && selectedTile?.y === y;
-              
-              // Building heights for z-offset (buildings render from bottom)
-              // Image-based buildings handle their own height via the ImageBuilding component
-              const buildingType = tile.building.type;
-              
-              // Skip rendering building if it's a base tile (grass, empty, water, road)
-              // These are already rendered in the base layer
-              if (buildingType === 'grass' || buildingType === 'empty' || buildingType === 'water' || buildingType === 'road') {
-                return null;
-              }
-              
-              // Buildings that use PNG images have consistent height handling
-              const imageBasedBuildings = [
-                'house_small', 'house_medium', 'apartment_low', 'apartment_high', 'mansion',
-                'shop_small', 'shop_medium', 'office_low', 'office_high', 'mall',
-                'factory_small', 'factory_medium', 'factory_large', 'warehouse',
-                'fire_station', 'hospital', 'park', 'police_station', 'school', 'university',
-                'water_tower', 'power_plant', 'stadium'
-              ];
-              
-              // Multi-tile building sizes (width x height)
-              const buildingSizes: Record<string, { width: number; height: number }> = {
-                'power_plant': { width: 2, height: 2 },
-                'stadium': { width: 3, height: 3 },
-                'university': { width: 3, height: 2 },
-                'airport': { width: 4, height: 4 },
-              };
-              const buildingSize = buildingSizes[buildingType] || { width: 1, height: 1 };
-              const tileSize = Math.max(buildingSize.width, buildingSize.height);
-              
-              // For image-based buildings, use a consistent height based on tile size
-              const buildingHeights: Record<string, number> = {
-                'tree': TILE_HEIGHT * 0.8,
-                // Image-based buildings - height scales with image
-                'house_small': TILE_HEIGHT * 1.5,
-                'house_medium': TILE_HEIGHT * 1.5,
-                'mansion': TILE_HEIGHT * 1.5,
-                'apartment_low': TILE_HEIGHT * 1.5,
-                'apartment_high': TILE_HEIGHT * 1.5,
-                'shop_small': TILE_HEIGHT * 1.5,
-                'shop_medium': TILE_HEIGHT * 1.5,
-                'office_low': TILE_HEIGHT * 1.5,
-                'office_high': TILE_HEIGHT * 1.5,
-                'mall': TILE_HEIGHT * 1.5,
-                'factory_small': TILE_HEIGHT * 1.5,
-                'factory_medium': TILE_HEIGHT * 1.5,
-                'factory_large': TILE_HEIGHT * 1.5,
-                'warehouse': TILE_HEIGHT * 1.5,
-                'power_plant': TILE_HEIGHT * 3, // 2x2 building
-                'water_tower': TILE_HEIGHT * 1.5,
-                'police_station': TILE_HEIGHT * 1.5,
-                'fire_station': TILE_HEIGHT * 1.5,
-                'hospital': TILE_HEIGHT * 1.5,
-                'school': TILE_HEIGHT * 1.5,
-                'university': TILE_HEIGHT * 3, // 3x2 building
-                'park': TILE_HEIGHT * 1.5,
-                'stadium': TILE_HEIGHT * 4.5, // 3x3 building
-                'airport': TILE_HEIGHT * 6, // 4x4 building
-              };
-              const heightOffset = buildingHeights[buildingType] || 0;
-              
-              // Determine if this tile needs an overlay (only for developed tiles)
-              const needsOverlay = overlayMode !== 'none' && 
-                tile.building.type !== 'grass' && 
-                tile.building.type !== 'empty' && 
-                tile.building.type !== 'water' &&
-                tile.building.type !== 'road' &&
-                tile.building.type !== 'tree';
-              
-              // Road adjacency is not needed here since roads are rendered in base layer
-              const roadAdjacency: RoadAdjacency | undefined = undefined;
-              
-              return (
-                <div
-                  key={`building-${x}-${y}`}
-                  className="absolute"
-                  style={{
-                    left: screenX,
-                    top: screenY - heightOffset,
-                    // Multi-tile buildings use bottom-right corner for z-index
-                    zIndex: (x + buildingSize.width - 1) + (y + buildingSize.height - 1) + 1000, // Higher z-index for buildings layer
-                    transform: isHovered ? 'translateY(-2px)' : undefined,
-                    filter: tile.building.onFire ? 'brightness(1.3) saturate(1.5)' : isHovered ? 'brightness(1.05)' : undefined,
-                  }}
-                >
-                  <BuildingRenderer
-                    buildingType={tile.building.type}
-                    level={tile.building.level}
-                    powered={tile.building.powered}
-                    zone={tile.zone}
-                    highlight={isHovered || isSelected}
-                    size={TILE_WIDTH}
-                    onFire={tile.building.onFire}
-                    roadAdjacency={roadAdjacency}
-                  />
-                  {/* Utility overlay */}
-                  {needsOverlay && (
-                    <div style={{ position: 'absolute', top: heightOffset, left: 0 }}>
-                      <UtilityOverlay
-                        mode={overlayMode}
-                        x={x}
-                        y={y}
-                        powered={tile.building.powered}
-                        watered={tile.building.watered}
-                        size={TILE_WIDTH}
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-                          
-                          {/* Coverage preview when placing utilities */}
-                          {showCoveragePreview && hoveredTile && (
-                            <CoverageRangeOverlay
-                              centerX={hoveredTile.x}
-                              centerY={hoveredTile.y}
-                              radius={coverageRadius}
-                              mode={coverageMode}
-                              gridSize={gridSize}
-                              size={TILE_WIDTH}
-                              offset={offset}
-                            />
-                          )}
-                        </div>
-                      </div>
+      <canvas
+        ref={canvasRef}
+        width={canvasSize.width}
+        height={canvasSize.height}
+        className="block"
+      />
       
       {selectedTile && selectedTool === 'select' && (
         <TileInfoPanel
@@ -1624,13 +1445,11 @@ function IsometricGrid({ overlayMode, selectedTile, setSelectedTile }: { overlay
       )}
       
       {hoveredTile && selectedTool !== 'select' && (
-        <Card className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2">
-          <span className="text-sm">
-            {TOOL_INFO[selectedTool].name} at ({hoveredTile.x}, {hoveredTile.y})
-            {TOOL_INFO[selectedTool].cost > 0 && ` - $${TOOL_INFO[selectedTool].cost}`}
-            {supportsDrag && ' - Drag to place multiple'}
-          </span>
-        </Card>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card/90 border border-border px-4 py-2 rounded-md text-sm">
+          {TOOL_INFO[selectedTool].name} at ({hoveredTile.x}, {hoveredTile.y})
+          {TOOL_INFO[selectedTool].cost > 0 && ` - $${TOOL_INFO[selectedTool].cost}`}
+          {supportsDrag && ' - Drag to place multiple'}
+        </div>
       )}
       
       <Badge variant="secondary" className="absolute bottom-4 left-4 font-mono">
@@ -1640,8 +1459,8 @@ function IsometricGrid({ overlayMode, selectedTile, setSelectedTile }: { overlay
   );
 }
 
-// Overlay Mode Toggle Component
-function OverlayModeToggle({ 
+// Overlay Mode Toggle
+const OverlayModeToggle = React.memo(function OverlayModeToggle({ 
   overlayMode, 
   setOverlayMode 
 }: { 
@@ -1649,89 +1468,44 @@ function OverlayModeToggle({
   setOverlayMode: (mode: OverlayMode) => void;
 }) {
   return (
-    <Card className="absolute top-4 left-4 p-2 shadow-lg backdrop-blur-sm bg-card/90 border-border/70 z-50">
+    <Card className="absolute top-4 left-4 p-2 shadow-lg bg-card/90 border-border/70 z-50">
       <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold mb-2">
         View Overlay
       </div>
       <div className="flex gap-1">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={overlayMode === 'none' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setOverlayMode('none')}
-                className="h-8 px-3"
-              >
-                <CloseIcon size={14} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>No Overlay</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button
+          variant={overlayMode === 'none' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setOverlayMode('none')}
+          className="h-8 px-3"
+          title="No Overlay"
+        >
+          <CloseIcon size={14} />
+        </Button>
         
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={overlayMode === 'power' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setOverlayMode('power')}
-                className={`h-8 px-3 ${overlayMode === 'power' ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
-              >
-                <PowerIcon size={14} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="text-center">
-                <div className="font-semibold">Power Grid</div>
-                <div className="text-xs text-muted-foreground">
-                  Green = Powered, Red = No Power
-                </div>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button
+          variant={overlayMode === 'power' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setOverlayMode('power')}
+          className={`h-8 px-3 ${overlayMode === 'power' ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
+          title="Power Grid"
+        >
+          <PowerIcon size={14} />
+        </Button>
         
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={overlayMode === 'water' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setOverlayMode('water')}
-                className={`h-8 px-3 ${overlayMode === 'water' ? 'bg-cyan-500 hover:bg-cyan-600' : ''}`}
-              >
-                <WaterIcon size={14} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="text-center">
-                <div className="font-semibold">Water Supply</div>
-                <div className="text-xs text-muted-foreground">
-                  Green = Has Water, Red = No Water
-                </div>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button
+          variant={overlayMode === 'water' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setOverlayMode('water')}
+          className={`h-8 px-3 ${overlayMode === 'water' ? 'bg-cyan-500 hover:bg-cyan-600' : ''}`}
+          title="Water Supply"
+        >
+          <WaterIcon size={14} />
+        </Button>
       </div>
-      
-      {overlayMode !== 'none' && (
-        <div className="mt-2 pt-2 border-t border-border text-[10px] text-muted-foreground">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-3 h-3 rounded-sm bg-green-500/60" />
-            <span>Has {overlayMode === 'power' ? 'Power' : 'Water'}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-sm bg-red-500/60" />
-            <span>No {overlayMode === 'power' ? 'Power' : 'Water'}</span>
-          </div>
-        </div>
-      )}
     </Card>
   );
-}
+});
 
 // Main Game Component
 export default function Game() {
@@ -1739,7 +1513,6 @@ export default function Game() {
   const [overlayMode, setOverlayMode] = useState<OverlayMode>('none');
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
   
-  // Auto-enable overlay when selecting utility tools
   useEffect(() => {
     if (state.selectedTool === 'power_plant') {
       setOverlayMode('power');
@@ -1748,58 +1521,46 @@ export default function Game() {
     }
   }, [state.selectedTool]);
   
-  // Handle ESC key to deselect everything
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        // Close any open panels
         if (state.activePanel !== 'none') {
           setActivePanel('none');
-        }
-        // Deselect selected tile
-        else if (selectedTile) {
+        } else if (selectedTile) {
           setSelectedTile(null);
-        }
-        // Reset tool to select if something else is selected
-        else if (state.selectedTool !== 'select') {
+        } else if (state.selectedTool !== 'select') {
           setTool('select');
         }
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [state.activePanel, state.selectedTool, selectedTile, setActivePanel, setTool]);
   
   return (
     <TooltipProvider>
-      <div className="w-full h-full min-h-[720px] overflow-hidden bg-background flex rounded-xl">
-        {/* Left Sidebar */}
+      <div className="w-full h-full min-h-[720px] overflow-hidden bg-background flex">
         <Sidebar />
         
-        {/* Main Content */}
         <div className="flex-1 flex flex-col">
           <TopBar />
           <StatsPanel />
           <div className="flex-1 relative">
-            <IsometricGrid overlayMode={overlayMode} selectedTile={selectedTile} setSelectedTile={setSelectedTile} />
+            <CanvasIsometricGrid overlayMode={overlayMode} selectedTile={selectedTile} setSelectedTile={setSelectedTile} />
             <OverlayModeToggle overlayMode={overlayMode} setOverlayMode={setOverlayMode} />
             <MiniMap />
           </div>
         </div>
         
-        {/* Panels */}
         {state.activePanel === 'budget' && <BudgetPanel />}
         {state.activePanel === 'achievements' && <AchievementsPanel />}
         {state.activePanel === 'statistics' && <StatisticsPanel />}
         {state.activePanel === 'advisors' && <AdvisorsPanel />}
         {state.activePanel === 'settings' && <SettingsPanel />}
         
-        {/* Controls hint */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-muted-foreground text-xs">
-          Alt+Drag or Middle-click to pan - Scroll to zoom - Drag to place multiple
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-muted-foreground text-xs pointer-events-none">
+          Alt+Drag or Middle-click to pan • Scroll to zoom • Drag to place multiple
         </div>
       </div>
     </TooltipProvider>
