@@ -31,7 +31,7 @@ import {
   BudgetIcon,
   SettingsIcon,
 } from './ui/Icons';
-import { USE_TILE_RENDERER, SPRITE_SHEET, getSpriteCoords, BUILDING_TO_SPRITE, SPRITE_VERTICAL_OFFSETS, SPRITE_HORIZONTAL_OFFSETS, SPRITE_ORDER, SpritePack, getActiveSpritePack } from '@/lib/renderConfig';
+import { SPRITE_SHEET, getSpriteCoords, BUILDING_TO_SPRITE, SPRITE_VERTICAL_OFFSETS, SPRITE_HORIZONTAL_OFFSETS, SPRITE_ORDER, SpritePack, getActiveSpritePack } from '@/lib/renderConfig';
 
 // Import shadcn components
 import { Button } from '@/components/ui/button';
@@ -1453,35 +1453,6 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-// Preload building images
-const BUILDING_IMAGES: Record<string, string> = {
-  residential: '/assets/buildings/residential.png',
-  commercial: '/assets/buildings/commercial.png',
-  industrial: '/assets/buildings/industrial.png',
-  fire_station: '/assets/buildings/fire_station.png',
-  hospital: '/assets/buildings/hospital.png',
-  park: '/assets/buildings/park.png',
-  park_large: '/assets/buildings/park_medium.png',
-  tennis: '/assets/buildings/tennis.png',
-  police_station: '/assets/buildings/police_station.png',
-  school: '/assets/buildings/school.png',
-  university: '/assets/buildings/university.png',
-  water_tower: '/assets/buildings/watertower.png',
-  power_plant: '/assets/buildings/powerplant.png',
-  stadium: '/assets/buildings/stadium.png',
-  space_program: '/assets/buildings/space.png',
-  tree: '/assets/buildings/trees.png',
-  house_medium: '/assets/buildings/house_medium.png',
-  mansion: '/assets/buildings/mansion.png',
-  house_small: '/assets/buildings/house_small.png',
-  shop_medium: '/assets/buildings/shop_medium.png',
-  shop_small: '/assets/buildings/shop_small.png',
-  warehouse: '/assets/buildings/warehouse.png',
-  factory_small: '/assets/buildings/factory_small.png',
-  factory_medium: '/assets/buildings/factory_medium.png',
-  factory_large: '/assets/buildings/factory_large.png',
-};
-
 // Canvas-based Isometric Grid - HIGH PERFORMANCE
 function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: { 
   overlayMode: OverlayMode; 
@@ -1807,21 +1778,13 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     ctx.restore();
   }, []);
 
-  // Load all building images on mount and when sprite pack changes
+  // Load sprite sheet on mount and when sprite pack changes
   useEffect(() => {
-    if (USE_TILE_RENDERER) {
-      // Load only the sprite sheet with background color filtering
-      // Use the current sprite pack's source
-      setImagesLoaded(false);
-      loadSpriteImage(currentSpritePack.src, true)
-        .then(() => setImagesLoaded(true))
-        .catch(console.error);
-    } else {
-      // Load individual building images
-      Promise.all(Object.values(BUILDING_IMAGES).map(src => loadImage(src)))
-        .then(() => setImagesLoaded(true))
-        .catch(console.error);
-    }
+    // Load the sprite sheet with background color filtering
+    setImagesLoaded(false);
+    loadSpriteImage(currentSpritePack.src, true)
+      .then(() => setImagesLoaded(true))
+      .catch(console.error);
   }, [currentSpritePack]);
   
   // Update canvas size on resize with high-DPI support
@@ -2230,8 +2193,10 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
       ctx.stroke();
     }
     
-    // Draw zone border with dashed line (hide when zoomed out)
-    if (tile.zone !== 'none' && currentZoom >= 0.95) {
+    // Draw zone border with dashed line (hide when zoomed out, only on grass/empty tiles - not on roads or buildings)
+    if (tile.zone !== 'none' && 
+        currentZoom >= 0.95 &&
+        (tile.building.type === 'grass' || tile.building.type === 'empty')) {
       ctx.strokeStyle = tile.zone === 'residential' ? '#22c55e' : 
                         tile.zone === 'commercial' ? '#3b82f6' : '#f59e0b';
       ctx.lineWidth = 1.5;
@@ -2886,7 +2851,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     }
     
     // Check if this building type has a sprite in the tile renderer
-    const hasTileSprite = USE_TILE_RENDERER && BUILDING_TO_SPRITE[buildingType];
+    const hasTileSprite = BUILDING_TO_SPRITE[buildingType];
     
     if (hasTileSprite) {
       // ===== TILE RENDERER PATH =====
@@ -2990,102 +2955,9 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
           }
         }
       }
-    } else if (!USE_TILE_RENDERER) {
-      // ===== LEGACY INDIVIDUAL IMAGE PATH =====
-      // Keep all the per-building scaling and offset logic for backward compatibility
-      
-      // Get building size to handle multi-tile buildings
-      const buildingSize = getBuildingSize(buildingType);
-      const isMultiTile = buildingSize.width > 1 || buildingSize.height > 1;
-      
-      let drawPosX = x;
-      let drawPosY = y;
-      
-      if (isMultiTile) {
-        const frontmostOffsetX = buildingSize.width - 1;
-        const frontmostOffsetY = buildingSize.height - 1;
-        const screenOffsetX = (frontmostOffsetX - frontmostOffsetY) * (w / 2);
-        const screenOffsetY = (frontmostOffsetX + frontmostOffsetY) * (h / 2);
-        drawPosX = x + screenOffsetX;
-        drawPosY = y + screenOffsetY;
-      }
-      
-      let imageSrc: string | null = null;
-      let sizeMultiplier = 1.8;
-      
-      if (buildingType === 'house_medium') {
-        imageSrc = BUILDING_IMAGES.house_medium;
-        sizeMultiplier = 1.26;
-      } else if (buildingType === 'house_small') {
-        imageSrc = BUILDING_IMAGES.house_small;
-        sizeMultiplier = 1.26;
-      } else if (['apartment_low', 'apartment_high'].includes(buildingType)) {
-        imageSrc = BUILDING_IMAGES.residential;
-      } else if (buildingType === 'mansion') {
-        imageSrc = BUILDING_IMAGES.mansion;
-      } else if (buildingType === 'shop_medium') {
-        imageSrc = BUILDING_IMAGES.shop_medium;
-        sizeMultiplier = 1.44;
-      } else if (buildingType === 'shop_small') {
-        imageSrc = BUILDING_IMAGES.shop_small;
-        sizeMultiplier = 1.26;
-      } else if (['office_low', 'office_high', 'mall'].includes(buildingType)) {
-        imageSrc = BUILDING_IMAGES.commercial;
-      } else if (buildingType === 'warehouse') {
-        imageSrc = BUILDING_IMAGES.warehouse;
-      } else if (['factory_small', 'factory_medium', 'factory_large'].includes(buildingType)) {
-        imageSrc = BUILDING_IMAGES.industrial;
-      } else if (BUILDING_IMAGES[buildingType]) {
-        imageSrc = BUILDING_IMAGES[buildingType];
-        if (buildingType === 'power_plant') sizeMultiplier = 2.25;
-        else if (buildingType === 'stadium') sizeMultiplier = 1.372;
-        else if (buildingType === 'museum') sizeMultiplier = 0.60507; // 60% smaller than stadium (1.372 * 0.7 * 0.7), scaled down 10%
-        else if (buildingType === 'space_program') sizeMultiplier = 2.94;
-        else if (buildingType === 'university') sizeMultiplier = 1.764; // 30% smaller (2.8 * 0.7), scaled down 10%
-        else if (buildingType === 'hospital') sizeMultiplier = 2.25;
-        else if (buildingType === 'school') sizeMultiplier = 2.25;
-        else if (buildingType === 'fire_station') sizeMultiplier = 1.006;
-        else if (buildingType === 'police_station') sizeMultiplier = 1.35;
-        else if (buildingType === 'park') sizeMultiplier = 1.134;
-        else if (buildingType === 'park_large') sizeMultiplier = 2.5;
-        else if (buildingType === 'tennis') sizeMultiplier = 1.197;
-      }
-      
-      if (imageSrc && imageCache.has(imageSrc)) {
-        const img = imageCache.get(imageSrc)!;
-        const imgHeight = w * sizeMultiplier;
-        const aspectRatio = img.width / img.height || 1;
-        const imgWidth = imgHeight * aspectRatio;
-        
-        let drawX = drawPosX + w / 2 - imgWidth / 2;
-        // Apply horizontal offset from config (for university and others)
-        const spriteKey = BUILDING_TO_SPRITE[buildingType];
-        const horizontalOffset = (spriteKey && SPRITE_HORIZONTAL_OFFSETS[spriteKey]) ? SPRITE_HORIZONTAL_OFFSETS[spriteKey] * w : 0;
-        drawX += horizontalOffset;
-        const baseY = isMultiTile ? drawPosY : y;
-        const footprintDepth = isMultiTile ? buildingSize.width + buildingSize.height - 2 : 0;
-        const verticalLift = footprintDepth > 0 ? footprintDepth * h * 0.3 : 0;
-        let drawY = baseY - imgHeight + h + imgHeight * 0.1 - verticalLift;
-        
-        if (buildingType === 'power_plant') drawY += h * 0.35;
-        if (buildingType === 'school') drawY += h * 0.4;
-        if (buildingType === 'stadium') drawY += h * 1.0;
-        if (buildingType === 'museum') drawY += h * 1.0;
-        if (buildingType === 'space_program') drawY += h * 1.0;
-        if (buildingType === 'park_large') drawY += h * 1.1;
-        if (buildingType === 'water_tower') drawY -= h * 0.1;
-        
-        ctx.drawImage(
-          img,
-          Math.round(drawX),
-          Math.round(drawY),
-          Math.round(imgWidth),
-          Math.round(imgHeight)
-        );
-      }
     }
     
-    // Draw fire effect (applies to both rendering modes)
+    // Draw fire effect
     if (tile.building.onFire) {
       const fireX = x + w / 2;
       const fireY = y - 10;
@@ -3360,6 +3232,28 @@ export default function Game() {
   const [overlayMode, setOverlayMode] = useState<OverlayMode>('none');
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
   const isInitialMount = useRef(true);
+  const initialSelectedToolRef = useRef<Tool | null>(null);
+  const previousSelectedToolRef = useRef<Tool | null>(null);
+  const hasCapturedInitialTool = useRef(false);
+  const currentSelectedToolRef = useRef<Tool>(state.selectedTool);
+  
+  // Keep currentSelectedToolRef in sync with state
+  useEffect(() => {
+    currentSelectedToolRef.current = state.selectedTool;
+  }, [state.selectedTool]);
+  
+  // Track the initial selectedTool after localStorage loads (with a small delay to allow state to load)
+  useEffect(() => {
+    if (!hasCapturedInitialTool.current) {
+      // Use a timeout to ensure localStorage state has loaded
+      const timeoutId = setTimeout(() => {
+        initialSelectedToolRef.current = currentSelectedToolRef.current;
+        previousSelectedToolRef.current = currentSelectedToolRef.current;
+        hasCapturedInitialTool.current = true;
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, []); // Only run once on mount
   
   // Auto-set overlay when selecting utility tools (but not on initial page load)
   useEffect(() => {
@@ -3367,6 +3261,25 @@ export default function Game() {
       isInitialMount.current = false;
       return;
     }
+    
+    // Don't auto-set overlay until we've captured the initial tool
+    if (!hasCapturedInitialTool.current) {
+      return;
+    }
+    
+    // Don't auto-set overlay if this matches the initial tool from localStorage
+    if (initialSelectedToolRef.current !== null && 
+        initialSelectedToolRef.current === state.selectedTool) {
+      return;
+    }
+    
+    // Don't auto-set overlay if tool hasn't changed
+    if (previousSelectedToolRef.current === state.selectedTool) {
+      return;
+    }
+    
+    // Update previous tool reference
+    previousSelectedToolRef.current = state.selectedTool;
     
     if (state.selectedTool === 'power_plant') {
       setOverlayMode('power');

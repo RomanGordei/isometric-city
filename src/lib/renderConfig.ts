@@ -1,7 +1,4 @@
 // Rendering configuration
-// Set to true to use a single sprite sheet instead of individual PNG files
-export const USE_TILE_RENDERER = true;
-
 // ============================================================================
 // SPRITE PACK TYPE DEFINITION
 // ============================================================================

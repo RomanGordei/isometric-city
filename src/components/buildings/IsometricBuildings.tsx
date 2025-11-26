@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import { BuildingType, ZoneType } from '@/types/game';
 
 interface BuildingProps {
@@ -10,142 +9,6 @@ interface BuildingProps {
   powered?: boolean;
   onFire?: boolean;
 }
-
-const DEFAULT_SPRITE_DIMENSIONS = { width: 1024, height: 1024 };
-const SPRITE_DIMENSIONS: Record<string, { width: number; height: number }> = {
-  '/assets/buildings/residential.png': { width: 1024, height: 1024 },
-  '/assets/buildings/commercial.png': { width: 1536, height: 1024 },
-  '/assets/buildings/industrial.png': { width: 2048, height: 2048 },
-  '/assets/buildings/fire_station.png': { width: 1616, height: 1536 },
-  '/assets/buildings/hospital.png': { width: 1648, height: 1748 },
-  '/assets/buildings/park.png': { width: 2048, height: 2048 },
-  '/assets/buildings/park_medium.png': { width: 2048, height: 2048 },
-  '/assets/buildings/tennis.png': { width: 1024, height: 1024 },
-  '/assets/buildings/police_station.png': { width: 2048, height: 2048 },
-  '/assets/buildings/school.png': { width: 2048, height: 2048 },
-  '/assets/buildings/university.png': { width: 1024, height: 1024 },
-  '/assets/buildings/watertower.png': { width: 1024, height: 1024 },
-  '/assets/buildings/powerplant.png': { width: 1024, height: 1024 },
-  '/assets/buildings/stadium.png': { width: 1024, height: 1024 },
-  '/assets/buildings/airport.png': { width: 1536, height: 1024 },
-  '/assets/buildings/space.png': { width: 1024, height: 1024 },
-  '/assets/buildings/trees.png': { width: 1024, height: 1024 },
-  '/assets/buildings/house_medium.png': { width: 1024, height: 1024 },
-  '/assets/buildings/house_small.png': { width: 2048, height: 2048 },
-  '/assets/buildings/mansion.png': { width: 2048, height: 2048 },
-  '/assets/buildings/shop_medium.png': { width: 2048, height: 2048 },
-  '/assets/buildings/shop_small.png': { width: 2048, height: 2048 },
-  '/assets/buildings/warehouse.png': { width: 2048, height: 2048 },
-};
-
-// Mapping of building types to their PNG image paths and size multipliers
-const BUILDING_IMAGES: Partial<Record<BuildingType, { src: string; tileWidth: number; tileHeight: number; scale?: number; verticalOffset?: number; horizontalOffset?: number; baseTileColor?: string }>> = {
-  // Residential buildings (1x1)
-  house_small: { src: '/assets/buildings/house_small.png', tileWidth: 1, tileHeight: 1, scale: 0.8, verticalOffset: 12, baseTileColor: '#8a8a8a' },
-  house_medium: { src: '/assets/buildings/house_medium.png', tileWidth: 1, tileHeight: 1, scale: 0.8, verticalOffset: 12, baseTileColor: '#8a8a8a' },
-  apartment_low: { src: '/assets/buildings/residential.png', tileWidth: 1, tileHeight: 1, verticalOffset: 14, baseTileColor: '#8a8a8a' },
-  apartment_high: { src: '/assets/buildings/residential.png', tileWidth: 1, tileHeight: 1, verticalOffset: 18, baseTileColor: '#8a8a8a' },
-  mansion: { src: '/assets/buildings/mansion.png', tileWidth: 1, tileHeight: 1, verticalOffset: -55, baseTileColor: '#8a8a8a' },
-  // Commercial buildings (1x1)
-  shop_small: { src: '/assets/buildings/shop_small.png', tileWidth: 1, tileHeight: 1, scale: 0.7 },
-  shop_medium: { src: '/assets/buildings/shop_medium.png', tileWidth: 1, tileHeight: 1, scale: 0.74 },
-  office_low: { src: '/assets/buildings/commercial.png', tileWidth: 1, tileHeight: 1 },
-  office_high: { src: '/assets/buildings/commercial.png', tileWidth: 1, tileHeight: 1 },
-  mall: { src: '/assets/buildings/commercial.png', tileWidth: 1, tileHeight: 1 },
-  // Industrial buildings (1x1)
-  factory_small: { src: '/assets/buildings/industrial.png', tileWidth: 1, tileHeight: 1 },
-  factory_medium: { src: '/assets/buildings/industrial.png', tileWidth: 1, tileHeight: 1 },
-  factory_large: { src: '/assets/buildings/industrial.png', tileWidth: 1, tileHeight: 1 },
-  warehouse: { src: '/assets/buildings/warehouse.png', tileWidth: 1, tileHeight: 1 },
-  // Service buildings (1x1)
-  fire_station: { src: '/assets/buildings/fire_station.png', tileWidth: 1, tileHeight: 1 },
-  hospital: { src: '/assets/buildings/hospital.png', tileWidth: 1, tileHeight: 1, scale: 0.56, verticalOffset: 15 },
-  park: { src: '/assets/buildings/park.png', tileWidth: 1, tileHeight: 1, verticalOffset: -35 },
-  park_large: { src: '/assets/buildings/park_medium.png', tileWidth: 3, tileHeight: 3, scale: 1.3, verticalOffset: -180 },
-  tennis: { src: '/assets/buildings/tennis.png', tileWidth: 1, tileHeight: 1, scale: 0.95 },
-  police_station: { src: '/assets/buildings/police_station.png', tileWidth: 1, tileHeight: 1 },
-  school: { src: '/assets/buildings/school.png', tileWidth: 2, tileHeight: 2 },
-  university: { src: '/assets/buildings/university.png', tileWidth: 3, tileHeight: 3, scale: 0.81, verticalOffset: 20, horizontalOffset: 15 },
-  // Utilities
-  water_tower: { src: '/assets/buildings/watertower.png', tileWidth: 1, tileHeight: 1 },
-  power_plant: { src: '/assets/buildings/powerplant.png', tileWidth: 2, tileHeight: 2 },
-  // Special buildings
-  stadium: { src: '/assets/buildings/stadium.png', tileWidth: 3, tileHeight: 3, scale: 0.49 },
-  space_program: { src: '/assets/buildings/space.png', tileWidth: 3, tileHeight: 3 },
-};
-
-// Image-based building component
-const ImageBuilding: React.FC<{
-  src: string;
-  size?: number;
-  tileWidth?: number; // How many tiles wide this building spans
-  tileHeight?: number; // How many tiles tall this building spans
-  alt: string;
-  scale?: number; // Optional scale multiplier (default 1.0)
-  verticalOffset?: number; // Optional vertical offset in pixels (positive = down, negative = up)
-  horizontalOffset?: number; // Optional horizontal offset in pixels (positive = right, negative = left)
-  baseTileColor?: string; // Optional color for the base tile underneath
-}> = ({ src, size = 64, tileWidth = 1, tileHeight = 1, alt, scale = 1.0, verticalOffset = 0, horizontalOffset = 0, baseTileColor }) => {
-  // Calculate image dimensions based on tile size
-  // For multi-tile buildings, scale the image accordingly
-  const scaledWidth = size * tileWidth;
-  const scaledHeight = getTileHeight(size) * tileHeight;
-  const spriteBaseHeight = Math.max(scaledWidth, scaledHeight) * 1.8 * scale;
-  const spriteDims = SPRITE_DIMENSIONS[src] ?? DEFAULT_SPRITE_DIMENSIONS;
-  const aspectRatio = spriteDims.width / spriteDims.height || 1;
-  const renderHeight = spriteBaseHeight;
-  const renderWidth = renderHeight * aspectRatio;
-  
-  return (
-    <div 
-      style={{ 
-        position: 'relative',
-        width: scaledWidth,
-        height: scaledHeight + renderHeight * 0.5,
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-      }}
-    >
-      {/* Base tile underneath the building */}
-      {baseTileColor && (
-        <svg 
-          width={scaledWidth} 
-          height={scaledHeight} 
-          viewBox={`0 0 ${scaledWidth} ${scaledHeight}`} 
-          style={{ 
-            position: 'absolute', 
-            bottom: 0, 
-            left: 0,
-          }}
-        >
-          <polygon
-            points={`${scaledWidth/2},0 ${scaledWidth},${scaledHeight/2} ${scaledWidth/2},${scaledHeight} 0,${scaledHeight/2}`}
-            fill={baseTileColor}
-            stroke="rgba(0,0,0,0.3)"
-            strokeWidth={0.5}
-          />
-        </svg>
-      )}
-      <Image
-        src={src}
-        alt={alt}
-        width={spriteDims.width}
-        height={spriteDims.height}
-        style={{
-          width: renderWidth,
-          height: renderHeight,
-          objectFit: 'contain',
-          position: 'absolute',
-          bottom: -scaledHeight * 0.1 + verticalOffset,
-          left: '50%',
-          transform: `translateX(calc(-50% + ${horizontalOffset}px))`,
-        }}
-        priority
-      />
-    </div>
-  );
-};
 
 // Isometric tile configuration
 // HEIGHT_RATIO controls the tile shape
@@ -1050,13 +913,7 @@ export const BuildingRenderer: React.FC<{
   roadAdjacency?: RoadAdjacency;
 }> = ({ buildingType, level = 1, powered = true, zone = 'none', highlight = false, size = TILE_WIDTH, onFire = false, roadAdjacency }) => {
   const renderBuilding = () => {
-    // Check if we have a PNG image for this building type
-    const imageConfig = BUILDING_IMAGES[buildingType];
-    if (imageConfig) {
-      return <ImageBuilding src={imageConfig.src} size={size} tileWidth={imageConfig.tileWidth} tileHeight={imageConfig.tileHeight} alt={buildingType} scale={imageConfig.scale} verticalOffset={imageConfig.verticalOffset} horizontalOffset={imageConfig.horizontalOffset} baseTileColor={imageConfig.baseTileColor} />;
-    }
-    
-    // Fallback to SVG-based buildings for types without images
+    // SVG-based buildings for types without sprite sheet support
     switch (buildingType) {
       case 'empty':
       case 'grass':
