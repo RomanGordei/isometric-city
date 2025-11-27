@@ -3193,8 +3193,8 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       return;
     }
 
-    // Calculate max airplanes based on population (1 per 3.5k population, min 6, max 18)
-    const maxAirplanes = Math.min(18, Math.max(6, Math.floor(totalPopulation / 3500)));
+    // Calculate max airplanes based on population (1 per 3.5k population, min 18, max 54)
+    const maxAirplanes = Math.min(54, Math.max(18, Math.floor(totalPopulation / 3500) * 3));
     
     // Speed multiplier based on game speed
     const speedMultiplier = currentSpeed === 1 ? 1 : currentSpeed === 2 ? 1.5 : 2;
