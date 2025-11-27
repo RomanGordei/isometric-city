@@ -5597,6 +5597,32 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       let leftColor = '#3d6634';
       let rightColor = '#5a8f4f';
       let strokeColor = '#2d4a26';
+      
+      // Apply hill coloring based on elevation (grey color increases with altitude)
+      // Only apply to grass/empty tiles (not water, roads, or buildings)
+      if (tile.elevation > 0 && 
+          (tile.building.type === 'grass' || tile.building.type === 'empty' || tile.building.type === 'tree')) {
+        // Calculate grey intensity: 0 elevation = green, max elevation (8) = dark grey
+        // Use a smooth gradient from green to grey
+        const maxElevation = 8;
+        const elevationRatio = Math.min(1, tile.elevation / maxElevation);
+        
+        // Interpolate between green and grey
+        // Green base: rgb(74, 124, 63) = #4a7c3f
+        // Grey peak: rgb(100, 100, 100) = #646464 (lighter grey for peaks)
+        const greenR = 74, greenG = 124, greenB = 63;
+        const greyR = 100, greyG = 100, greyB = 100;
+        
+        const r = Math.round(greenR + (greyR - greenR) * elevationRatio);
+        const g = Math.round(greenG + (greyG - greenG) * elevationRatio);
+        const b = Math.round(greenB + (greyB - greenB) * elevationRatio);
+        
+        topColor = `rgb(${r}, ${g}, ${b})`;
+        // Darker sides for hills
+        leftColor = `rgb(${Math.round(r * 0.7)}, ${Math.round(g * 0.7)}, ${Math.round(b * 0.7)})`;
+        rightColor = `rgb(${Math.round(r * 1.2)}, ${Math.round(g * 1.2)}, ${Math.round(b * 1.2)})`;
+        strokeColor = `rgb(${Math.round(r * 0.5)}, ${Math.round(g * 0.5)}, ${Math.round(b * 0.5)})`;
+      }
 
       // These get grey bases: baseball_stadium, community_center, swimming_pool, office_building_small
       const allParkTypes = ['park', 'park_large', 'tennis', 'basketball_courts', 'playground_small',

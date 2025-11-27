@@ -254,7 +254,7 @@ function saveSpritePackId(packId: string): void {
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
   // Start with a default state, we'll load from localStorage after mount
-  const [state, setState] = useState<GameState>(() => createInitialGameState(60, 'IsoCity'));
+  const [state, setState] = useState<GameState>(() => createInitialGameState(66, 'IsoCity'));
   
   const [hasExistingGame, setHasExistingGame] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -525,7 +525,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const newGame = useCallback((name?: string, size?: number) => {
     clearGameState(); // Clear saved state when starting fresh
-    const fresh = createInitialGameState(size ?? 60, name || 'IsoCity');
+    const fresh = createInitialGameState(size ?? 66, name || 'IsoCity');
     setState(fresh);
   }, []);
 
