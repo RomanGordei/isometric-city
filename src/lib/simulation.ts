@@ -366,6 +366,156 @@ function generateOceans(grid: Tile[][], size: number, seed: number): WaterBody[]
   return waterBodies;
 }
 
+// Generate small islands within ocean water
+function generateIslands(grid: Tile[][], size: number, seed: number, oceanBodies: WaterBody[]): void {
+  // Only generate islands if there are oceans
+  if (oceanBodies.length === 0) return;
+  
+  // Collect all ocean tiles
+  const oceanTiles = new Set<string>();
+  for (const ocean of oceanBodies) {
+    for (const tile of ocean.tiles) {
+      oceanTiles.add(`${tile.x},${tile.y}`);
+    }
+  }
+  
+  // Use noise for island placement
+  const islandNoise = (x: number, y: number) => perlinNoise(x, y, seed + 3000, 4);
+  
+  // Find potential island locations (water tiles that are surrounded by water)
+  const potentialIslands: { x: number; y: number; noise: number }[] = [];
+  
+  for (let y = 1; y < size - 1; y++) {
+    for (let x = 1; x < size - 1; x++) {
+      // Check if this is an ocean tile
+      if (!oceanTiles.has(`${x},${y}`)) continue;
+      
+      // Check if surrounded by water (at least 4 adjacent water tiles for small islands)
+      let waterNeighbors = 0;
+      const directions = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
+      for (const [dx, dy] of directions) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+          if (grid[ny][nx].building.type === 'water') {
+            waterNeighbors++;
+          }
+        }
+      }
+      
+      // Only consider tiles that are well-surrounded by water (at least 6 out of 8 neighbors)
+      // This ensures islands are in the middle of ocean areas, not near coastlines
+      // Also check that neighbors are actually ocean water, not just any water
+      let oceanNeighbors = 0;
+      for (const [dx, dy] of directions) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+          if (grid[ny][nx].building.type === 'water' && oceanTiles.has(`${nx},${ny}`)) {
+            oceanNeighbors++;
+          }
+        }
+      }
+      
+      // Require at least 6 ocean neighbors to ensure island is well within ocean, not near mainland
+      if (waterNeighbors >= 6 && oceanNeighbors >= 5) {
+        const noiseVal = islandNoise(x, y);
+        // Use noise to determine island placement (higher noise = more likely to be an island)
+        // Threshold of 0.75 ensures islands are sparse but present
+        if (noiseVal > 0.75) {
+          potentialIslands.push({ x, y, noise: noiseVal });
+        }
+      }
+    }
+  }
+  
+  // Sort by noise value (highest first) and place islands
+  potentialIslands.sort((a, b) => b.noise - a.noise);
+  
+  // Place 3-8 small islands (1-3 tiles each)
+  const numIslands = 3 + Math.floor(Math.random() * 6);
+  const placedIslands = new Set<string>();
+  let islandsPlaced = 0;
+  
+  for (const candidate of potentialIslands) {
+    if (islandsPlaced >= numIslands) break;
+    
+    // Skip if too close to another island (minimum 5 tiles apart)
+    let tooClose = false;
+    for (const placed of placedIslands) {
+      const [px, py] = placed.split(',').map(Number);
+      const dist = Math.sqrt((candidate.x - px) ** 2 + (candidate.y - py) ** 2);
+      if (dist < 5) {
+        tooClose = true;
+        break;
+      }
+    }
+    
+    if (tooClose) continue;
+    
+    // Determine island size (1-3 tiles)
+    const islandSize = 1 + Math.floor(Math.random() * 3);
+    const islandTiles: { x: number; y: number }[] = [{ x: candidate.x, y: candidate.y }];
+    
+    // Grow island if size > 1
+    if (islandSize > 1) {
+      const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      const candidates: { x: number; y: number; noise: number }[] = [];
+      
+      // Add initial neighbors
+      for (const [dx, dy] of directions) {
+        const nx = candidate.x + dx;
+        const ny = candidate.y + dy;
+        if (nx >= 0 && nx < size && ny >= 0 && ny < size && 
+            oceanTiles.has(`${nx},${ny}`) && 
+            !placedIslands.has(`${nx},${ny}`)) {
+          const noise = islandNoise(nx, ny);
+          candidates.push({ x: nx, y: ny, noise });
+        }
+      }
+      
+      // Grow island by adding adjacent tiles
+      while (islandTiles.length < islandSize && candidates.length > 0) {
+        candidates.sort((a, b) => b.noise - a.noise);
+        const picked = candidates.shift()!;
+        
+        // Double-check it's still valid
+        if (!oceanTiles.has(`${picked.x},${picked.y}`) || 
+            placedIslands.has(`${picked.x},${picked.y}`)) {
+          continue;
+        }
+        
+        islandTiles.push({ x: picked.x, y: picked.y });
+        
+        // Add new neighbors
+        for (const [dx, dy] of directions) {
+          const nx = picked.x + dx;
+          const ny = picked.y + dy;
+          if (nx >= 0 && nx < size && ny >= 0 && ny < size && 
+              oceanTiles.has(`${nx},${ny}`) &&
+              !islandTiles.some(t => t.x === nx && t.y === ny) &&
+              !candidates.some(c => c.x === nx && c.y === ny) &&
+              !placedIslands.has(`${nx},${ny}`)) {
+            const noise = islandNoise(nx, ny);
+            candidates.push({ x: nx, y: ny, noise });
+          }
+        }
+      }
+    }
+    
+    // Place island tiles (convert water to grass, sometimes with trees)
+    for (const tile of islandTiles) {
+      // 70% chance of grass, 30% chance of tree
+      const isTree = Math.random() < 0.3;
+      grid[tile.y][tile.x].building = createBuilding(isTree ? 'tree' : 'grass');
+      grid[tile.y][tile.x].landValue = isTree ? 2 : 0;
+      placedIslands.add(`${tile.x},${tile.y}`);
+    }
+    
+    islandsPlaced++;
+  }
+}
+
 // Generate adjacent cities (sometimes, not always)
 function generateAdjacentCities(): AdjacentCity[] {
   const cities: AdjacentCity[] = [];
@@ -421,6 +571,9 @@ function generateTerrain(size: number): { grid: Tile[][]; waterBodies: WaterBody
   
   // Combine all water bodies
   const waterBodies = [...lakeBodies, ...oceanBodies];
+  
+  // Third-and-a-half pass: add small islands within oceans
+  generateIslands(grid, size, seed, oceanBodies);
   
   // Fourth pass: add scattered trees (avoiding water)
   for (let y = 0; y < size; y++) {
