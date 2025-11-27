@@ -360,7 +360,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setTaxRate = useCallback((rate: number) => {
-    setState((prev) => ({ ...prev, taxRate: clamp(rate, 0, 20) }));
+    setState((prev) => ({ ...prev, taxRate: clamp(rate, 0, 50) }));
   }, []);
 
   const setActivePanel = useCallback(

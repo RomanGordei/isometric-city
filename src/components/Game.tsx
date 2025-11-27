@@ -77,6 +77,44 @@ type Car = {
   laneOffset: number;
 };
 
+// Airplane types for airport animation
+type AirplaneState = 'flying' | 'landing' | 'taking_off' | 'taxiing';
+
+type ContrailParticle = {
+  x: number;
+  y: number;
+  age: number;
+  opacity: number;
+};
+
+type Airplane = {
+  id: number;
+  // Screen position (isometric coordinates)
+  x: number;
+  y: number;
+  // Flight direction in radians
+  angle: number;
+  // Current state
+  state: AirplaneState;
+  // Speed (pixels per second in screen space)
+  speed: number;
+  // Altitude (0 = ground, 1 = cruising altitude) - affects scale and shadow
+  altitude: number;
+  // Target altitude for transitions
+  targetAltitude: number;
+  // Airport tile coordinates (for landing/takeoff reference)
+  airportX: number;
+  airportY: number;
+  // Progress for landing/takeoff (0-1)
+  stateProgress: number;
+  // Contrail particles
+  contrail: ContrailParticle[];
+  // Time until despawn (for flying planes)
+  lifeTime: number;
+  // Plane color/style
+  color: string;
+};
+
 type EmergencyVehicleType = 'fire_truck' | 'police_car';
 type EmergencyVehicleState = 'dispatching' | 'responding' | 'returning';
 
@@ -150,6 +188,12 @@ const PEDESTRIAN_SHIRT_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3
 
 // Minimum zoom level to show pedestrians (zoomed in)
 const PEDESTRIAN_MIN_ZOOM = 0.5;
+
+// Airplane system constants
+const AIRPLANE_MIN_POPULATION = 5000; // Minimum population required for airplane activity
+const AIRPLANE_COLORS = ['#ffffff', '#1e40af', '#dc2626', '#059669', '#7c3aed']; // Airline liveries
+const CONTRAIL_MAX_AGE = 3.0; // seconds
+const CONTRAIL_SPAWN_INTERVAL = 0.02; // seconds between contrail particles
 
 function createDirectionMeta(step: { x: number; y: number }, vec: { dx: number; dy: number }): DirectionMeta {
   const length = Math.hypot(vec.dx, vec.dy) || 1;
@@ -591,7 +635,7 @@ const TopBar = React.memo(function TopBar() {
             value={[taxRate]}
             onValueChange={(value) => setTaxRate(value[0])}
             min={0}
-            max={20}
+            max={50}
             step={1}
             className="w-16"
           />
@@ -1807,6 +1851,16 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
   const initialZoomRef = useRef<number>(zoom);
   const lastTouchCenterRef = useRef<{ x: number; y: number } | null>(null);
   
+  // Airplane system refs
+  const airplanesRef = useRef<Airplane[]>([]);
+  const airplaneIdRef = useRef(0);
+  const airplaneSpawnTimerRef = useRef(0);
+
+  // Performance: Cache expensive grid calculations
+  const cachedRoadTileCountRef = useRef<{ count: number; gridVersion: number }>({ count: 0, gridVersion: -1 });
+  const cachedPopulationRef = useRef<{ count: number; gridVersion: number }>({ count: 0, gridVersion: -1 });
+  const gridVersionRef = useRef(0);
+
   const worldStateRef = useRef<WorldRenderState>({
     grid,
     gridSize,
@@ -1834,6 +1888,8 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
   useEffect(() => {
     worldStateRef.current.grid = grid;
     worldStateRef.current.gridSize = gridSize;
+    // Increment grid version to invalidate cached calculations
+    gridVersionRef.current++;
   }, [grid, gridSize]);
 
   useEffect(() => {
@@ -2593,14 +2649,22 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
     // Speed multiplier
     const speedMultiplier = currentSpeed === 0 ? 0 : currentSpeed === 1 ? 1 : currentSpeed === 2 ? 2.5 : 4;
     
-    // Count road tiles to scale pedestrian count
-    let roadTileCount = 0;
-    for (let y = 0; y < currentGridSize; y++) {
-      for (let x = 0; x < currentGridSize; x++) {
-        if (currentGrid[y][x].building.type === 'road') {
-          roadTileCount++;
+    // Get cached road tile count (only recalculate when grid changes)
+    const currentGridVersion = gridVersionRef.current;
+    let roadTileCount: number;
+    if (cachedRoadTileCountRef.current.gridVersion === currentGridVersion) {
+      roadTileCount = cachedRoadTileCountRef.current.count;
+    } else {
+      // Recalculate and cache
+      roadTileCount = 0;
+      for (let y = 0; y < currentGridSize; y++) {
+        for (let x = 0; x < currentGridSize; x++) {
+          if (currentGrid[y][x].building.type === 'road') {
+            roadTileCount++;
+          }
         }
       }
+      cachedRoadTileCountRef.current = { count: roadTileCount, gridVersion: currentGridVersion };
     }
     
     // Spawn many pedestrians - scale with road network size (3 pedestrians per road tile)
@@ -2980,6 +3044,399 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       
       ctx.restore();
     });
+    
+    ctx.restore();
+  }, []);
+
+  // Find all airports in the city
+  const findAirports = useCallback((): { x: number; y: number }[] => {
+    const { grid: currentGrid, gridSize: currentGridSize } = worldStateRef.current;
+    if (!currentGrid || currentGridSize <= 0) return [];
+    
+    const airports: { x: number; y: number }[] = [];
+    for (let y = 0; y < currentGridSize; y++) {
+      for (let x = 0; x < currentGridSize; x++) {
+        if (currentGrid[y][x].building.type === 'airport') {
+          airports.push({ x, y });
+        }
+      }
+    }
+    return airports;
+  }, []);
+
+  // Update airplanes - spawn, move, and manage lifecycle
+  const updateAirplanes = useCallback((delta: number) => {
+    const { grid: currentGrid, gridSize: currentGridSize, speed: currentSpeed } = worldStateRef.current;
+    
+    if (!currentGrid || currentGridSize <= 0 || currentSpeed === 0) {
+      return;
+    }
+
+    // Find airports and check population
+    const airports = findAirports();
+    
+    // Get cached population count (only recalculate when grid changes)
+    const currentGridVersion = gridVersionRef.current;
+    let totalPopulation: number;
+    if (cachedPopulationRef.current.gridVersion === currentGridVersion) {
+      totalPopulation = cachedPopulationRef.current.count;
+    } else {
+      // Recalculate and cache
+      totalPopulation = 0;
+      for (let y = 0; y < currentGridSize; y++) {
+        for (let x = 0; x < currentGridSize; x++) {
+          totalPopulation += currentGrid[y][x].building.population || 0;
+        }
+      }
+      cachedPopulationRef.current = { count: totalPopulation, gridVersion: currentGridVersion };
+    }
+
+    // No airplanes if no airport or insufficient population
+    if (airports.length === 0 || totalPopulation < AIRPLANE_MIN_POPULATION) {
+      airplanesRef.current = [];
+      return;
+    }
+
+    // Calculate max airplanes based on population (1 per 10k population, min 2, max 6)
+    const maxAirplanes = Math.min(6, Math.max(2, Math.floor(totalPopulation / 10000)));
+    
+    // Speed multiplier based on game speed
+    const speedMultiplier = currentSpeed === 1 ? 1 : currentSpeed === 2 ? 1.5 : 2;
+
+    // Spawn timer
+    airplaneSpawnTimerRef.current -= delta;
+    if (airplanesRef.current.length < maxAirplanes && airplaneSpawnTimerRef.current <= 0) {
+      // Pick a random airport
+      const airport = airports[Math.floor(Math.random() * airports.length)];
+      
+      // Convert airport tile to screen coordinates
+      const { screenX: airportScreenX, screenY: airportScreenY } = gridToScreen(airport.x, airport.y, 0, 0);
+      const airportCenterX = airportScreenX + TILE_WIDTH * 2; // Center of 4x4 airport
+      const airportCenterY = airportScreenY + TILE_HEIGHT * 2;
+      
+      // Decide if taking off or arriving from distance
+      const isTakingOff = Math.random() < 0.5;
+      
+      if (isTakingOff) {
+        // Taking off from airport
+        const angle = Math.random() * Math.PI * 2; // Random direction
+        airplanesRef.current.push({
+          id: airplaneIdRef.current++,
+          x: airportCenterX,
+          y: airportCenterY,
+          angle: angle,
+          state: 'taking_off',
+          speed: 30 + Math.random() * 20, // Slow during takeoff
+          altitude: 0,
+          targetAltitude: 1,
+          airportX: airport.x,
+          airportY: airport.y,
+          stateProgress: 0,
+          contrail: [],
+          lifeTime: 30 + Math.random() * 20, // 30-50 seconds of flight
+          color: AIRPLANE_COLORS[Math.floor(Math.random() * AIRPLANE_COLORS.length)],
+        });
+      } else {
+        // Arriving from the edge of the map
+        const edge = Math.floor(Math.random() * 4);
+        let startX: number, startY: number, angle: number;
+        
+        // Calculate map bounds in screen space
+        const mapCenterX = 0;
+        const mapCenterY = currentGridSize * TILE_HEIGHT / 2;
+        const mapExtent = currentGridSize * TILE_WIDTH;
+        
+        switch (edge) {
+          case 0: // From top
+            startX = mapCenterX + (Math.random() - 0.5) * mapExtent;
+            startY = mapCenterY - mapExtent / 2 - 200;
+            angle = Math.PI / 2 + (Math.random() - 0.5) * 0.5; // Roughly downward
+            break;
+          case 1: // From right
+            startX = mapCenterX + mapExtent / 2 + 200;
+            startY = mapCenterY + (Math.random() - 0.5) * mapExtent / 2;
+            angle = Math.PI + (Math.random() - 0.5) * 0.5; // Roughly leftward
+            break;
+          case 2: // From bottom
+            startX = mapCenterX + (Math.random() - 0.5) * mapExtent;
+            startY = mapCenterY + mapExtent / 2 + 200;
+            angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5; // Roughly upward
+            break;
+          default: // From left
+            startX = mapCenterX - mapExtent / 2 - 200;
+            startY = mapCenterY + (Math.random() - 0.5) * mapExtent / 2;
+            angle = 0 + (Math.random() - 0.5) * 0.5; // Roughly rightward
+            break;
+        }
+        
+        // Calculate angle to airport
+        const angleToAirport = Math.atan2(airportCenterY - startY, airportCenterX - startX);
+        
+        airplanesRef.current.push({
+          id: airplaneIdRef.current++,
+          x: startX,
+          y: startY,
+          angle: angleToAirport,
+          state: 'flying',
+          speed: 80 + Math.random() * 40, // Faster when cruising
+          altitude: 1,
+          targetAltitude: 1,
+          airportX: airport.x,
+          airportY: airport.y,
+          stateProgress: 0,
+          contrail: [],
+          lifeTime: 30 + Math.random() * 20,
+          color: AIRPLANE_COLORS[Math.floor(Math.random() * AIRPLANE_COLORS.length)],
+        });
+      }
+      
+      airplaneSpawnTimerRef.current = 5 + Math.random() * 10; // 5-15 seconds between spawns
+    }
+
+    // Update existing airplanes
+    const updatedAirplanes: Airplane[] = [];
+    
+    for (const plane of airplanesRef.current) {
+      // Update contrail particles
+      plane.contrail = plane.contrail
+        .map(p => ({ ...p, age: p.age + delta, opacity: Math.max(0, 1 - p.age / CONTRAIL_MAX_AGE) }))
+        .filter(p => p.age < CONTRAIL_MAX_AGE);
+      
+      // Add new contrail particles at high altitude
+      if (plane.altitude > 0.7) {
+        plane.stateProgress += delta;
+        if (plane.stateProgress >= CONTRAIL_SPAWN_INTERVAL) {
+          plane.stateProgress -= CONTRAIL_SPAWN_INTERVAL;
+          // Add two contrail particles (left and right engine)
+          const perpAngle = plane.angle + Math.PI / 2;
+          const engineOffset = 4 * (0.5 + plane.altitude * 0.5);
+          plane.contrail.push(
+            { x: plane.x + Math.cos(perpAngle) * engineOffset, y: plane.y + Math.sin(perpAngle) * engineOffset, age: 0, opacity: 1 },
+            { x: plane.x - Math.cos(perpAngle) * engineOffset, y: plane.y - Math.sin(perpAngle) * engineOffset, age: 0, opacity: 1 }
+          );
+        }
+      }
+      
+      // Update based on state
+      switch (plane.state) {
+        case 'taking_off': {
+          // Move forward and climb
+          plane.x += Math.cos(plane.angle) * plane.speed * delta * speedMultiplier;
+          plane.y += Math.sin(plane.angle) * plane.speed * delta * speedMultiplier;
+          plane.altitude = Math.min(1, plane.altitude + delta * 0.3); // Climb rate
+          plane.speed = Math.min(120, plane.speed + delta * 20); // Accelerate
+          
+          if (plane.altitude >= 1) {
+            plane.state = 'flying';
+          }
+          break;
+        }
+        
+        case 'flying': {
+          // Move forward at cruising speed
+          plane.x += Math.cos(plane.angle) * plane.speed * delta * speedMultiplier;
+          plane.y += Math.sin(plane.angle) * plane.speed * delta * speedMultiplier;
+          
+          plane.lifeTime -= delta;
+          
+          // Check if near airport and should land
+          const { screenX: airportScreenX, screenY: airportScreenY } = gridToScreen(plane.airportX, plane.airportY, 0, 0);
+          const airportCenterX = airportScreenX + TILE_WIDTH * 2;
+          const airportCenterY = airportScreenY + TILE_HEIGHT * 2;
+          const distToAirport = Math.hypot(plane.x - airportCenterX, plane.y - airportCenterY);
+          
+          // Start landing approach when close enough and lifetime is low
+          if (distToAirport < 400 && plane.lifeTime < 10) {
+            plane.state = 'landing';
+            plane.targetAltitude = 0;
+            // Adjust angle to point at airport
+            plane.angle = Math.atan2(airportCenterY - plane.y, airportCenterX - plane.x);
+          } else if (plane.lifeTime <= 0) {
+            // Despawn if too far from airport and out of time
+            continue;
+          }
+          break;
+        }
+        
+        case 'landing': {
+          // Descend and slow down while approaching airport
+          const { screenX: airportScreenX, screenY: airportScreenY } = gridToScreen(plane.airportX, plane.airportY, 0, 0);
+          const airportCenterX = airportScreenX + TILE_WIDTH * 2;
+          const airportCenterY = airportScreenY + TILE_HEIGHT * 2;
+          
+          // Adjust angle to point at airport
+          const angleToAirport = Math.atan2(airportCenterY - plane.y, airportCenterX - plane.x);
+          plane.angle = angleToAirport;
+          
+          plane.x += Math.cos(plane.angle) * plane.speed * delta * speedMultiplier;
+          plane.y += Math.sin(plane.angle) * plane.speed * delta * speedMultiplier;
+          plane.altitude = Math.max(0, plane.altitude - delta * 0.25); // Descend
+          plane.speed = Math.max(30, plane.speed - delta * 15); // Decelerate
+          
+          const distToAirport = Math.hypot(plane.x - airportCenterX, plane.y - airportCenterY);
+          if (distToAirport < 50 || plane.altitude <= 0) {
+            // Landed - remove plane
+            continue;
+          }
+          break;
+        }
+        
+        case 'taxiing':
+          // Not implemented - planes just land and disappear
+          continue;
+      }
+      
+      updatedAirplanes.push(plane);
+    }
+    
+    airplanesRef.current = updatedAirplanes;
+  }, [findAirports]);
+
+  // Draw airplanes with contrails
+  const drawAirplanes = useCallback((ctx: CanvasRenderingContext2D) => {
+    const { offset: currentOffset, zoom: currentZoom, grid: currentGrid, gridSize: currentGridSize } = worldStateRef.current;
+    const canvas = ctx.canvas;
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Early exit if no airplanes
+    if (!currentGrid || currentGridSize <= 0 || airplanesRef.current.length === 0) {
+      return;
+    }
+    
+    ctx.save();
+    ctx.scale(dpr * currentZoom, dpr * currentZoom);
+    ctx.translate(currentOffset.x / currentZoom, currentOffset.y / currentZoom);
+    
+    const viewWidth = canvas.width / (dpr * currentZoom);
+    const viewHeight = canvas.height / (dpr * currentZoom);
+    const viewLeft = -currentOffset.x / currentZoom - 200;
+    const viewTop = -currentOffset.y / currentZoom - 200;
+    const viewRight = viewWidth - currentOffset.x / currentZoom + 200;
+    const viewBottom = viewHeight - currentOffset.y / currentZoom + 200;
+    
+    for (const plane of airplanesRef.current) {
+      // Draw contrails first (behind plane)
+      if (plane.contrail.length > 0) {
+        ctx.save();
+        for (const particle of plane.contrail) {
+          // Skip if outside viewport
+          if (particle.x < viewLeft || particle.x > viewRight || particle.y < viewTop || particle.y > viewBottom) {
+            continue;
+          }
+          
+          const size = 3 + particle.age * 8; // Contrails expand over time
+          const opacity = particle.opacity * 0.4 * plane.altitude; // Fade with altitude
+          
+          ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      
+      // Skip plane rendering if outside viewport
+      if (plane.x < viewLeft - 50 || plane.x > viewRight + 50 || plane.y < viewTop - 50 || plane.y > viewBottom + 50) {
+        continue;
+      }
+      
+      // Draw shadow (when low altitude)
+      if (plane.altitude < 0.8) {
+        const shadowOffset = (1 - plane.altitude) * 15;
+        const shadowScale = 0.6 + plane.altitude * 0.4;
+        const shadowOpacity = 0.3 * (1 - plane.altitude);
+        
+        ctx.save();
+        ctx.translate(plane.x + shadowOffset, plane.y + shadowOffset * 0.5);
+        ctx.rotate(plane.angle);
+        ctx.scale(shadowScale, shadowScale * 0.5);
+        ctx.fillStyle = `rgba(0, 0, 0, ${shadowOpacity})`;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 20, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      // Draw airplane
+      ctx.save();
+      ctx.translate(plane.x, plane.y);
+      ctx.rotate(plane.angle);
+      
+      // Scale based on altitude (appears larger when higher/closer)
+      const altitudeScale = 0.7 + plane.altitude * 0.5;
+      ctx.scale(altitudeScale, altitudeScale);
+      
+      // Fuselage
+      ctx.fillStyle = plane.color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 18, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Nose
+      ctx.fillStyle = '#94a3b8'; // Gray nose cone
+      ctx.beginPath();
+      ctx.moveTo(18, 0);
+      ctx.lineTo(14, -2);
+      ctx.lineTo(14, 2);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Wings
+      ctx.fillStyle = plane.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -3);
+      ctx.lineTo(-8, -18);
+      ctx.lineTo(-12, -18);
+      ctx.lineTo(-4, -3);
+      ctx.closePath();
+      ctx.fill();
+      
+      ctx.beginPath();
+      ctx.moveTo(0, 3);
+      ctx.lineTo(-8, 18);
+      ctx.lineTo(-12, 18);
+      ctx.lineTo(-4, 3);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Tail fin
+      ctx.fillStyle = plane.color;
+      ctx.beginPath();
+      ctx.moveTo(-14, 0);
+      ctx.lineTo(-18, -8);
+      ctx.lineTo(-20, -8);
+      ctx.lineTo(-18, 0);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Horizontal stabilizers
+      ctx.beginPath();
+      ctx.moveTo(-16, -2);
+      ctx.lineTo(-18, -6);
+      ctx.lineTo(-20, -6);
+      ctx.lineTo(-18, -2);
+      ctx.closePath();
+      ctx.fill();
+      
+      ctx.beginPath();
+      ctx.moveTo(-16, 2);
+      ctx.lineTo(-18, 6);
+      ctx.lineTo(-20, 6);
+      ctx.lineTo(-18, 2);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Engine nacelles
+      ctx.fillStyle = '#475569'; // Dark gray
+      ctx.beginPath();
+      ctx.ellipse(-2, -8, 4, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(-2, 8, 4, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
+    }
     
     ctx.restore();
   }, []);
@@ -4797,15 +5254,17 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         updateCrimeIncidents(delta); // Update/decay crime incidents
         updateEmergencyVehicles(delta); // Update emergency vehicles!
         updatePedestrians(delta); // Update pedestrians (zoom-gated)
+        updateAirplanes(delta); // Update airplanes (airport required)
       }
       drawCars(ctx);
       drawPedestrians(ctx); // Draw pedestrians (zoom-gated)
       drawEmergencyVehicles(ctx); // Draw emergency vehicles!
+      drawAirplanes(ctx); // Draw airplanes above everything
     };
     
     animationFrameId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [canvasSize.width, canvasSize.height, updateCars, drawCars, spawnCrimeIncidents, updateCrimeIncidents, updateEmergencyVehicles, drawEmergencyVehicles, updatePedestrians, drawPedestrians]);
+  }, [canvasSize.width, canvasSize.height, updateCars, drawCars, spawnCrimeIncidents, updateCrimeIncidents, updateEmergencyVehicles, drawEmergencyVehicles, updatePedestrians, drawPedestrians, updateAirplanes, drawAirplanes]);
   
   // Day/Night cycle lighting rendering
   useEffect(() => {
