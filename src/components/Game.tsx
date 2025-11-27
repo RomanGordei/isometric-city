@@ -448,6 +448,7 @@ const ADVISOR_ICON_MAP: Record<string, React.ReactNode> = {
 const Sidebar = React.memo(function Sidebar() {
   const { state, setTool, setActivePanel } = useGame();
   const { selectedTool, stats, activePanel } = state;
+  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
   
   const toolCategories = useMemo(() => ({
     'TOOLS': ['select', 'bulldoze', 'road', 'subway'] as Tool[],
@@ -458,8 +459,36 @@ const Sidebar = React.memo(function Sidebar() {
     'SPECIAL': ['stadium', 'museum', 'airport', 'space_program', 'city_hall', 'amusement_park'] as Tool[],
   }), []);
   
+  const expandedCategories = useMemo(() => ['TOOLS', 'ZONES'], []);
+  const hoverCategories = useMemo(() => ['SERVICES', 'PARKS', 'UTILITIES', 'SPECIAL'], []);
+  
+  const renderToolButton = (tool: Tool) => {
+    const info = TOOL_INFO[tool];
+    if (!info) return null;
+    const isSelected = selectedTool === tool;
+    const canAfford = stats.money >= info.cost;
+    
+    return (
+      <Button
+        key={tool}
+        onClick={() => setTool(tool)}
+        disabled={!canAfford && info.cost > 0}
+        variant={isSelected ? 'default' : 'ghost'}
+        className={`w-full justify-start gap-3 px-3 py-2 h-auto text-sm ${
+          isSelected ? 'bg-primary text-primary-foreground' : ''
+        }`}
+        title={`${info.description}${info.cost > 0 ? ` - Cost: $${info.cost}` : ''}`}
+      >
+        <span className="flex-1 text-left truncate">{info.name}</span>
+        {info.cost > 0 && (
+          <span className="text-xs opacity-60">${info.cost}</span>
+        )}
+      </Button>
+    );
+  };
+  
   return (
-    <div className="w-56 bg-sidebar border-r border-sidebar-border flex flex-col h-full">
+    <div className="w-56 bg-sidebar border-r border-sidebar-border flex flex-col h-full relative">
       <div className="px-4 py-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2">
           <span className="text-sidebar-foreground font-bold tracking-tight">ISOCITY</span>
@@ -467,39 +496,40 @@ const Sidebar = React.memo(function Sidebar() {
       </div>
       
       <ScrollArea className="flex-1 py-2">
-        {Object.entries(toolCategories).map(([category, tools]) => (
-          <div key={category} className="mb-1">
-            <div className="px-4 py-2 text-[10px] font-bold tracking-widest text-muted-foreground">
-              {category}
+        {Object.entries(toolCategories).map(([category, tools]) => {
+          const isExpanded = expandedCategories.includes(category);
+          const isHoverCategory = hoverCategories.includes(category);
+          const isHovered = hoveredCategory === category;
+          
+          return (
+            <div 
+              key={category} 
+              className="mb-1 relative"
+              onMouseEnter={() => isHoverCategory && setHoveredCategory(category)}
+              onMouseLeave={() => isHoverCategory && setHoveredCategory(null)}
+            >
+              <div className="px-4 py-2 text-[10px] font-bold tracking-widest text-muted-foreground cursor-pointer hover:text-sidebar-foreground transition-colors">
+                {category}
+              </div>
+              {isExpanded && (
+                <div className="px-2 flex flex-col gap-0.5">
+                  {tools.map(tool => renderToolButton(tool))}
+                </div>
+              )}
+              {isHoverCategory && isHovered && (
+                <div 
+                  className="absolute left-full top-8 ml-1 z-50 bg-sidebar border border-sidebar-border rounded-md shadow-lg min-w-[200px] py-1"
+                  onMouseEnter={() => setHoveredCategory(category)}
+                  onMouseLeave={() => setHoveredCategory(null)}
+                >
+                  <div className="px-2 flex flex-col gap-0.5">
+                    {tools.map(tool => renderToolButton(tool))}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="px-2 flex flex-col gap-0.5">
-              {tools.map(tool => {
-                const info = TOOL_INFO[tool];
-                if (!info) return null; // Skip if tool info not found
-                const isSelected = selectedTool === tool;
-                const canAfford = stats.money >= info.cost;
-                
-                return (
-                  <Button
-                    key={tool}
-                    onClick={() => setTool(tool)}
-                    disabled={!canAfford && info.cost > 0}
-                    variant={isSelected ? 'default' : 'ghost'}
-                    className={`w-full justify-start gap-3 px-3 py-2 h-auto text-sm ${
-                      isSelected ? 'bg-primary text-primary-foreground' : ''
-                    }`}
-                    title={`${info.description}${info.cost > 0 ? ` - Cost: $${info.cost}` : ''}`}
-                  >
-                    <span className="flex-1 text-left truncate">{info.name}</span>
-                    {info.cost > 0 && (
-                      <span className="text-xs opacity-60">${info.cost}</span>
-                    )}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </ScrollArea>
       
       <div className="border-t border-sidebar-border p-2">
