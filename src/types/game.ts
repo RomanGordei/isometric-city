@@ -220,6 +220,7 @@ export interface Tile {
   crime: number;
   traffic: number;
   hasSubway: boolean;
+  elevation: number; // 0-1 range, 0 = flat, 1 = peak. Higher values = hilly/mountainous terrain
 }
 
 export interface Stats {

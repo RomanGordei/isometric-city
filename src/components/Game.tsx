@@ -1049,7 +1049,18 @@ const MiniMap = React.memo(function MiniMap({ onNavigate, viewport }: {
         const tile = grid[y][x];
         let color = '#2d5a3d';
         
-        if (tile.building.type === 'water') color = '#0ea5e9';
+        // Check for elevation first (hilly terrain shows as grey)
+        const elevation = tile.elevation ?? 0;
+        if (elevation > 0.2 && tile.building.type !== 'water' && tile.building.type !== 'road') {
+          // Blend from green to grey based on elevation
+          if (elevation >= 0.85) {
+            color = '#d0d0d0'; // Snow-capped peaks - very light grey
+          } else if (elevation >= 0.5) {
+            color = '#8b8b8b'; // High elevation - grey
+          } else {
+            color = '#5a6a5a'; // Low hills - grey-green
+          }
+        } else if (tile.building.type === 'water') color = '#0ea5e9';
         else if (tile.building.type === 'road') color = '#6b7280';
         else if (tile.building.type === 'tree') color = '#166534';
         else if (tile.zone === 'residential' && tile.building.type !== 'grass') color = '#22c55e';
@@ -5236,16 +5247,52 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       ctx.lineCap = 'butt';
     }
     
-    // Draw isometric tile base
+    // Draw isometric tile base with elevation support
     function drawIsometricTile(ctx: CanvasRenderingContext2D, x: number, y: number, tile: Tile, highlight: boolean, currentZoom: number, skipGreyBase: boolean = false, skipGreenBase: boolean = false) {
       const w = TILE_WIDTH;
       const h = TILE_HEIGHT;
+      
+      // Get elevation (default to 0 for backwards compatibility)
+      const elevation = tile.elevation ?? 0;
+      
+      // Calculate height offset based on elevation
+      // Max elevation of 1 creates a height of about 1.5 tile heights
+      const maxHeightPixels = h * 1.5;
+      const elevationHeight = elevation * maxHeightPixels;
       
       // Determine tile colors (top face and shading)
       let topColor = '#4a7c3f'; // grass
       let leftColor = '#3d6634';
       let rightColor = '#5a8f4f';
       let strokeColor = '#2d4a26';
+      
+      // For elevated tiles, blend towards grey (mountain peaks)
+      // Higher elevation = more grey
+      if (elevation > 0 && tile.building.type !== 'water' && tile.building.type !== 'road') {
+        // Interpolate between grass green and grey based on elevation
+        // At elevation 0.3+, start showing more grey
+        // At elevation 0.6+, mostly grey (rocky)
+        // At elevation 0.8+, light grey (snowy peaks)
+        const greyStart = 0.2;
+        const greyFull = 0.7;
+        const snowStart = 0.85;
+        
+        if (elevation >= snowStart) {
+          // Snow-capped peaks - very light grey/white
+          const snowBlend = Math.min(1, (elevation - snowStart) / (1 - snowStart));
+          topColor = lerpColor('#8b8b8b', '#e5e5e5', snowBlend);
+          leftColor = lerpColor('#6b6b6b', '#c5c5c5', snowBlend);
+          rightColor = lerpColor('#9b9b9b', '#f0f0f0', snowBlend);
+          strokeColor = lerpColor('#5b5b5b', '#a0a0a0', snowBlend);
+        } else if (elevation >= greyStart) {
+          // Rocky terrain - blend from green to grey
+          const blend = Math.min(1, (elevation - greyStart) / (greyFull - greyStart));
+          topColor = lerpColor('#4a7c3f', '#7a7a7a', blend);
+          leftColor = lerpColor('#3d6634', '#5a5a5a', blend);
+          rightColor = lerpColor('#5a8f4f', '#9a9a9a', blend);
+          strokeColor = lerpColor('#2d4a26', '#4a4a4a', blend);
+        }
+      }
 
       // These get grey bases: baseball_stadium, community_center, swimming_pool, office_building_small
       const allParkTypes = ['park', 'park_large', 'tennis', 'basketball_courts', 'playground_small',
@@ -5270,6 +5317,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       // ALL buildings get grey/concrete base tiles (except parks which stay green)
       const hasGreyBase = isBuilding && !isPark;
       
+      // Override colors for special tile types (takes precedence over elevation)
       if (tile.building.type === 'water') {
         topColor = '#2563eb';
         leftColor = '#1d4ed8';
@@ -5280,7 +5328,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         leftColor = '#3a3a3a';
         rightColor = '#5a5a5a';
         strokeColor = '#333';
-      } else if (isPark) {
+      } else if (isPark && elevation === 0) {
         topColor = '#4a7c3f';
         leftColor = '#3d6634';
         rightColor = '#5a8f4f';
@@ -5292,52 +5340,81 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         leftColor = '#4b5563';
         rightColor = '#9ca3af';
         strokeColor = '#374151';
-      } else if (tile.zone === 'residential') {
-        if (tile.building.type !== 'grass' && tile.building.type !== 'empty') {
-          topColor = '#3d7c3f';
-          leftColor = '#2d6634';
-          rightColor = '#4d8f4f';
-        } else {
-          topColor = '#2d5a2d';
-          leftColor = '#1d4a1d';
-          rightColor = '#3d6a3d';
+      } else if (elevation === 0) {
+        // Only apply zone colors for flat terrain
+        if (tile.zone === 'residential') {
+          if (tile.building.type !== 'grass' && tile.building.type !== 'empty') {
+            topColor = '#3d7c3f';
+            leftColor = '#2d6634';
+            rightColor = '#4d8f4f';
+          } else {
+            topColor = '#2d5a2d';
+            leftColor = '#1d4a1d';
+            rightColor = '#3d6a3d';
+          }
+          strokeColor = '#22c55e';
+        } else if (tile.zone === 'commercial') {
+          if (tile.building.type !== 'grass' && tile.building.type !== 'empty') {
+            topColor = '#3a5c7c';
+            leftColor = '#2a4c6c';
+            rightColor = '#4a6c8c';
+          } else {
+            topColor = '#2a4a6a';
+            leftColor = '#1a3a5a';
+            rightColor = '#3a5a7a';
+          }
+          strokeColor = '#3b82f6';
+        } else if (tile.zone === 'industrial') {
+          if (tile.building.type !== 'grass' && tile.building.type !== 'empty') {
+            topColor = '#7c5c3a';
+            leftColor = '#6c4c2a';
+            rightColor = '#8c6c4a';
+          } else {
+            topColor = '#6a4a2a';
+            leftColor = '#5a3a1a';
+            rightColor = '#7a5a3a';
+          }
+          strokeColor = '#f59e0b';
         }
-        strokeColor = '#22c55e';
-      } else if (tile.zone === 'commercial') {
-        if (tile.building.type !== 'grass' && tile.building.type !== 'empty') {
-          topColor = '#3a5c7c';
-          leftColor = '#2a4c6c';
-          rightColor = '#4a6c8c';
-        } else {
-          topColor = '#2a4a6a';
-          leftColor = '#1a3a5a';
-          rightColor = '#3a5a7a';
-        }
-        strokeColor = '#3b82f6';
-      } else if (tile.zone === 'industrial') {
-        if (tile.building.type !== 'grass' && tile.building.type !== 'empty') {
-          topColor = '#7c5c3a';
-          leftColor = '#6c4c2a';
-          rightColor = '#8c6c4a';
-        } else {
-          topColor = '#6a4a2a';
-          leftColor = '#5a3a1a';
-          rightColor = '#7a5a3a';
-        }
-        strokeColor = '#f59e0b';
       }
       
       // Skip drawing green base for grass/empty tiles adjacent to water (will be drawn later over water)
       const shouldSkipDrawing = skipGreenBase && (tile.building.type === 'grass' || tile.building.type === 'empty');
       
-      // Draw the isometric diamond (top face)
+      // Draw elevated tile with 3D sides
       if (!shouldSkipDrawing) {
+        // Calculate the Y offset for elevation (moves the tile up)
+        const yOffset = -elevationHeight;
+        
+        if (elevation > 0.05) {
+          // Draw left face (front-left side) for elevated tiles
+          ctx.fillStyle = leftColor;
+          ctx.beginPath();
+          ctx.moveTo(x, y + h / 2 + yOffset);  // Top-left of top face
+          ctx.lineTo(x + w / 2, y + h + yOffset);  // Bottom of top face
+          ctx.lineTo(x + w / 2, y + h);  // Bottom at ground level
+          ctx.lineTo(x, y + h / 2);  // Left at ground level
+          ctx.closePath();
+          ctx.fill();
+          
+          // Draw right face (front-right side) for elevated tiles
+          ctx.fillStyle = rightColor;
+          ctx.beginPath();
+          ctx.moveTo(x + w / 2, y + h + yOffset);  // Bottom of top face
+          ctx.lineTo(x + w, y + h / 2 + yOffset);  // Top-right of top face
+          ctx.lineTo(x + w, y + h / 2);  // Right at ground level
+          ctx.lineTo(x + w / 2, y + h);  // Bottom at ground level
+          ctx.closePath();
+          ctx.fill();
+        }
+        
+        // Draw the isometric diamond (top face) - offset by elevation
         ctx.fillStyle = topColor;
         ctx.beginPath();
-        ctx.moveTo(x + w / 2, y);
-        ctx.lineTo(x + w, y + h / 2);
-        ctx.lineTo(x + w / 2, y + h);
-        ctx.lineTo(x, y + h / 2);
+        ctx.moveTo(x + w / 2, y + yOffset);
+        ctx.lineTo(x + w, y + h / 2 + yOffset);
+        ctx.lineTo(x + w / 2, y + h + yOffset);
+        ctx.lineTo(x, y + h / 2 + yOffset);
         ctx.closePath();
         ctx.fill();
         
@@ -5363,13 +5440,14 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       
       // Highlight on hover/select (always draw, even if base was skipped)
       if (highlight) {
+        const yOffset = -elevationHeight;
         // Draw a semi-transparent fill for better visibility
         ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
         ctx.beginPath();
-        ctx.moveTo(x + w / 2, y);
-        ctx.lineTo(x + w, y + h / 2);
-        ctx.lineTo(x + w / 2, y + h);
-        ctx.lineTo(x, y + h / 2);
+        ctx.moveTo(x + w / 2, y + yOffset);
+        ctx.lineTo(x + w, y + h / 2 + yOffset);
+        ctx.lineTo(x + w / 2, y + h + yOffset);
+        ctx.lineTo(x, y + h / 2 + yOffset);
         ctx.closePath();
         ctx.fill();
         
@@ -5378,6 +5456,23 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         ctx.lineWidth = 2;
         ctx.stroke();
       }
+    }
+    
+    // Helper function to interpolate between two hex colors
+    function lerpColor(color1: string, color2: string, t: number): string {
+      const r1 = parseInt(color1.slice(1, 3), 16);
+      const g1 = parseInt(color1.slice(3, 5), 16);
+      const b1 = parseInt(color1.slice(5, 7), 16);
+      
+      const r2 = parseInt(color2.slice(1, 3), 16);
+      const g2 = parseInt(color2.slice(3, 5), 16);
+      const b2 = parseInt(color2.slice(5, 7), 16);
+      
+      const r = Math.round(r1 + (r2 - r1) * t);
+      const g = Math.round(g1 + (g2 - g1) * t);
+      const b = Math.round(b1 + (b2 - b1) * t);
+      
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     }
     
     // Draw green base tile for grass/empty tiles (called after water tiles)

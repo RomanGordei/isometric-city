@@ -399,7 +399,93 @@ function generateAdjacentCities(): AdjacentCity[] {
   return cities;
 }
 
-// Generate terrain - grass with scattered trees, lakes, and oceans
+// Generate hilly terrain with elevation using noise
+function generateHills(grid: Tile[][], size: number, seed: number): void {
+  // Use separate noise for hills to avoid correlation with water
+  const hillSeed = seed + 3000;
+  
+  // Generate elevation for each tile using multiple octaves of noise
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      // Skip water tiles - they stay flat
+      if (grid[y][x].building.type === 'water') {
+        grid[y][x].elevation = 0;
+        continue;
+      }
+      
+      // Get base elevation from noise
+      const noiseVal = perlinNoise(x, y, hillSeed, 4);
+      
+      // Create distinct hill regions - elevation only where noise is high enough
+      // This creates distinct "mountain range" areas rather than gentle rolling hills everywhere
+      const threshold = 0.55; // Only create elevation above this noise value
+      
+      if (noiseVal > threshold) {
+        // Map noise above threshold to 0-1 elevation range
+        // Higher noise = taller peaks
+        const rawElevation = (noiseVal - threshold) / (1 - threshold);
+        
+        // Apply a curve to create more dramatic peaks
+        // Square the value to make peaks more pronounced and valleys flatter
+        let elevation = rawElevation * rawElevation;
+        
+        // Apply distance from water reduction - hills near water should be shorter
+        // Creates a more natural coastline effect
+        const nearWater = isNearWater(grid, x, y, size);
+        if (nearWater) {
+          elevation *= 0.4; // Reduce elevation near water significantly
+        }
+        
+        // Reduce elevation at map edges for nicer boundaries
+        const edgeDist = Math.min(x, y, size - 1 - x, size - 1 - y);
+        const edgeFade = Math.min(1, edgeDist / 8);
+        elevation *= edgeFade;
+        
+        grid[y][x].elevation = Math.min(1, Math.max(0, elevation));
+      } else {
+        grid[y][x].elevation = 0;
+      }
+    }
+  }
+  
+  // Smooth elevation to create more natural hills
+  // Pass 1: smooth locally
+  const smoothedElevation: number[][] = [];
+  for (let y = 0; y < size; y++) {
+    smoothedElevation[y] = [];
+    for (let x = 0; x < size; x++) {
+      if (grid[y][x].building.type === 'water') {
+        smoothedElevation[y][x] = 0;
+        continue;
+      }
+      
+      // Average with neighbors
+      let sum = grid[y][x].elevation * 2; // Weight center more
+      let count = 2;
+      
+      const directions = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
+      for (const [dx, dy] of directions) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx >= 0 && nx < size && ny >= 0 && ny < size && grid[ny][nx].building.type !== 'water') {
+          sum += grid[ny][nx].elevation;
+          count++;
+        }
+      }
+      
+      smoothedElevation[y][x] = sum / count;
+    }
+  }
+  
+  // Apply smoothed elevation back to grid
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      grid[y][x].elevation = smoothedElevation[y][x];
+    }
+  }
+}
+
+// Generate terrain - grass with scattered trees, lakes, oceans, and hills
 function generateTerrain(size: number): { grid: Tile[][]; waterBodies: WaterBody[] } {
   const grid: Tile[][] = [];
   const seed = Math.random() * 1000;
@@ -422,7 +508,10 @@ function generateTerrain(size: number): { grid: Tile[][]; waterBodies: WaterBody
   // Combine all water bodies
   const waterBodies = [...lakeBodies, ...oceanBodies];
   
-  // Fourth pass: add scattered trees (avoiding water)
+  // Fourth pass: generate hilly terrain (avoiding water)
+  generateHills(grid, size, seed);
+  
+  // Fifth pass: add scattered trees (avoiding water)
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       if (grid[y][x].building.type === 'water') continue; // Don't place trees on water
@@ -537,7 +626,7 @@ export function getWaterAdjacency(
   return { hasWater, shouldFlip };
 }
 
-function createTile(x: number, y: number, buildingType: BuildingType = 'grass'): Tile {
+function createTile(x: number, y: number, buildingType: BuildingType = 'grass', elevation: number = 0): Tile {
   return {
     x,
     y,
@@ -548,6 +637,7 @@ function createTile(x: number, y: number, buildingType: BuildingType = 'grass'):
     crime: 0,
     traffic: 0,
     hasSubway: false,
+    elevation,
   };
 }
 
@@ -1926,6 +2016,8 @@ function applyBuildingFootprint(
       }
       cell.zone = zone;
       cell.pollution = dx === 0 && dy === 0 ? stats.pollution : 0;
+      // Flatten terrain when placing buildings - set elevation to 0
+      cell.elevation = 0;
     }
   }
 
@@ -1998,8 +2090,9 @@ export function placeBuilding(
       if (!allowedTypesForZoning.includes(tile.building.type)) {
         return state; // Can't zone over existing building or part of multi-tile building
       }
-      // Setting zone
+      // Setting zone - also flatten terrain
       newGrid[y][x].zone = zone;
+      newGrid[y][x].elevation = 0;
     }
   } else if (buildingType) {
     const size = getBuildingSize(buildingType);
@@ -2035,6 +2128,8 @@ export function placeBuilding(
       }
       newGrid[y][x].building = createBuilding(buildingType);
       newGrid[y][x].zone = 'none';
+      // Flatten terrain when placing buildings - set elevation to 0
+      newGrid[y][x].elevation = 0;
       // Set flip for waterfront buildings to face the water
       if (shouldFlip) {
         newGrid[y][x].building.flipped = true;

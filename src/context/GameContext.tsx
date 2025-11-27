@@ -170,6 +170,10 @@ function loadGameState(): GameState | null {
               if (parsed.grid[y][x]?.building && parsed.grid[y][x].building.abandoned === undefined) {
                 parsed.grid[y][x].building.abandoned = false;
               }
+              // Migrate elevation property for existing tiles (default to 0 - flat terrain)
+              if (parsed.grid[y][x]?.elevation === undefined) {
+                parsed.grid[y][x].elevation = 0;
+              }
             }
           }
         }
@@ -562,6 +566,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
               // Migrate abandoned property for existing buildings (they're not abandoned)
               if (parsed.grid[y][x]?.building && parsed.grid[y][x].building.abandoned === undefined) {
                 parsed.grid[y][x].building.abandoned = false;
+              }
+              // Migrate elevation property for existing tiles (default to 0 - flat terrain)
+              if (parsed.grid[y][x]?.elevation === undefined) {
+                parsed.grid[y][x].elevation = 0;
               }
             }
           }
