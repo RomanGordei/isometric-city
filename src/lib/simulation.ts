@@ -537,6 +537,225 @@ export function getWaterAdjacency(
   return { hasWater, shouldFlip };
 }
 
+const SCENIC_BUILDINGS = new Set<BuildingType>([
+  'park',
+  'park_large',
+  'tennis',
+  'pond_park',
+  'community_garden',
+  'community_center',
+  'greenhouse_garden',
+  'playground_small',
+  'playground_large',
+  'mini_golf_course',
+  'swimming_pool',
+  'basketball_courts',
+  'soccer_field_small',
+  'football_field',
+  'baseball_field_small',
+  'bleachers_field',
+  'animal_pens_farm',
+  'campground',
+  'cabin_house',
+  'park_gate',
+  'mountain_lodge',
+  'mountain_trailhead',
+  'amphitheater',
+  'go_kart_track',
+  'roller_coaster_small',
+]);
+
+const CIVIC_BUILDINGS = new Set<BuildingType>([
+  'school',
+  'university',
+  'hospital',
+  'museum',
+  'stadium',
+  'city_hall',
+  'amusement_park',
+  'space_program',
+  'police_station',
+  'fire_station',
+]);
+
+const TRANSPORT_INFRASTRUCTURE = new Set<BuildingType>([
+  'subway_station',
+  'airport',
+  'space_program',
+]);
+
+const POLLUTION_BUILDINGS = new Set<BuildingType>([
+  'factory_small',
+  'factory_medium',
+  'factory_large',
+  'warehouse',
+  'power_plant',
+  'airport',
+  'space_program',
+]);
+
+const NOISE_BUILDINGS = new Set<BuildingType>([
+  'stadium',
+  'amusement_park',
+  'airport',
+  'power_plant',
+]);
+
+function createScalarField(size: number, initial: number = 0): number[][] {
+  return Array.from({ length: size }, () => Array(size).fill(initial));
+}
+
+function applyRadialInfluence(field: number[][], x: number, y: number, radius: number, strength: number): void {
+  if (radius <= 0 || strength === 0) return;
+  const size = field.length;
+  for (let dy = -radius; dy <= radius; dy++) {
+    const ny = y + dy;
+    if (ny < 0 || ny >= size) continue;
+    for (let dx = -radius; dx <= radius; dx++) {
+      const nx = x + dx;
+      if (nx < 0 || nx >= size) continue;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance > radius) continue;
+      const falloff = 1 - distance / radius;
+      field[ny][nx] += strength * falloff;
+    }
+  }
+}
+
+function clampValue(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getZoneDemandModifier(zone: ZoneType, stats?: Stats): number {
+  if (!stats) return 0;
+  const { demand } = stats;
+  if (!demand) return 0;
+  let target = 0;
+  switch (zone) {
+    case 'residential':
+      target = demand.residential;
+      break;
+    case 'commercial':
+      target = demand.commercial;
+      break;
+    case 'industrial':
+      target = demand.industrial;
+      break;
+    default:
+      target = (demand.residential + demand.commercial + demand.industrial) / 3;
+      break;
+  }
+  return target * 0.08;
+}
+
+function updateLandValues(grid: Tile[][], services: ServiceCoverage, stats: Stats): void {
+  const size = grid.length;
+  if (size === 0) return;
+
+  const scenicField = createScalarField(size);
+  const civicField = createScalarField(size);
+  const infrastructureField = createScalarField(size);
+  const hazardField = createScalarField(size);
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const tile = grid[y][x];
+      const type = tile.building.type;
+
+      if (type === 'tree') {
+        applyRadialInfluence(scenicField, x, y, 3, 5);
+      }
+      if (type === 'water') {
+        applyRadialInfluence(scenicField, x, y, 8, 10);
+      }
+      if (SCENIC_BUILDINGS.has(type)) {
+        const radius = type === 'park_large' ? 8 : 6;
+        const strength = type === 'park_large' ? 18 : 12;
+        applyRadialInfluence(scenicField, x, y, radius, strength);
+      }
+      if (CIVIC_BUILDINGS.has(type)) {
+        const radius = ['stadium', 'amusement_park', 'museum', 'space_program'].includes(type) ? 8 : 6;
+        applyRadialInfluence(civicField, x, y, radius, 10);
+      }
+      if (TRANSPORT_INFRASTRUCTURE.has(type)) {
+        const radius = type === 'airport' ? 10 : 6;
+        const strength = type === 'airport' ? 10 : 8;
+        applyRadialInfluence(infrastructureField, x, y, radius, strength);
+      }
+      if (type === 'road') {
+        applyRadialInfluence(infrastructureField, x, y, 3, 3);
+      }
+      if (tile.hasSubway && type !== 'subway_station') {
+        applyRadialInfluence(infrastructureField, x, y, 4, 4);
+      }
+      if (POLLUTION_BUILDINGS.has(type)) {
+        const pollutionStat = BUILDING_STATS[type]?.pollution ?? 10;
+        const radius = type === 'factory_large' ? 8 : 6;
+        applyRadialInfluence(hazardField, x, y, radius, Math.max(6, pollutionStat * 0.4));
+      }
+      if (NOISE_BUILDINGS.has(type)) {
+        applyRadialInfluence(hazardField, x, y, 7, 6);
+      }
+      if (tile.pollution > 8) {
+        applyRadialInfluence(hazardField, x, y, 4, (tile.pollution - 8) * 0.35);
+      }
+    }
+  }
+
+  const zoneBase: Record<ZoneType, number> = {
+    none: 0,
+    residential: 12,
+    commercial: 16,
+    industrial: -2,
+  };
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const tile = grid[y][x];
+      const buildingStats = BUILDING_STATS[tile.building.type];
+      const buildingQuality = buildingStats ? clampValue(buildingStats.landValue, -20, 60) : 0;
+      const scenicScore = scenicField[y][x];
+      const civicScore = civicField[y][x];
+      const infrastructureScore = infrastructureField[y][x];
+      const hazardPenalty = hazardField[y][x];
+      const serviceScore =
+        services.police[y][x] * 0.04 +
+        services.fire[y][x] * 0.025 +
+        services.health[y][x] * 0.04 +
+        services.education[y][x] * 0.04;
+      const pollutionPenalty = tile.pollution * 0.35;
+      const abandonmentPenalty = tile.building.abandoned ? 18 : 0;
+      const utilityPenalty = (!tile.building.powered ? 6 : 0) + (!tile.building.watered ? 4 : 0);
+      const demandModifier = getZoneDemandModifier(tile.zone, stats);
+      const moodModifier =
+        ((stats?.happiness ?? 50) - 50) * 0.12 +
+        ((stats?.environment ?? 50) - 50) * 0.08;
+      const transitBonus = tile.hasSubway ? 4 : 0;
+      const baseValue = 35 + (zoneBase[tile.zone] ?? 0);
+
+      const finalValue = clampValue(
+        baseValue +
+          buildingQuality +
+          scenicScore +
+          civicScore +
+          infrastructureScore +
+          serviceScore +
+          demandModifier +
+          moodModifier +
+          transitBonus -
+          pollutionPenalty -
+          hazardPenalty -
+          abandonmentPenalty -
+          utilityPenalty,
+        5,
+        120
+      );
+
+      tile.landValue = Math.round(finalValue);
+    }
+  }
+}
+
 function createTile(x: number, y: number, buildingType: BuildingType = 'grass'): Tile {
   return {
     x,
@@ -1575,6 +1794,8 @@ export function simulateTick(state: GameState): GameState {
       }
     }
   }
+
+  updateLandValues(newGrid, services, state.stats);
 
   // Update budget costs
   const newBudget = updateBudgetCosts(newGrid, state.budget);
