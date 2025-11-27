@@ -32,6 +32,7 @@ import {
   InfoIcon,
   BudgetIcon,
   SettingsIcon,
+  MenuIcon,
 } from './ui/Icons';
 import { SPRITE_SHEET, getSpriteCoords, BUILDING_TO_SPRITE, SPRITE_VERTICAL_OFFSETS, SPRITE_HORIZONTAL_OFFSETS, SPRITE_ORDER, SpritePack, getActiveSpritePack } from '@/lib/renderConfig';
 import exampleState from '@/resources/example_state.json';
@@ -398,7 +399,7 @@ const ADVISOR_ICON_MAP: Record<string, React.ReactNode> = {
 };
 
 // Memoized Sidebar Component
-const Sidebar = React.memo(function Sidebar() {
+const Sidebar = React.memo(function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { state, setTool, setActivePanel } = useGame();
   const { selectedTool, stats, activePanel } = state;
   
@@ -412,12 +413,33 @@ const Sidebar = React.memo(function Sidebar() {
   }), []);
   
   return (
-    <div className="w-56 bg-sidebar border-r border-sidebar-border flex flex-col h-full">
-      <div className="px-4 py-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-2">
-          <span className="text-sidebar-foreground font-bold tracking-tight">ISOCITY</span>
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+      <div className={`
+        fixed lg:static inset-y-0 left-0 z-50
+        w-56 bg-sidebar border-r border-sidebar-border flex flex-col h-full
+        transform transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <div className="px-4 py-4 border-b border-sidebar-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sidebar-foreground font-bold tracking-tight">ISOCITY</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClose}
+            className="lg:hidden"
+          >
+            <CloseIcon size={16} />
+          </Button>
         </div>
-      </div>
       
       <ScrollArea className="flex-1 py-2">
         {Object.entries(toolCategories).map(([category, tools]) => (
@@ -466,7 +488,10 @@ const Sidebar = React.memo(function Sidebar() {
           ].map(({ panel, icon, label }) => (
             <Button
               key={panel}
-              onClick={() => setActivePanel(activePanel === panel ? 'none' : panel)}
+              onClick={() => {
+                setActivePanel(activePanel === panel ? 'none' : panel);
+                onClose(); // Close sidebar on mobile when selecting a panel
+              }}
               variant={activePanel === panel ? 'default' : 'ghost'}
               size="icon-sm"
               className="w-full"
@@ -478,6 +503,7 @@ const Sidebar = React.memo(function Sidebar() {
         </div>
       </div>
     </div>
+    </>
   );
 });
 
@@ -512,69 +538,81 @@ const TimeOfDayIcon = ({ hour }: { hour: number }) => {
 };
 
 // Memoized TopBar Component
-const TopBar = React.memo(function TopBar() {
+const TopBar = React.memo(function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const { state, setSpeed, setTaxRate, isSaving } = useGame();
   const { stats, year, month, hour, speed, taxRate, cityName } = state;
   
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   
   return (
-    <div className="h-14 bg-card border-b border-border flex items-center justify-between px-4">
-      <div className="flex items-center gap-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-foreground font-semibold text-sm">{cityName}</h1>
+    <div className="h-14 bg-card border-b border-border flex items-center justify-between px-2 sm:px-4 gap-2">
+      {/* Mobile menu button */}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={onMenuClick}
+        className="lg:hidden h-8 w-8"
+      >
+        <MenuIcon size={18} />
+      </Button>
+      
+      <div className="flex items-center gap-2 sm:gap-4 md:gap-6 flex-1 min-w-0">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <h1 className="text-foreground font-semibold text-xs sm:text-sm truncate">{cityName}</h1>
             {isSaving && (
-              <span className="text-muted-foreground text-xs italic animate-pulse">Saving...</span>
+              <span className="text-muted-foreground text-[10px] sm:text-xs italic animate-pulse">Saving...</span>
             )}
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground text-xs font-mono tabular-nums">
+          <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground text-[10px] sm:text-xs font-mono tabular-nums">
             <span>{monthNames[month - 1]} {year}</span>
             <TimeOfDayIcon hour={hour} />
           </div>
         </div>
         
-        <div className="flex items-center gap-1 bg-secondary rounded-md p-1">
+        <div className="flex items-center gap-0.5 sm:gap-1 bg-secondary rounded-md p-0.5 sm:p-1">
           {[0, 1, 2, 3].map(s => (
             <Button
               key={s}
               onClick={() => setSpeed(s as 0 | 1 | 2 | 3)}
               variant={speed === s ? 'default' : 'ghost'}
               size="icon-sm"
-              className="h-7 w-7"
+              className="h-6 w-6 sm:h-7 sm:w-7"
               title={s === 0 ? 'Pause' : s === 1 ? 'Normal' : s === 2 ? 'Fast' : 'Very Fast'}
             >
-              {s === 0 ? <PauseIcon size={14} /> : 
-               s === 1 ? <PlayIcon size={14} /> : 
-               s === 2 ? <FastForwardIcon size={14} /> :
+              {s === 0 ? <PauseIcon size={12} /> : 
+               s === 1 ? <PlayIcon size={12} /> : 
+               s === 2 ? <FastForwardIcon size={12} /> :
                <div className="flex items-center -space-x-1">
-                 <PlayIcon size={10} />
-                 <PlayIcon size={10} />
-                 <PlayIcon size={10} />
+                 <PlayIcon size={8} />
+                 <PlayIcon size={8} />
+                 <PlayIcon size={8} />
                </div>}
             </Button>
           ))}
         </div>
       </div>
       
-      <div className="flex items-center gap-8">
-        <StatBadge value={stats.population.toLocaleString()} label="Population" />
+      {/* Stats - hidden on very small screens, shown on sm+ */}
+      <div className="hidden sm:flex items-center gap-2 md:gap-4 lg:gap-8">
+        <StatBadge value={stats.population.toLocaleString()} label="Pop" />
         <StatBadge value={stats.jobs.toLocaleString()} label="Jobs" />
         <StatBadge 
           value={`$${stats.money.toLocaleString()}`} 
           label="Funds"
           variant={stats.money < 0 ? 'destructive' : stats.money < 1000 ? 'warning' : 'success'}
         />
-        <Separator orientation="vertical" className="h-8" />
+        <Separator orientation="vertical" className="h-6 md:h-8" />
         <StatBadge 
           value={`$${(stats.income - stats.expenses).toLocaleString()}`} 
-          label="Monthly"
+          label="Mo"
           variant={stats.income - stats.expenses >= 0 ? 'success' : 'destructive'}
         />
       </div>
       
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
+      {/* Demand indicators and tax - hidden on mobile, shown on md+ */}
+      <div className="hidden md:flex items-center gap-2 lg:gap-4">
+        <div className="flex items-center gap-1 lg:gap-2">
           <DemandIndicator label="R" demand={stats.demand.residential} color="text-green-500" />
           <DemandIndicator label="C" demand={stats.demand.commercial} color="text-blue-500" />
           <DemandIndicator label="I" demand={stats.demand.industrial} color="text-amber-500" />
@@ -582,7 +620,7 @@ const TopBar = React.memo(function TopBar() {
         
         <Separator orientation="vertical" className="h-8" />
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 lg:gap-2">
           <span className="text-muted-foreground text-xs">Tax</span>
           <Slider
             value={[taxRate]}
@@ -590,9 +628,9 @@ const TopBar = React.memo(function TopBar() {
             min={0}
             max={20}
             step={1}
-            className="w-16"
+            className="w-12 lg:w-16"
           />
-          <span className="text-foreground text-xs font-mono tabular-nums w-8">{taxRate}%</span>
+          <span className="text-foreground text-xs font-mono tabular-nums w-6 lg:w-8">{taxRate}%</span>
         </div>
       </div>
     </div>
@@ -643,12 +681,12 @@ const StatsPanel = React.memo(function StatsPanel() {
   const { stats } = state;
   
   return (
-    <div className="h-8 bg-secondary/50 border-b border-border flex items-center justify-center gap-8 text-xs">
-      <MiniStat icon={<HappyIcon size={12} />} label="Happiness" value={stats.happiness} />
-      <MiniStat icon={<HealthIcon size={12} />} label="Health" value={stats.health} />
-      <MiniStat icon={<EducationIcon size={12} />} label="Education" value={stats.education} />
-      <MiniStat icon={<SafetyIcon size={12} />} label="Safety" value={stats.safety} />
-      <MiniStat icon={<EnvironmentIcon size={12} />} label="Environment" value={stats.environment} />
+    <div className="h-8 bg-secondary/50 border-b border-border flex items-center justify-center gap-2 sm:gap-4 md:gap-6 lg:gap-8 text-[10px] sm:text-xs overflow-x-auto">
+      <MiniStat icon={<HappyIcon size={10} />} label="Happy" value={stats.happiness} />
+      <MiniStat icon={<HealthIcon size={10} />} label="Health" value={stats.health} />
+      <MiniStat icon={<EducationIcon size={10} />} label="Edu" value={stats.education} />
+      <MiniStat icon={<SafetyIcon size={10} />} label="Safety" value={stats.safety} />
+      <MiniStat icon={<EnvironmentIcon size={10} />} label="Env" value={stats.environment} />
     </div>
   );
 });
@@ -656,9 +694,9 @@ const StatsPanel = React.memo(function StatsPanel() {
 function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   const color = value >= 70 ? 'text-green-500' : value >= 40 ? 'text-amber-500' : 'text-red-500';
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1 sm:gap-2 whitespace-nowrap">
       <span className="text-muted-foreground">{icon}</span>
-      <span className="text-muted-foreground">{label}</span>
+      <span className="text-muted-foreground hidden sm:inline">{label}</span>
       <span className={`font-mono ${color}`}>{Math.round(value)}%</span>
     </div>
   );
@@ -711,17 +749,17 @@ const MiniMap = React.memo(function MiniMap() {
   }, [grid, gridSize]);
   
   return (
-    <Card className="absolute bottom-6 right-8 p-3 shadow-lg bg-card/90 border-border/70">
-      <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold mb-2">
+    <Card className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 md:bottom-6 md:right-8 p-2 sm:p-3 shadow-lg bg-card/90 border-border/70">
+      <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold mb-1 sm:mb-2">
         Minimap
       </div>
       <canvas
         ref={canvasRef}
         width={140}
         height={140}
-        className="block rounded-md border border-border/60"
+        className="block rounded-md border border-border/60 w-[100px] h-[100px] sm:w-[120px] sm:h-[120px] md:w-[140px] md:h-[140px]"
       />
-      <div className="mt-2 grid grid-cols-4 gap-1 text-[8px]">
+      <div className="mt-1 sm:mt-2 grid grid-cols-4 gap-1 text-[7px] sm:text-[8px]">
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 bg-green-500 rounded-sm" />
           <span className="text-muted-foreground">R</span>
@@ -756,20 +794,20 @@ function TileInfoPanel({
   const { x, y } = tile;
   
   return (
-    <Card className="absolute top-4 right-4 w-72">
+    <Card className="absolute top-2 right-2 sm:top-4 sm:right-4 w-[calc(100%-1rem)] sm:w-64 md:w-72 max-w-[90vw]">
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-sm">Tile ({x}, {y})</CardTitle>
+        <CardTitle className="text-xs sm:text-sm">Tile ({x}, {y})</CardTitle>
         <Button variant="ghost" size="icon-sm" onClick={onClose}>
           <CloseIcon size={14} />
         </Button>
       </CardHeader>
       
-      <CardContent className="space-y-3 text-sm">
+      <CardContent className="space-y-2 sm:space-y-3 text-xs sm:text-sm">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Building</span>
-          <span className="capitalize">{tile.building.type.replace(/_/g, ' ')}</span>
+          <span className="capitalize text-right">{tile.building.type.replace(/_/g, ' ')}</span>
         </div>
-        <div className="flex justify-between">
+        <div className="flex justify-between items-center">
           <span className="text-muted-foreground">Zone</span>
           <Badge variant={
             tile.zone === 'residential' ? 'default' :
@@ -875,24 +913,24 @@ function BudgetPanel() {
   
   return (
     <Dialog open={true} onOpenChange={() => setActivePanel('none')}>
-      <DialogContent className="max-w-[500px]">
+      <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Budget</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6">
-          <div className="grid grid-cols-3 gap-4 pb-4 border-b border-border">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pb-4 border-b border-border">
             <div>
               <div className="text-muted-foreground text-xs mb-1">Income</div>
-              <div className="text-green-400 font-mono">${stats.income.toLocaleString()}/mo</div>
+              <div className="text-green-400 font-mono text-sm sm:text-base">${stats.income.toLocaleString()}/mo</div>
             </div>
             <div>
               <div className="text-muted-foreground text-xs mb-1">Expenses</div>
-              <div className="text-red-400 font-mono">${stats.expenses.toLocaleString()}/mo</div>
+              <div className="text-red-400 font-mono text-sm sm:text-base">${stats.expenses.toLocaleString()}/mo</div>
             </div>
             <div>
               <div className="text-muted-foreground text-xs mb-1">Net</div>
-              <div className={`font-mono ${stats.income - stats.expenses >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              <div className={`font-mono text-sm sm:text-base ${stats.income - stats.expenses >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 ${(stats.income - stats.expenses).toLocaleString()}/mo
               </div>
             </div>
@@ -930,16 +968,16 @@ function AchievementsPanel() {
   
   return (
     <Dialog open={true} onOpenChange={() => setActivePanel('none')}>
-      <DialogContent className="max-w-[500px] max-h-[600px]">
+      <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Achievements ({unlocked.length}/{achievements.length})</DialogTitle>
         </DialogHeader>
         
-        <ScrollArea className="max-h-[450px] pr-4">
+        <ScrollArea className="max-h-[60vh] sm:max-h-[450px] pr-2 sm:pr-4">
           {unlocked.length > 0 && (
             <div className="mb-6">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">Unlocked</div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {unlocked.map(a => (
                   <Card key={a.id} className="p-3 border-l-2 border-l-primary">
                     <div className="text-foreground text-sm font-medium">{a.name}</div>
@@ -952,7 +990,7 @@ function AchievementsPanel() {
           
           <div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">Locked</div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {locked.map(a => (
                 <Card key={a.id} className="p-3 opacity-60">
                   <div className="text-foreground text-sm font-medium">{a.name}</div>
@@ -1054,13 +1092,13 @@ function StatisticsPanel() {
   
   return (
     <Dialog open={true} onOpenChange={() => setActivePanel('none')}>
-      <DialogContent className="max-w-[600px]">
+      <DialogContent className="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>City Statistics</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             <Card className="p-3">
               <div className="text-muted-foreground text-xs mb-1">Population</div>
               <div className="font-mono tabular-nums font-semibold text-green-400">{stats.population.toLocaleString()}</div>
@@ -1180,7 +1218,7 @@ function SettingsPanel() {
   
   return (
     <Dialog open={true} onOpenChange={() => setActivePanel('none')}>
-      <DialogContent className="max-w-[400px] max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
@@ -1618,7 +1656,7 @@ function SpriteTestPanel({ onClose }: { onClose: () => void }) {
   
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-[700px] max-h-[90vh]">
+      <DialogContent className="max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Sprite Test View</DialogTitle>
           <DialogDescription>
@@ -1654,7 +1692,7 @@ function AdvisorsPanel() {
   
   return (
     <Dialog open={true} onOpenChange={() => setActivePanel('none')}>
-      <DialogContent className="max-w-[500px] max-h-[600px]">
+      <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>City Advisors</DialogTitle>
         </DialogHeader>
@@ -5310,7 +5348,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
             setDragStartTile(null);
             setDragEndTile(null);
           }}>
-            <DialogContent className="max-w-[400px]">
+            <DialogContent className="max-w-[95vw] sm:max-w-[400px]">
               <DialogHeader>
                 <DialogTitle>Connect to City</DialogTitle>
                 <DialogDescription>
@@ -5384,11 +5422,11 @@ const OverlayModeToggle = React.memo(function OverlayModeToggle({
   setOverlayMode: (mode: OverlayMode) => void;
 }) {
   return (
-    <Card className="absolute bottom-4 left-4 p-2 shadow-lg bg-card/90 border-border/70 z-50">
-      <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold mb-2">
+    <Card className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 p-1.5 sm:p-2 shadow-lg bg-card/90 border-border/70 z-50">
+      <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold mb-1 sm:mb-2">
         View Overlay
       </div>
-      <div className="flex gap-1">
+      <div className="flex gap-0.5 sm:gap-1">
         <Button
           variant={overlayMode === 'none' ? 'default' : 'ghost'}
           size="sm"
@@ -5477,6 +5515,7 @@ export default function Game() {
   const { state, setTool, setActivePanel, addMoney, addNotification } = useGame();
   const [overlayMode, setOverlayMode] = useState<OverlayMode>('none');
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const isInitialMount = useRef(true);
   
   // Cheat code system
@@ -5638,10 +5677,10 @@ export default function Game() {
   return (
     <TooltipProvider>
       <div className="w-full h-full min-h-[720px] overflow-hidden bg-background flex">
-        <Sidebar />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
-        <div className="flex-1 flex flex-col">
-          <TopBar />
+        <div className="flex-1 flex flex-col min-w-0">
+          <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
           <StatsPanel />
           <div className="flex-1 relative overflow-visible">
             <CanvasIsometricGrid overlayMode={overlayMode} selectedTile={selectedTile} setSelectedTile={setSelectedTile} />

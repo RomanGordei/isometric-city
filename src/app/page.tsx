@@ -64,7 +64,7 @@ export default function HomePage() {
   if (showGame) {
     return (
       <GameProvider>
-        <main className="h-screen w-screen overflow-hidden">
+        <main className="h-screen w-screen overflow-hidden touch-none">
           <Game />
         </main>
       </GameProvider>
@@ -72,28 +72,28 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-8">
-      <div className="max-w-7xl w-full grid lg:grid-cols-2 gap-16 items-center">
+    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4 sm:p-6 md:p-8">
+      <div className="max-w-7xl w-full grid lg:grid-cols-2 gap-8 md:gap-12 lg:gap-16 items-center">
         
         {/* Left - Title and Start Button */}
-        <div className="flex flex-col items-center lg:items-start justify-center space-y-12">
-          <h1 className="text-8xl font-light tracking-wider text-white/90">
+        <div className="flex flex-col items-center lg:items-start justify-center space-y-6 sm:space-y-8 md:space-y-12">
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-light tracking-wider text-white/90">
             IsoCity
           </h1>
           <Button 
             onClick={() => setShowGame(true)}
-            className="px-12 py-8 text-2xl font-light tracking-wide bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-none transition-all duration-300"
+            className="px-8 sm:px-10 md:px-12 py-6 sm:py-7 md:py-8 text-lg sm:text-xl md:text-2xl font-light tracking-wide bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-none transition-all duration-300 w-full sm:w-auto"
           >
             Start
           </Button>
         </div>
 
         {/* Right - Building Gallery */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
           {BUILDINGS.map((building, index) => (
             <div 
               key={building}
-              className="aspect-square bg-white/5 border border-white/10 p-3 hover:bg-white/10 transition-all duration-300 group"
+              className="aspect-square bg-white/5 border border-white/10 p-2 sm:p-3 hover:bg-white/10 transition-all duration-300 group"
               style={{
                 animationDelay: `${index * 50}ms`,
               }}
