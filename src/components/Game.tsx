@@ -60,6 +60,7 @@ import { VinnieDialog } from '@/components/VinnieDialog';
 const TILE_WIDTH = 64;
 const HEIGHT_RATIO = 0.60;
 const TILE_HEIGHT = TILE_WIDTH * HEIGHT_RATIO;
+const ELEVATION_PIXEL_HEIGHT = TILE_HEIGHT * 0.2; // Vertical lift per elevation level for iso rendering
 const KEY_PAN_SPEED = 520; // Pixels per second for keyboard panning
 
 type CarDirection = 'north' | 'east' | 'south' | 'west';
@@ -5255,6 +5256,9 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         if (!tile.building.onFire) continue;
         
         const { screenX, screenY } = gridToScreen(x, y, 0, 0);
+        const elevation = tile.elevation ?? 0;
+        const elevationOffset = elevation * ELEVATION_PIXEL_HEIGHT;
+        const elevatedScreenY = screenY - elevationOffset;
         const centerX = screenX + TILE_WIDTH / 2;
         const centerY = screenY + TILE_HEIGHT / 2;
         
@@ -6815,14 +6819,16 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         if (y < 0 || y >= gridSize) continue;
         
         const { screenX, screenY } = gridToScreen(x, y, 0, 0);
-        
+        const tile = grid[y][x];
+        const elevation = tile.elevation ?? 0;
+        const elevationOffset = elevation * ELEVATION_PIXEL_HEIGHT;
+        const elevatedScreenY = screenY - elevationOffset;
+
         // Viewport culling
         if (screenX + TILE_WIDTH < viewLeft || screenX > viewRight ||
-            screenY + TILE_HEIGHT * 4 < viewTop || screenY > viewBottom) {
+            elevatedScreenY + TILE_HEIGHT * 4 < viewTop || elevatedScreenY > viewBottom) {
           continue;
         }
-        
-        const tile = grid[y][x];
         const isHovered = hoveredTile?.x === x && hoveredTile?.y === y;
         
         // Check if this tile is selected or part of a selected multi-tile building
@@ -6877,31 +6883,31 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
                                       (tile.building.type === 'empty' && isPartOfParkBuilding(x, y));
         
         // Draw base tile for all tiles (including water), but skip gray bases for buildings and green bases for grass/empty adjacent to water or parks
-        drawIsometricTile(ctx, screenX, screenY, tile, !!(isHovered || isSelected || isInDragRect), zoom, true, needsGreenBaseOverWater || needsGreenBaseForPark);
+        drawIsometricTile(ctx, screenX, elevatedScreenY, tile, !!(isHovered || isSelected || isInDragRect), zoom, true, needsGreenBaseOverWater || needsGreenBaseForPark);
         
         if (needsGreyBase) {
-          baseTileQueue.push({ screenX, screenY, tile, depth: x + y });
+          baseTileQueue.push({ screenX, screenY: elevatedScreenY, tile, depth: x + y });
         }
         
         if (needsGreenBaseOverWater || needsGreenBaseForPark) {
-          greenBaseTileQueue.push({ screenX, screenY, tile, depth: x + y });
+          greenBaseTileQueue.push({ screenX, screenY: elevatedScreenY, tile, depth: x + y });
         }
         
         // Separate water tiles into their own queue (drawn after base tiles, below other buildings)
         if (tile.building.type === 'water') {
           const size = getBuildingSize(tile.building.type);
           const depth = x + y + size.width + size.height - 2;
-          waterQueue.push({ screenX, screenY, tile, depth });
+          waterQueue.push({ screenX, screenY: elevatedScreenY, tile, depth });
         }
         // Roads go to their own queue (drawn above water)
         else if (tile.building.type === 'road') {
           const depth = x + y;
-          roadQueue.push({ screenX, screenY, tile, depth });
+          roadQueue.push({ screenX, screenY: elevatedScreenY, tile, depth });
         }
         // Check for beach tiles (grass/empty tiles adjacent to water)
         else if ((tile.building.type === 'grass' || tile.building.type === 'empty') &&
                  isAdjacentToWater(x, y)) {
-          beachQueue.push({ screenX, screenY, tile, depth: x + y });
+          beachQueue.push({ screenX, screenY: elevatedScreenY, tile, depth: x + y });
         }
         // Other buildings go to regular building queue
         else {
@@ -6909,7 +6915,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
           if (isBuilding) {
             const size = getBuildingSize(tile.building.type);
             const depth = x + y + size.width + size.height - 2;
-            buildingQueue.push({ screenX, screenY, tile, depth });
+            buildingQueue.push({ screenX, screenY: elevatedScreenY, tile, depth });
           }
         }
         
@@ -6923,7 +6929,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
                tile.building.type !== 'water' &&
                tile.building.type !== 'road'));
         if (showOverlay) {
-          overlayQueue.push({ screenX, screenY, tile });
+          overlayQueue.push({ screenX, screenY: elevatedScreenY, tile });
         }
       }
     }
