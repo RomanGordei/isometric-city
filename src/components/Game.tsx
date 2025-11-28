@@ -203,6 +203,40 @@ const ADVISOR_ICON_MAP: Record<string, React.ReactNode> = {
   jobs: <JobsIcon size={18} />,
 };
 
+type TrafficLightPhase = 'ns' | 'ew';
+
+type TrafficLightState = {
+  phase: TrafficLightPhase;
+  timeInPhase: number;
+  nsDuration: number;
+  ewDuration: number;
+};
+
+type RoadAdjacency = {
+  north: boolean;
+  east: boolean;
+  south: boolean;
+  west: boolean;
+};
+
+const TRAFFIC_LIGHT_MIN_DURATION = 5.5;
+const TRAFFIC_LIGHT_MAX_DURATION = 8.5;
+const TRAFFIC_LIGHT_APPROACH_THRESHOLD = 0.9;
+const TRAFFIC_LIGHT_HOLD_PROGRESS = 0.86;
+const MULTI_LANE_WIDTH_SCALE = 1.35;
+const MEDIAN_COLOR = '#2f3f2f';
+const MEDIAN_ACCENT_COLOR = '#9ad06c';
+const TURN_LANE_COLOR = 'rgba(255, 255, 255, 0.12)';
+
+const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+const createTrafficLightState = (): TrafficLightState => ({
+  phase: Math.random() > 0.5 ? 'ns' : 'ew',
+  timeInPhase: Math.random() * 2,
+  nsDuration: randomInRange(TRAFFIC_LIGHT_MIN_DURATION, TRAFFIC_LIGHT_MAX_DURATION),
+  ewDuration: randomInRange(TRAFFIC_LIGHT_MIN_DURATION, TRAFFIC_LIGHT_MAX_DURATION),
+});
+
 // Sun/Moon icon for time of day
 const TimeOfDayIcon = ({ hour }: { hour: number }) => {
   const isNight = hour < 6 || hour >= 20;
@@ -1873,6 +1907,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
   const activeCrimesRef = useRef<Set<string>>(new Set()); // Track crimes that already have a car dispatched
   const activeCrimeIncidentsRef = useRef<Map<string, { x: number; y: number; type: 'robbery' | 'burglary' | 'disturbance' | 'traffic'; timeRemaining: number }>>(new Map()); // Persistent crime incidents
   const crimeSpawnTimerRef = useRef(0); // Timer for spawning new crime incidents
+  const trafficLightsRef = useRef<Map<string, TrafficLightState>>(new Map());
   
   // Pedestrian system refs
   const pedestriansRef = useRef<Pedestrian[]>([]);
@@ -1952,6 +1987,61 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
     worldStateRef.current.gridSize = gridSize;
     // Increment grid version to invalidate cached calculations
     gridVersionRef.current++;
+  }, [grid, gridSize]);
+
+  useEffect(() => {
+    if (!grid || gridSize <= 0) {
+      trafficLightsRef.current.clear();
+      return;
+    }
+
+    const activeKeys = new Set<string>();
+    const isRoadAt = (x: number, y: number) =>
+      x >= 0 &&
+      y >= 0 &&
+      x < gridSize &&
+      y < gridSize &&
+      grid[y][x].building.type === 'road';
+
+    const getAdjacencyFor = (x: number, y: number): RoadAdjacency | null => {
+      if (!isRoadAt(x, y)) return null;
+      return {
+        north: isRoadAt(x - 1, y),
+        east: isRoadAt(x, y - 1),
+        south: isRoadAt(x + 1, y),
+        west: isRoadAt(x, y + 1),
+      };
+    };
+
+    for (let y = 0; y < gridSize; y++) {
+      for (let x = 0; x < gridSize; x++) {
+        const adjacency = getAdjacencyFor(x, y);
+        if (!adjacency) continue;
+        const connections =
+          (adjacency.north ? 1 : 0) +
+          (adjacency.east ? 1 : 0) +
+          (adjacency.south ? 1 : 0) +
+          (adjacency.west ? 1 : 0);
+        const runsBothAxes =
+          (adjacency.north || adjacency.south) &&
+          (adjacency.east || adjacency.west);
+        const qualifies = runsBothAxes || connections >= 3;
+        if (!qualifies) continue;
+        const key = `${x},${y}`;
+        activeKeys.add(key);
+        if (!trafficLightsRef.current.has(key)) {
+          trafficLightsRef.current.set(key, createTrafficLightState());
+        }
+      }
+    }
+
+    const keysToRemove: string[] = [];
+    trafficLightsRef.current.forEach((_, key) => {
+      if (!activeKeys.has(key)) {
+        keysToRemove.push(key);
+      }
+    });
+    keysToRemove.forEach(key => trafficLightsRef.current.delete(key));
   }, [grid, gridSize]);
 
   useEffect(() => {
@@ -2043,6 +2133,18 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       cancelAnimationFrame(animationFrameId);
       pressed.clear();
     };
+  }, []);
+
+  const updateTrafficLights = useCallback((delta: number) => {
+    if (delta <= 0 || trafficLightsRef.current.size === 0) return;
+    trafficLightsRef.current.forEach(light => {
+      light.timeInPhase += delta;
+      const targetDuration = light.phase === 'ns' ? light.nsDuration : light.ewDuration;
+      if (light.timeInPhase >= targetDuration) {
+        light.phase = light.phase === 'ns' ? 'ew' : 'ns';
+        light.timeInPhase = 0;
+      }
+    });
   }, []);
 
   const spawnRandomCar = useCallback(() => {
@@ -2663,6 +2765,20 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       }
     }
     
+    const shouldPauseForTrafficLight = (car: Car): boolean => {
+      if (trafficLightsRef.current.size === 0) return false;
+      const meta = DIRECTION_META[car.direction];
+      const nextX = car.tileX + meta.step.x;
+      const nextY = car.tileY + meta.step.y;
+      if (nextX < 0 || nextY < 0 || nextX >= currentGridSize || nextY >= currentGridSize) return false;
+      if (!isRoadTile(currentGrid, currentGridSize, nextX, nextY)) return false;
+      const light = trafficLightsRef.current.get(`${nextX},${nextY}`);
+      if (!light) return false;
+      const axis: TrafficLightPhase = (car.direction === 'north' || car.direction === 'south') ? 'ns' : 'ew';
+      if (light.phase === axis) return false;
+      return car.progress >= TRAFFIC_LIGHT_APPROACH_THRESHOLD;
+    };
+
     const updatedCars: Car[] = [];
     for (const car of [...carsRef.current]) {
       let alive = true;
@@ -2677,6 +2793,11 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       }
       
       car.progress += car.speed * delta * speedMultiplier;
+      if (shouldPauseForTrafficLight(car)) {
+        car.progress = Math.min(car.progress, TRAFFIC_LIGHT_HOLD_PROGRESS);
+        updatedCars.push(car);
+        continue;
+      }
       let guard = 0;
       while (car.progress >= 1 && guard < 4) {
         guard++;
@@ -5829,10 +5950,63 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       const east = hasRoad(gridX, gridY - 1);   // top-right edge
       const south = hasRoad(gridX + 1, gridY);  // bottom-right edge
       const west = hasRoad(gridX, gridY + 1);   // bottom-left edge
+      const adjacency: RoadAdjacency = { north, east, south, west };
+      const getNeighborAdjacency = (nx: number, ny: number): RoadAdjacency | null => {
+        if (!hasRoad(nx, ny)) return null;
+        return {
+          north: hasRoad(nx - 1, ny),
+          east: hasRoad(nx, ny - 1),
+          south: hasRoad(nx + 1, ny),
+          west: hasRoad(nx, ny + 1),
+        };
+      };
+      const neighborNorthAdj = getNeighborAdjacency(gridX - 1, gridY);
+      const neighborEastAdj = getNeighborAdjacency(gridX, gridY - 1);
+      const neighborSouthAdj = getNeighborAdjacency(gridX + 1, gridY);
+      const neighborWestAdj = getNeighborAdjacency(gridX, gridY + 1);
+      const runsVertical = north || south;
+      const runsHorizontal = east || west;
+      const hasParallelVertical =
+        runsVertical &&
+        ((neighborEastAdj && (neighborEastAdj.north || neighborEastAdj.south)) ||
+         (neighborWestAdj && (neighborWestAdj.north || neighborWestAdj.south)));
+      const hasParallelHorizontal =
+        runsHorizontal &&
+        ((neighborNorthAdj && (neighborNorthAdj.east || neighborNorthAdj.west)) ||
+         (neighborSouthAdj && (neighborSouthAdj.east || neighborSouthAdj.west)));
+      const hasMedianVertical =
+        hasParallelVertical &&
+        neighborEastAdj && (neighborEastAdj.north || neighborEastAdj.south) &&
+        neighborWestAdj && (neighborWestAdj.north || neighborWestAdj.south);
+      const hasMedianHorizontal =
+        hasParallelHorizontal &&
+        neighborNorthAdj && (neighborNorthAdj.east || neighborNorthAdj.west) &&
+        neighborSouthAdj && (neighborSouthAdj.east || neighborSouthAdj.west);
+      const axisStrengthNS = (north ? 1 : 0) + (south ? 1 : 0);
+      const axisStrengthEW = (east ? 1 : 0) + (west ? 1 : 0);
+      let primaryAxis: TrafficLightPhase | null = null;
+      if (axisStrengthNS > axisStrengthEW) {
+        primaryAxis = 'ns';
+      } else if (axisStrengthEW > axisStrengthNS) {
+        primaryAxis = 'ew';
+      }
+      const turnDirections: Array<'north' | 'east' | 'south' | 'west'> = [];
+      if (primaryAxis === 'ns') {
+        if (east) turnDirections.push('east');
+        if (west) turnDirections.push('west');
+      } else if (primaryAxis === 'ew') {
+        if (north) turnDirections.push('north');
+        if (south) turnDirections.push('south');
+      }
+      const trafficLight = trafficLightsRef.current.get(`${gridX},${gridY}`);
       
       // Road width - aligned with gridlines
       const roadW = w * 0.14;
       const roadH = h * 0.14;
+      const getAxisWidthScale = (axis: TrafficLightPhase) =>
+        axis === 'ns'
+          ? (hasParallelVertical ? MULTI_LANE_WIDTH_SCALE : 1)
+          : (hasParallelHorizontal ? MULTI_LANE_WIDTH_SCALE : 1);
       
       // Sidewalk configuration
       const sidewalkWidth = w * 0.08; // Width of the sidewalk strip
@@ -5866,6 +6040,115 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       
       // Perpendicular vectors for road width (rotated 90 degrees)
       const getPerp = (dx: number, dy: number) => ({ nx: -dy, ny: dx });
+      const directionVectors: Record<'north' | 'east' | 'south' | 'west', { dx: number; dy: number; perp: { nx: number; ny: number } }> = {
+        north: { dx: northDx, dy: northDy, perp: getPerp(northDx, northDy) },
+        east: { dx: eastDx, dy: eastDy, perp: getPerp(eastDx, eastDy) },
+        south: { dx: southDx, dy: southDy, perp: getPerp(southDx, southDy) },
+        west: { dx: westDx, dy: westDy, perp: getPerp(westDx, westDy) },
+      };
+      const drawMedian = (axis: TrafficLightPhase) => {
+        const start = axis === 'ns' ? { x: northEdgeX, y: northEdgeY } : { x: eastEdgeX, y: eastEdgeY };
+        const end = axis === 'ns' ? { x: southEdgeX, y: southEdgeY } : { x: westEdgeX, y: westEdgeY };
+        const axisDx = end.x - start.x;
+        const axisDy = end.y - start.y;
+        const axisLen = Math.hypot(axisDx, axisDy);
+        if (axisLen === 0) return;
+        const ndx = axisDx / axisLen;
+        const ndy = axisDy / axisLen;
+        const perp = { nx: -ndy, ny: ndx };
+        const medianLength = roadW * 1.4;
+        const medianHalf = roadW * 0.28;
+        ctx.fillStyle = MEDIAN_COLOR;
+        ctx.beginPath();
+        ctx.moveTo(cx - ndx * medianLength + perp.nx * medianHalf, cy - ndy * medianLength + perp.ny * medianHalf);
+        ctx.lineTo(cx + ndx * medianLength + perp.nx * medianHalf, cy + ndy * medianLength + perp.ny * medianHalf);
+        ctx.lineTo(cx + ndx * medianLength - perp.nx * medianHalf, cy + ndy * medianLength - perp.ny * medianHalf);
+        ctx.lineTo(cx - ndx * medianLength - perp.nx * medianHalf, cy - ndy * medianLength - perp.ny * medianHalf);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = MEDIAN_ACCENT_COLOR;
+        for (let i = -1; i <= 1; i++) {
+          const t = i / 2;
+          const px = cx + ndx * medianLength * t;
+          const py = cy + ndy * medianLength * t;
+          ctx.beginPath();
+          ctx.arc(px, py, 1.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      };
+      const drawLaneDivider = (axis: TrafficLightPhase) => {
+        const start = axis === 'ns' ? { x: northEdgeX, y: northEdgeY } : { x: eastEdgeX, y: eastEdgeY };
+        const end = axis === 'ns' ? { x: southEdgeX, y: southEdgeY } : { x: westEdgeX, y: westEdgeY };
+        const axisDx = end.x - start.x;
+        const axisDy = end.y - start.y;
+        const axisLen = Math.hypot(axisDx, axisDy);
+        if (axisLen === 0) return;
+        const ndx = axisDx / axisLen;
+        const ndy = axisDy / axisLen;
+        const perp = { nx: -ndy, ny: ndx };
+        const offset = roadW * 0.28;
+        const extension = 4;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(229, 231, 235, 0.75)';
+        ctx.lineWidth = 0.8;
+        ctx.setLineDash([2.2, 2.2]);
+        const drawLine = (sign: number) => {
+          ctx.beginPath();
+          ctx.moveTo(
+            start.x - ndx * extension + perp.nx * offset * sign,
+            start.y - ndy * extension + perp.ny * offset * sign
+          );
+          ctx.lineTo(
+            end.x + ndx * extension + perp.nx * offset * sign,
+            end.y + ndy * extension + perp.ny * offset * sign
+          );
+          ctx.stroke();
+        };
+        drawLine(1);
+        drawLine(-1);
+        ctx.restore();
+      };
+      const drawTurnLaneHighlight = (direction: 'north' | 'east' | 'south' | 'west') => {
+        if (!adjacency[direction]) return;
+        const dir = directionVectors[direction];
+        if (!dir) return;
+        const baseDistance = roadW * 0.35;
+        const tipDistance = roadW * 1.1;
+        const halfWidth = roadW * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(
+          cx + dir.dx * baseDistance + dir.perp.nx * halfWidth,
+          cy + dir.dy * baseDistance + dir.perp.ny * halfWidth
+        );
+        ctx.lineTo(
+          cx + dir.dx * tipDistance,
+          cy + dir.dy * tipDistance
+        );
+        ctx.lineTo(
+          cx + dir.dx * baseDistance - dir.perp.nx * halfWidth,
+          cy + dir.dy * baseDistance - dir.perp.ny * halfWidth
+        );
+        ctx.closePath();
+        ctx.fill();
+      };
+      const drawTrafficLightIcon = (phase: TrafficLightPhase) => {
+        ctx.save();
+        ctx.translate(cx, cy - TILE_HEIGHT * 0.2);
+        ctx.fillStyle = '#1f2937';
+        ctx.fillRect(-2.2, -9, 4.4, 8);
+        ctx.fillRect(-0.4, -11, 0.8, 2);
+        const nsColor = phase === 'ns' ? '#4ade80' : '#ef4444';
+        const ewColor = phase === 'ew' ? '#4ade80' : '#ef4444';
+        ctx.fillStyle = nsColor;
+        ctx.beginPath();
+        ctx.arc(0, -6.5, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = ewColor;
+        ctx.beginPath();
+        ctx.arc(0, -3.5, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
       
       // ============================================
       // DRAW SIDEWALKS FIRST (underneath the road)
@@ -6089,7 +6372,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         const stopX = cx + (northEdgeX - cx) * edgeStop;
         const stopY = cy + (northEdgeY - cy) * edgeStop;
         const perp = getPerp(northDx, northDy);
-        const halfWidth = roadW * 0.5;
+        const halfWidth = roadW * 0.5 * getAxisWidthScale('ns');
         ctx.beginPath();
         ctx.moveTo(cx + perp.nx * halfWidth, cy + perp.ny * halfWidth);
         ctx.lineTo(stopX + perp.nx * halfWidth, stopY + perp.ny * halfWidth);
@@ -6104,7 +6387,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         const stopX = cx + (eastEdgeX - cx) * edgeStop;
         const stopY = cy + (eastEdgeY - cy) * edgeStop;
         const perp = getPerp(eastDx, eastDy);
-        const halfWidth = roadW * 0.5;
+        const halfWidth = roadW * 0.5 * getAxisWidthScale('ew');
         ctx.beginPath();
         ctx.moveTo(cx + perp.nx * halfWidth, cy + perp.ny * halfWidth);
         ctx.lineTo(stopX + perp.nx * halfWidth, stopY + perp.ny * halfWidth);
@@ -6119,7 +6402,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         const stopX = cx + (southEdgeX - cx) * edgeStop;
         const stopY = cy + (southEdgeY - cy) * edgeStop;
         const perp = getPerp(southDx, southDy);
-        const halfWidth = roadW * 0.5;
+        const halfWidth = roadW * 0.5 * getAxisWidthScale('ns');
         ctx.beginPath();
         ctx.moveTo(cx + perp.nx * halfWidth, cy + perp.ny * halfWidth);
         ctx.lineTo(stopX + perp.nx * halfWidth, stopY + perp.ny * halfWidth);
@@ -6134,7 +6417,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         const stopX = cx + (westEdgeX - cx) * edgeStop;
         const stopY = cy + (westEdgeY - cy) * edgeStop;
         const perp = getPerp(westDx, westDy);
-        const halfWidth = roadW * 0.5;
+        const halfWidth = roadW * 0.5 * getAxisWidthScale('ew');
         ctx.beginPath();
         ctx.moveTo(cx + perp.nx * halfWidth, cy + perp.ny * halfWidth);
         ctx.lineTo(stopX + perp.nx * halfWidth, stopY + perp.ny * halfWidth);
@@ -6145,7 +6428,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       }
       
       // Center intersection (always drawn)
-      const centerSize = roadW * 1.4;
+      const centerSize = roadW * (hasParallelVertical || hasParallelHorizontal ? 1.8 : 1.4);
       ctx.beginPath();
       ctx.moveTo(cx, cy - centerSize);
       ctx.lineTo(cx + centerSize, cy);
@@ -6153,6 +6436,12 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       ctx.lineTo(cx - centerSize, cy);
       ctx.closePath();
       ctx.fill();
+      if (hasMedianVertical) {
+        drawMedian('ns');
+      }
+      if (hasMedianHorizontal) {
+        drawMedian('ew');
+      }
       
       // Draw road markings (yellow dashed lines) - aligned with gridlines
       ctx.strokeStyle = '#fbbf24';
@@ -6199,6 +6488,19 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       
       ctx.setLineDash([]);
       ctx.lineCap = 'butt';
+      if (hasParallelVertical) {
+        drawLaneDivider('ns');
+      }
+      if (hasParallelHorizontal) {
+        drawLaneDivider('ew');
+      }
+      if (turnDirections.length > 0) {
+        ctx.fillStyle = TURN_LANE_COLOR;
+        turnDirections.forEach(direction => drawTurnLaneHighlight(direction));
+      }
+      if (trafficLight) {
+        drawTrafficLightIcon(trafficLight.phase);
+      }
     }
     
     // Draw isometric tile base
@@ -7161,6 +7463,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       lastRenderTime = time;
       
       if (delta > 0) {
+        updateTrafficLights(delta);
         updateCars(delta);
         spawnCrimeIncidents(delta); // Spawn new crime incidents
         updateCrimeIncidents(delta); // Update/decay crime incidents
@@ -7186,7 +7489,7 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
     
     animationFrameId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [canvasSize.width, canvasSize.height, updateCars, drawCars, spawnCrimeIncidents, updateCrimeIncidents, updateEmergencyVehicles, drawEmergencyVehicles, updatePedestrians, drawPedestrians, updateAirplanes, drawAirplanes, updateHelicopters, drawHelicopters, updateBoats, drawBoats, drawIncidentIndicators, updateFireworks, drawFireworks, updateSmog, drawSmog, hour, isMobile]);
+  }, [canvasSize.width, canvasSize.height, updateTrafficLights, updateCars, drawCars, spawnCrimeIncidents, updateCrimeIncidents, updateEmergencyVehicles, drawEmergencyVehicles, updatePedestrians, drawPedestrians, updateAirplanes, drawAirplanes, updateHelicopters, drawHelicopters, updateBoats, drawBoats, drawIncidentIndicators, updateFireworks, drawFireworks, updateSmog, drawSmog, hour, isMobile]);
   
   // Day/Night cycle lighting rendering - optimized for performance
   useEffect(() => {
