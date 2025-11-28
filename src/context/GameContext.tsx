@@ -48,6 +48,8 @@ type GameContextValue = {
   isSaving: boolean;
   addMoney: (amount: number) => void;
   addNotification: (title: string, description: string, icon: string) => void;
+  sessionStartTime: number;
+  sessionPlacementCount: number;
   // Sprite pack management
   currentSpritePack: SpritePack;
   availableSpritePacks: SpritePack[];
@@ -268,12 +270,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   
   const [hasExistingGame, setHasExistingGame] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState(() => Date.now());
+  const [sessionPlacementCount, setSessionPlacementCount] = useState(0);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextSaveRef = useRef(false);
   const hasLoadedRef = useRef(false);
   
   // Sprite pack state
   const [currentSpritePack, setCurrentSpritePack] = useState<SpritePack>(() => getSpritePack(DEFAULT_SPRITE_PACK_ID));
+  
+  const resetSessionMetrics = useCallback(() => {
+    setSessionStartTime(Date.now());
+    setSessionPlacementCount(0);
+  }, []);
   
   // Load game state and sprite pack from localStorage on mount (client-side only)
   useEffect(() => {
@@ -294,7 +303,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
     // Mark as loaded immediately - the skipNextSaveRef will handle skipping the first save
     hasLoadedRef.current = true;
-  }, []);
+    resetSessionMetrics();
+  }, [resetSessionMetrics]);
   
   // Track the state that needs to be saved
   const stateToSaveRef = useRef<GameState | null>(null);
@@ -435,6 +445,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   );
 
   const placeAtTile = useCallback((x: number, y: number) => {
+    let placedSuccessfully = false;
     setState((prev) => {
       const tool = prev.selectedTool;
       if (tool === 'select') return prev;
@@ -466,7 +477,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         
         const nextState = placeSubway(prev, x, y);
         if (nextState === prev) return prev;
-        
+        placedSuccessfully = true;
         return {
           ...nextState,
           stats: { ...nextState.stats, money: nextState.stats.money - cost },
@@ -494,9 +505,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
+      placedSuccessfully = true;
       return nextState;
     });
-  }, []);
+    if (placedSuccessfully) {
+      setSessionPlacementCount((count) => count + 1);
+    }
+  }, [setSessionPlacementCount]);
 
   const connectToCity = useCallback((cityId: string) => {
     setState((prev) => {
@@ -609,7 +624,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     clearGameState(); // Clear saved state when starting fresh
     const fresh = createInitialGameState(size ?? 60, name || 'IsoCity');
     setState(fresh);
-  }, []);
+    resetSessionMetrics();
+  }, [resetSessionMetrics]);
 
   const loadState = useCallback((stateString: string): boolean => {
     try {
@@ -656,13 +672,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           }
         }
         setState(parsed as GameState);
+        resetSessionMetrics();
         return true;
       }
       return false;
     } catch {
       return false;
     }
-  }, []);
+  }, [resetSessionMetrics]);
 
   const exportState = useCallback((): string => {
     return JSON.stringify(state);
@@ -720,6 +737,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     isSaving,
     addMoney,
     addNotification,
+    sessionStartTime,
+    sessionPlacementCount,
     // Sprite pack management
     currentSpritePack,
     availableSpritePacks: SPRITE_PACKS,

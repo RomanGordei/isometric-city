@@ -12,6 +12,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useCheatCodes } from '@/hooks/useCheatCodes';
 import { VinnieDialog } from '@/components/VinnieDialog';
 import { CommandMenu } from '@/components/ui/CommandMenu';
+import { Button } from '@/components/ui/button';
 
 // Import game components
 import { OverlayMode } from '@/components/game/types';
@@ -29,7 +30,17 @@ import { TopBar, StatsPanel } from '@/components/game/TopBar';
 import { CanvasIsometricGrid } from '@/components/game/CanvasIsometricGrid';
 
 export default function Game() {
-  const { state, setTool, setActivePanel, addMoney, addNotification, setSpeed } = useGame();
+  const {
+    state,
+    setTool,
+    setActivePanel,
+    addMoney,
+    addNotification,
+    setSpeed,
+    loadState,
+    sessionPlacementCount,
+    sessionStartTime,
+  } = useGame();
   const [overlayMode, setOverlayMode] = useState<OverlayMode>('none');
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
   const [navigationTarget, setNavigationTarget] = useState<{ x: number; y: number } | null>(null);
@@ -37,6 +48,9 @@ export default function Game() {
   const isInitialMount = useRef(true);
   const { isMobileDevice, isSmallScreen } = useMobile();
   const isMobile = isMobileDevice || isSmallScreen;
+  const [showRandomCityToast, setShowRandomCityToast] = useState(false);
+  const [randomCityPromptDismissed, setRandomCityPromptDismissed] = useState(false);
+  const [isRandomCityLoading, setIsRandomCityLoading] = useState(false);
   
   // Cheat code system
   const {
@@ -181,79 +195,166 @@ export default function Game() {
         break;
     }
   }, [triggeredCheat, addMoney, addNotification, clearTriggeredCheat]);
+  
+  // Reset prompt state whenever a new session starts (e.g., load/new game)
+  useEffect(() => {
+    setRandomCityPromptDismissed(false);
+    setShowRandomCityToast(false);
+  }, [sessionStartTime]);
+  
+  // Trigger toast if the player stays idle within the opening window
+  useEffect(() => {
+    if (randomCityPromptDismissed) {
+      setShowRandomCityToast(false);
+      return;
+    }
+    
+    if (sessionPlacementCount >= 10) {
+      setShowRandomCityToast(false);
+      return;
+    }
+    
+    const now = Date.now();
+    const elapsed = now - sessionStartTime;
+    
+    if (elapsed >= 30000) {
+      setShowRandomCityToast(true);
+      return;
+    }
+    
+    const timeout = window.setTimeout(() => {
+      if (!randomCityPromptDismissed && sessionPlacementCount < 10) {
+        setShowRandomCityToast(true);
+      }
+    }, Math.max(0, 30000 - elapsed));
+    
+    return () => clearTimeout(timeout);
+  }, [sessionPlacementCount, sessionStartTime, randomCityPromptDismissed]);
+  
+  const handleDismissRandomCityToast = useCallback(() => {
+    setShowRandomCityToast(false);
+    setRandomCityPromptDismissed(true);
+  }, []);
+  
+  const handleLoadRandomCity = useCallback(async () => {
+    setIsRandomCityLoading(true);
+    try {
+      const { default: exampleState5 } = await import('@/resources/example_state_5.json');
+      const success = loadState(JSON.stringify(exampleState5));
+      if (success) {
+        setShowRandomCityToast(false);
+        setRandomCityPromptDismissed(true);
+      }
+    } catch (error) {
+      console.error('Failed to load example city', error);
+    } finally {
+      setIsRandomCityLoading(false);
+    }
+  }, [loadState]);
 
-  // Mobile layout
-  if (isMobile) {
-    return (
-      <TooltipProvider>
-        <div className="w-full h-full overflow-hidden bg-background flex flex-col">
-          {/* Mobile Top Bar */}
-          <MobileTopBar 
-            selectedTile={selectedTile && state.selectedTool === 'select' ? state.grid[selectedTile.y][selectedTile.x] : null}
-            services={state.services}
-            onCloseTile={() => setSelectedTile(null)}
+  const mobileLayout = (
+    <div className="w-full h-full overflow-hidden bg-background flex flex-col">
+      {/* Mobile Top Bar */}
+      <MobileTopBar 
+        selectedTile={selectedTile && state.selectedTool === 'select' ? state.grid[selectedTile.y][selectedTile.x] : null}
+        services={state.services}
+        onCloseTile={() => setSelectedTile(null)}
+      />
+      
+      {/* Main canvas area - fills remaining space, with padding for top/bottom bars */}
+      <div className="flex-1 relative overflow-hidden" style={{ paddingTop: '72px', paddingBottom: '76px' }}>
+        <CanvasIsometricGrid 
+          overlayMode={overlayMode} 
+          selectedTile={selectedTile} 
+          setSelectedTile={setSelectedTile}
+          isMobile={true}
+        />
+      </div>
+      
+      {/* Mobile Bottom Toolbar */}
+      <MobileToolbar 
+        onOpenPanel={(panel) => setActivePanel(panel)}
+        overlayMode={overlayMode}
+        setOverlayMode={setOverlayMode}
+      />
+      
+      {/* Panels - render as fullscreen modals on mobile */}
+      {state.activePanel === 'budget' && <BudgetPanel />}
+      {state.activePanel === 'statistics' && <StatisticsPanel />}
+      {state.activePanel === 'advisors' && <AdvisorsPanel />}
+      {state.activePanel === 'settings' && <SettingsPanel />}
+      
+      <VinnieDialog open={showVinnieDialog} onOpenChange={setShowVinnieDialog} />
+    </div>
+  );
+  
+  const desktopLayout = (
+    <div className="w-full h-full min-h-[720px] overflow-hidden bg-background flex">
+      <Sidebar />
+      
+      <div className="flex-1 flex flex-col">
+        <TopBar />
+        <StatsPanel />
+        <div className="flex-1 relative overflow-visible">
+          <CanvasIsometricGrid 
+            overlayMode={overlayMode} 
+            selectedTile={selectedTile} 
+            setSelectedTile={setSelectedTile}
+            navigationTarget={navigationTarget}
+            onNavigationComplete={() => setNavigationTarget(null)}
+            onViewportChange={setViewport}
           />
-          
-          {/* Main canvas area - fills remaining space, with padding for top/bottom bars */}
-          <div className="flex-1 relative overflow-hidden" style={{ paddingTop: '72px', paddingBottom: '76px' }}>
-            <CanvasIsometricGrid 
-              overlayMode={overlayMode} 
-              selectedTile={selectedTile} 
-              setSelectedTile={setSelectedTile}
-              isMobile={true}
-            />
-          </div>
-          
-          {/* Mobile Bottom Toolbar */}
-          <MobileToolbar 
-            onOpenPanel={(panel) => setActivePanel(panel)}
-            overlayMode={overlayMode}
-            setOverlayMode={setOverlayMode}
-          />
-          
-          {/* Panels - render as fullscreen modals on mobile */}
-          {state.activePanel === 'budget' && <BudgetPanel />}
-          {state.activePanel === 'statistics' && <StatisticsPanel />}
-          {state.activePanel === 'advisors' && <AdvisorsPanel />}
-          {state.activePanel === 'settings' && <SettingsPanel />}
-          
-          <VinnieDialog open={showVinnieDialog} onOpenChange={setShowVinnieDialog} />
+          <OverlayModeToggle overlayMode={overlayMode} setOverlayMode={setOverlayMode} />
+          <MiniMap onNavigate={(x, y) => setNavigationTarget({ x, y })} viewport={viewport} />
         </div>
-      </TooltipProvider>
-    );
-  }
-
-  // Desktop layout
+      </div>
+      
+      {state.activePanel === 'budget' && <BudgetPanel />}
+      {state.activePanel === 'statistics' && <StatisticsPanel />}
+      {state.activePanel === 'advisors' && <AdvisorsPanel />}
+      {state.activePanel === 'settings' && <SettingsPanel />}
+      
+      <VinnieDialog open={showVinnieDialog} onOpenChange={setShowVinnieDialog} />
+      <CommandMenu />
+    </div>
+  );
+  
+  const randomCityToast = showRandomCityToast ? (
+    <div className="fixed bottom-4 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 px-4">
+      <div className="rounded-lg border border-border bg-background/95 shadow-2xl backdrop-blur p-4 space-y-3">
+        <div className="text-sm font-medium">Try random city?</div>
+        <p className="text-xs text-muted-foreground">
+          Place 10 tiles to keep building or jump into our curated example city #5.
+        </p>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={handleDismissRandomCityToast}
+            disabled={isRandomCityLoading}
+          >
+            Maybe later
+          </Button>
+          <Button
+            size="sm"
+            className="flex-1"
+            onClick={handleLoadRandomCity}
+            disabled={isRandomCityLoading}
+          >
+            {isRandomCityLoading ? 'Loading...' : 'Load it'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+  
+  const layout = isMobile ? mobileLayout : desktopLayout;
+  
   return (
     <TooltipProvider>
-      <div className="w-full h-full min-h-[720px] overflow-hidden bg-background flex">
-        <Sidebar />
-        
-        <div className="flex-1 flex flex-col">
-          <TopBar />
-          <StatsPanel />
-          <div className="flex-1 relative overflow-visible">
-            <CanvasIsometricGrid 
-              overlayMode={overlayMode} 
-              selectedTile={selectedTile} 
-              setSelectedTile={setSelectedTile}
-              navigationTarget={navigationTarget}
-              onNavigationComplete={() => setNavigationTarget(null)}
-              onViewportChange={setViewport}
-            />
-            <OverlayModeToggle overlayMode={overlayMode} setOverlayMode={setOverlayMode} />
-            <MiniMap onNavigate={(x, y) => setNavigationTarget({ x, y })} viewport={viewport} />
-          </div>
-        </div>
-        
-        {state.activePanel === 'budget' && <BudgetPanel />}
-        {state.activePanel === 'statistics' && <StatisticsPanel />}
-        {state.activePanel === 'advisors' && <AdvisorsPanel />}
-        {state.activePanel === 'settings' && <SettingsPanel />}
-        
-        <VinnieDialog open={showVinnieDialog} onOpenChange={setShowVinnieDialog} />
-        <CommandMenu />
-      </div>
+      {layout}
+      {randomCityToast}
     </TooltipProvider>
   );
 }
