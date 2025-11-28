@@ -6003,6 +6003,11 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       // ALL buildings get grey/concrete base tiles (except parks which stay green)
       const hasGreyBase = isBuilding && !isPark;
       
+      // Apply grey color based on elevation for hills (increasingly grey as altitude goes up)
+      // Only apply to grass/tree tiles (not water, roads, or buildings)
+      const isHill = tile.elevation > 0 && 
+                     (tile.building.type === 'grass' || tile.building.type === 'tree');
+      
       if (tile.building.type === 'water') {
         topColor = '#2563eb';
         leftColor = '#1d4ed8';
@@ -6018,6 +6023,18 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         leftColor = '#3d6634';
         rightColor = '#5a8f4f';
         strokeColor = '#2d4a26';
+      } else if (isHill) {
+        // Hills: increasingly grey as elevation increases (max elevation is 8)
+        // Base grass color mixed with grey based on elevation
+        const elevationFactor = Math.min(tile.elevation / 8, 1); // 0 to 1
+        // Mix green grass color with grey - higher elevation = more grey
+        const greyAmount = Math.floor(100 + elevationFactor * 100); // 100-200
+        const greenAmount = Math.floor(124 - elevationFactor * 60); // 124-64
+        const blueAmount = Math.floor(63 - elevationFactor * 30); // 63-33
+        topColor = `rgb(${greyAmount}, ${greenAmount + 20}, ${blueAmount + 20})`;
+        leftColor = `rgb(${greyAmount - 20}, ${greenAmount}, ${blueAmount})`;
+        rightColor = `rgb(${greyAmount + 20}, ${greenAmount + 30}, ${blueAmount + 30})`;
+        strokeColor = `rgb(${greyAmount - 30}, ${greenAmount - 20}, ${blueAmount - 20})`;
       } else if (hasGreyBase && !skipGreyBase) {
         // Grey/concrete base tiles for ALL buildings (except parks)
         // Skip if skipGreyBase is true (will be drawn later after water)
@@ -6772,15 +6789,20 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         const y = sum - x;
         if (y < 0 || y >= gridSize) continue;
         
-        const { screenX, screenY } = gridToScreen(x, y, 0, 0);
+        const tile = grid[y][x];
+        const { screenX: baseScreenX, screenY: baseScreenY } = gridToScreen(x, y, 0, 0);
+        
+        // Adjust screen position based on elevation (raise hills up)
+        // Each elevation level raises the tile by TILE_HEIGHT * 0.3
+        const elevationOffset = -tile.elevation * TILE_HEIGHT * 0.3;
+        const screenX = baseScreenX;
+        const screenY = baseScreenY + elevationOffset;
         
         // Viewport culling
         if (screenX + TILE_WIDTH < viewLeft || screenX > viewRight ||
             screenY + TILE_HEIGHT * 4 < viewTop || screenY > viewBottom) {
           continue;
         }
-        
-        const tile = grid[y][x];
         const isHovered = hoveredTile?.x === x && hoveredTile?.y === y;
         
         // Check if this tile is selected or part of a selected multi-tile building
