@@ -6003,6 +6003,9 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       // ALL buildings get grey/concrete base tiles (except parks which stay green)
       const hasGreyBase = isBuilding && !isPark;
       
+      // Check if this is a hill tile (height > 0)
+      const isHill = tile.height > 0;
+      
       if (tile.building.type === 'water') {
         topColor = '#2563eb';
         leftColor = '#1d4ed8';
@@ -6013,6 +6016,25 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         leftColor = '#3a3a3a';
         rightColor = '#5a5a5a';
         strokeColor = '#333';
+      } else if (isHill) {
+        // Hills: increasingly grey as height increases (0-8 height range)
+        // Base grass color: #4a7c3f, grey: #808080
+        // Interpolate between grass and grey based on height
+        const heightFactor = Math.min(1, tile.height / 8); // Normalize to 0-1
+        const grassR = 74, grassG = 124, grassB = 63;
+        const greyR = 128, greyG = 128, greyB = 128;
+        const r = Math.floor(grassR + (greyR - grassR) * heightFactor);
+        const g = Math.floor(grassG + (greyG - grassG) * heightFactor);
+        const b = Math.floor(grassB + (greyB - grassB) * heightFactor);
+        const greyColor = `rgb(${r}, ${g}, ${b})`;
+        // Darker sides for 3D effect
+        const darkerR = Math.max(0, r - 30);
+        const darkerG = Math.max(0, g - 30);
+        const darkerB = Math.max(0, b - 30);
+        topColor = greyColor;
+        leftColor = `rgb(${darkerR}, ${darkerG}, ${darkerB})`;
+        rightColor = `rgb(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)})`;
+        strokeColor = `rgb(${Math.max(0, r - 50)}, ${Math.max(0, g - 50)}, ${Math.max(0, b - 50)})`;
       } else if (isPark) {
         topColor = '#4a7c3f';
         leftColor = '#3d6634';
@@ -6063,14 +6085,41 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       // Skip drawing green base for grass/empty tiles adjacent to water (will be drawn later over water)
       const shouldSkipDrawing = skipGreenBase && (tile.building.type === 'grass' || tile.building.type === 'empty');
       
+      // Calculate elevation offset for hills (3D effect)
+      const elevationOffset = isHill ? tile.height * (h * 0.15) : 0; // Each height unit = 15% of tile height
+      const adjustedY = y - elevationOffset;
+      
+      // Draw 3D sides for hills (left and right faces)
+      if (isHill && !shouldSkipDrawing) {
+        // Left face (darker)
+        ctx.fillStyle = leftColor;
+        ctx.beginPath();
+        ctx.moveTo(x, adjustedY + h / 2);
+        ctx.lineTo(x + w / 2, adjustedY + h);
+        ctx.lineTo(x + w / 2, adjustedY + h + elevationOffset);
+        ctx.lineTo(x, adjustedY + h / 2 + elevationOffset);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Right face (lighter)
+        ctx.fillStyle = rightColor;
+        ctx.beginPath();
+        ctx.moveTo(x + w / 2, adjustedY + h);
+        ctx.lineTo(x + w, adjustedY + h / 2);
+        ctx.lineTo(x + w, adjustedY + h / 2 + elevationOffset);
+        ctx.lineTo(x + w / 2, adjustedY + h + elevationOffset);
+        ctx.closePath();
+        ctx.fill();
+      }
+      
       // Draw the isometric diamond (top face)
       if (!shouldSkipDrawing) {
         ctx.fillStyle = topColor;
         ctx.beginPath();
-        ctx.moveTo(x + w / 2, y);
-        ctx.lineTo(x + w, y + h / 2);
-        ctx.lineTo(x + w / 2, y + h);
-        ctx.lineTo(x, y + h / 2);
+        ctx.moveTo(x + w / 2, adjustedY);
+        ctx.lineTo(x + w, adjustedY + h / 2);
+        ctx.lineTo(x + w / 2, adjustedY + h);
+        ctx.lineTo(x, adjustedY + h / 2);
         ctx.closePath();
         ctx.fill();
         
@@ -6099,10 +6148,10 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         // Draw a semi-transparent fill for better visibility
         ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
         ctx.beginPath();
-        ctx.moveTo(x + w / 2, y);
-        ctx.lineTo(x + w, y + h / 2);
-        ctx.lineTo(x + w / 2, y + h);
-        ctx.lineTo(x, y + h / 2);
+        ctx.moveTo(x + w / 2, adjustedY);
+        ctx.lineTo(x + w, adjustedY + h / 2);
+        ctx.lineTo(x + w / 2, adjustedY + h);
+        ctx.lineTo(x, adjustedY + h / 2);
         ctx.closePath();
         ctx.fill();
         
@@ -6118,13 +6167,32 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
       const w = TILE_WIDTH;
       const h = TILE_HEIGHT;
       
+      // Check if this is a hill tile
+      const isHill = tile.height > 0;
+      
       // Determine green base colors based on zone
       let topColor = '#4a7c3f'; // default grass
       let leftColor = '#3d6634';
       let rightColor = '#5a8f4f';
       let strokeColor = '#2d4a26';
       
-      if (tile.zone === 'residential') {
+      if (isHill) {
+        // Hills: increasingly grey as height increases
+        const heightFactor = Math.min(1, tile.height / 8);
+        const grassR = 74, grassG = 124, grassB = 63;
+        const greyR = 128, greyG = 128, greyB = 128;
+        const r = Math.floor(grassR + (greyR - grassR) * heightFactor);
+        const g = Math.floor(grassG + (greyG - grassG) * heightFactor);
+        const b = Math.floor(grassB + (greyB - grassB) * heightFactor);
+        const greyColor = `rgb(${r}, ${g}, ${b})`;
+        const darkerR = Math.max(0, r - 30);
+        const darkerG = Math.max(0, g - 30);
+        const darkerB = Math.max(0, b - 30);
+        topColor = greyColor;
+        leftColor = `rgb(${darkerR}, ${darkerG}, ${darkerB})`;
+        rightColor = `rgb(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)})`;
+        strokeColor = `rgb(${Math.max(0, r - 50)}, ${Math.max(0, g - 50)}, ${Math.max(0, b - 50)})`;
+      } else if (tile.zone === 'residential') {
         topColor = '#2d5a2d';
         leftColor = '#1d4a1d';
         rightColor = '#3d6a3d';
@@ -6141,13 +6209,40 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMob
         strokeColor = '#f59e0b';
       }
       
+      // Calculate elevation offset for hills
+      const elevationOffset = isHill ? tile.height * (h * 0.15) : 0;
+      const adjustedY = y - elevationOffset;
+      
+      // Draw 3D sides for hills
+      if (isHill) {
+        // Left face
+        ctx.fillStyle = leftColor;
+        ctx.beginPath();
+        ctx.moveTo(x, adjustedY + h / 2);
+        ctx.lineTo(x + w / 2, adjustedY + h);
+        ctx.lineTo(x + w / 2, adjustedY + h + elevationOffset);
+        ctx.lineTo(x, adjustedY + h / 2 + elevationOffset);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Right face
+        ctx.fillStyle = rightColor;
+        ctx.beginPath();
+        ctx.moveTo(x + w / 2, adjustedY + h);
+        ctx.lineTo(x + w, adjustedY + h / 2);
+        ctx.lineTo(x + w, adjustedY + h / 2 + elevationOffset);
+        ctx.lineTo(x + w / 2, adjustedY + h + elevationOffset);
+        ctx.closePath();
+        ctx.fill();
+      }
+      
       // Draw the isometric diamond (top face)
       ctx.fillStyle = topColor;
       ctx.beginPath();
-      ctx.moveTo(x + w / 2, y);
-      ctx.lineTo(x + w, y + h / 2);
-      ctx.lineTo(x + w / 2, y + h);
-      ctx.lineTo(x, y + h / 2);
+      ctx.moveTo(x + w / 2, adjustedY);
+      ctx.lineTo(x + w, adjustedY + h / 2);
+      ctx.lineTo(x + w / 2, adjustedY + h);
+      ctx.lineTo(x, adjustedY + h / 2);
       ctx.closePath();
       ctx.fill();
       
