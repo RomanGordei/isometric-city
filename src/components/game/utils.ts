@@ -23,6 +23,22 @@ export function getDirectionOptions(gridData: Tile[][], gridSizeValue: number, x
   return options;
 }
 
+// Check if a tile is a rail
+export function isRailTile(gridData: Tile[][], gridSizeValue: number, x: number, y: number): boolean {
+  if (x < 0 || y < 0 || x >= gridSizeValue || y >= gridSizeValue) return false;
+  return gridData[y][x].building.type === 'rail';
+}
+
+// Get available direction options from a rail tile
+export function getRailDirectionOptions(gridData: Tile[][], gridSizeValue: number, x: number, y: number): CarDirection[] {
+  const options: CarDirection[] = [];
+  if (isRailTile(gridData, gridSizeValue, x - 1, y)) options.push('north');
+  if (isRailTile(gridData, gridSizeValue, x, y - 1)) options.push('east');
+  if (isRailTile(gridData, gridSizeValue, x + 1, y)) options.push('south');
+  if (isRailTile(gridData, gridSizeValue, x, y + 1)) options.push('west');
+  return options;
+}
+
 // Pick next direction for vehicle movement
 export function pickNextDirection(
   previousDirection: CarDirection,
@@ -32,6 +48,22 @@ export function pickNextDirection(
   y: number
 ): CarDirection | null {
   const options = getDirectionOptions(gridData, gridSizeValue, x, y);
+  if (options.length === 0) return null;
+  const incoming = getOppositeDirection(previousDirection);
+  const filtered = options.filter(dir => dir !== incoming);
+  const pool = filtered.length > 0 ? filtered : options;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Pick next direction for trains on rails
+export function pickNextRailDirection(
+  previousDirection: CarDirection,
+  gridData: Tile[][],
+  gridSizeValue: number,
+  x: number,
+  y: number
+): CarDirection | null {
+  const options = getRailDirectionOptions(gridData, gridSizeValue, x, y);
   if (options.length === 0) return null;
   const incoming = getOppositeDirection(previousDirection);
   const filtered = options.filter(dir => dir !== incoming);

@@ -7,7 +7,7 @@ import { TILE_WIDTH, TILE_HEIGHT } from '@/components/game/types';
 
 // Service buildings for minimap color mapping
 const SERVICE_BUILDINGS = new Set([
-  'police_station', 'fire_station', 'hospital', 'school', 'university'
+  'police_station', 'fire_station', 'hospital', 'school', 'university', 'rail_station'
 ]);
 
 // Park buildings for minimap color mapping
@@ -72,6 +72,7 @@ export const MiniMap = React.memo(function MiniMap({ onNavigate, viewport }: Min
           // Prioritized color checks using Set for common cases
           if (buildingType === 'water') color = '#0ea5e9';
           else if (buildingType === 'road') color = '#6b7280';
+          else if (buildingType === 'rail') color = '#94a3b8';
           else if (buildingType === 'tree') color = '#166534';
           else if (tile.building.onFire) color = '#ef4444';
           else if (tile.zone === 'residential' && buildingType !== 'grass') color = '#22c55e';
@@ -210,6 +211,10 @@ export const MiniMap = React.memo(function MiniMap({ onNavigate, viewport }: Min
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 bg-pink-500 rounded-sm" />
           <span className="text-muted-foreground">S</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 bg-slate-400 rounded-sm" />
+          <span className="text-muted-foreground">RL</span>
         </div>
       </div>
     </Card>

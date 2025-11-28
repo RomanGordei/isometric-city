@@ -3,6 +3,7 @@ import { CarDirection, DirectionMeta, TILE_WIDTH, TILE_HEIGHT } from './types';
 
 // Vehicle colors (duller/muted versions)
 export const CAR_COLORS = ['#d97777', '#d4a01f', '#2ba67a', '#4d84c8', '#9a6ac9'];
+export const TRAIN_COLORS = ['#f3f4f6', '#cbd5f5', '#94a3b8', '#f97316', '#a855f7'];
 
 // Pedestrian appearance colors
 export const PEDESTRIAN_SKIN_COLORS = ['#fdbf7e', '#e0ac69', '#c68642', '#8d5524', '#613318'];

@@ -711,7 +711,7 @@ function createTile(x: number, y: number, buildingType: BuildingType = 'grass'):
 }
 
 // Building types that don't require construction (already complete when placed)
-const NO_CONSTRUCTION_TYPES: BuildingType[] = ['grass', 'empty', 'water', 'road', 'tree'];
+const NO_CONSTRUCTION_TYPES: BuildingType[] = ['grass', 'empty', 'water', 'road', 'rail', 'tree'];
 
 function createBuilding(type: BuildingType): Building {
   // Buildings that don't require construction start at 100% complete
@@ -1482,6 +1482,8 @@ function updateBudgetCosts(grid: Tile[][], budget: Budget): Budget {
   let powerCount = 0;
   let waterCount = 0;
   let roadCount = 0;
+  let railCount = 0;
+  let railStationCount = 0;
 
   for (const row of grid) {
     for (const tile of row) {
@@ -1497,6 +1499,8 @@ function updateBudgetCosts(grid: Tile[][], budget: Budget): Budget {
         case 'power_plant': powerCount++; break;
         case 'water_tower': waterCount++; break;
         case 'road': roadCount++; break;
+        case 'rail': railCount++; break;
+        case 'rail_station': railStationCount++; break;
       }
     }
   }
@@ -1515,7 +1519,11 @@ function updateBudgetCosts(grid: Tile[][], budget: Budget): Budget {
   newBudget.fire.cost = fireCount * 50;
   newBudget.health.cost = hospitalCount * 100;
   newBudget.education.cost = schoolCount * 30 + universityCount * 100;
-  newBudget.transportation.cost = roadCount * 2 + subwayTileCount * 3 + subwayStationCount * 25;
+  newBudget.transportation.cost = 
+    roadCount * 2 +
+    railCount * 3 +
+    subwayTileCount * 3 +
+    (subwayStationCount + railStationCount) * 25;
   newBudget.parks.cost = parkCount * 10;
   newBudget.power.cost = powerCount * 150;
   newBudget.water.cost = waterCount * 75;
@@ -1837,7 +1845,7 @@ export function simulateTick(state: GameState): GameState {
       // Random fire start
       if (state.disastersEnabled && !tile.building.onFire && 
           tile.building.type !== 'grass' && tile.building.type !== 'water' && 
-          tile.building.type !== 'road' && tile.building.type !== 'tree' &&
+          tile.building.type !== 'road' && tile.building.type !== 'rail' && tile.building.type !== 'tree' &&
           tile.building.type !== 'empty' &&
           Math.random() < 0.00003) {
         tile.building.onFire = true;
@@ -2051,12 +2059,12 @@ function isMergeableZoneTile(
   // The tile being upgraded is always considered mergeable (it's the source of the evolution)
   if (excludeTile && tile.x === excludeTile.x && tile.y === excludeTile.y) {
     return tile.zone === zone && !tile.building.onFire && 
-           tile.building.type !== 'water' && tile.building.type !== 'road';
+           tile.building.type !== 'water' && tile.building.type !== 'road' && tile.building.type !== 'rail';
   }
   
   if (tile.zone !== zone) return false;
   if (tile.building.onFire) return false;
-  if (tile.building.type === 'water' || tile.building.type === 'road') return false;
+  if (tile.building.type === 'water' || tile.building.type === 'road' || tile.building.type === 'rail') return false;
   
   // Always allow merging grass and trees - truly unoccupied tiles
   if (MERGEABLE_TILE_TYPES.has(tile.building.type)) {
@@ -2207,17 +2215,13 @@ export function placeBuilding(
   // Can't build on water
   if (tile.building.type === 'water') return state;
 
-  // Can't place roads on existing buildings (only allow on grass, tree, or existing roads)
-  // Note: 'empty' tiles are part of multi-tile building footprints, so roads can't be placed there either
-  if (buildingType === 'road') {
-    const allowedTypes: BuildingType[] = ['grass', 'tree', 'road'];
-    if (!allowedTypes.includes(tile.building.type)) {
-      return state; // Can't place road on existing building
+  const networkTypes: BuildingType[] = ['road', 'rail'];
+  if (buildingType && networkTypes.includes(buildingType)) {
+    const allowedSurfaceTypes: BuildingType[] = ['grass', 'tree', buildingType];
+    if (!allowedSurfaceTypes.includes(tile.building.type)) {
+      return state;
     }
-  }
-
-  // Only roads can be placed on roads - all other buildings require clearing the road first
-  if (buildingType && buildingType !== 'road' && tile.building.type === 'road') {
+  } else if (buildingType && networkTypes.includes(tile.building.type)) {
     return state;
   }
 
@@ -2255,7 +2259,7 @@ export function placeBuilding(
     } else {
       // Can't zone over existing buildings (only allow zoning on grass, tree, or road)
       // NOTE: 'empty' tiles are part of multi-tile buildings, so we can't zone them either
-      const allowedTypesForZoning: BuildingType[] = ['grass', 'tree', 'road'];
+      const allowedTypesForZoning: BuildingType[] = ['grass', 'tree', 'road', 'rail'];
       if (!allowedTypesForZoning.includes(tile.building.type)) {
         return state; // Can't zone over existing building or part of multi-tile building
       }
@@ -2290,7 +2294,7 @@ export function placeBuilding(
       // Can't place on water, existing buildings, or 'empty' tiles (part of multi-tile buildings)
       // Note: 'road' is included here so roads can extend over existing roads,
       // but non-road buildings are already blocked from roads by the check above
-      const allowedTypes: BuildingType[] = ['grass', 'tree', 'road'];
+      const allowedTypes: BuildingType[] = ['grass', 'tree', 'road', 'rail'];
       if (!allowedTypes.includes(tile.building.type)) {
         return state; // Can't place on existing building or part of multi-tile building
       }
@@ -2319,7 +2323,7 @@ function findBuildingOrigin(
   
   // If this tile has an actual building (not empty), check if it's multi-tile
   if (tile.building.type !== 'empty' && tile.building.type !== 'grass' && 
-      tile.building.type !== 'water' && tile.building.type !== 'road' && 
+      tile.building.type !== 'water' && tile.building.type !== 'road' && tile.building.type !== 'rail' && 
       tile.building.type !== 'tree') {
     const size = getBuildingSize(tile.building.type);
     if (size.width > 1 || size.height > 1) {
@@ -2455,7 +2459,7 @@ export function generateRandomAdvancedCity(size: number = DEFAULT_GRID_SIZE, cit
   function createAdvancedBuilding(type: BuildingType): Building {
     return {
       type,
-      level: type === 'grass' || type === 'empty' || type === 'water' || type === 'road' ? 0 : Math.floor(Math.random() * 3) + 3,
+      level: type === 'grass' || type === 'empty' || type === 'water' || type === 'road' || type === 'rail' ? 0 : Math.floor(Math.random() * 3) + 3,
       population: 0,
       jobs: 0,
       powered: true,
@@ -2471,7 +2475,7 @@ export function generateRandomAdvancedCity(size: number = DEFAULT_GRID_SIZE, cit
   // Helper to place a zone with developed building
   const placeZonedBuilding = (x: number, y: number, zone: ZoneType, buildingType: BuildingType): void => {
     const tile = grid[y]?.[x];
-    if (tile && tile.building.type !== 'water' && tile.building.type !== 'road') {
+    if (tile && tile.building.type !== 'water' && tile.building.type !== 'road' && tile.building.type !== 'rail') {
       tile.zone = zone;
       tile.building = createAdvancedBuilding(buildingType);
       tile.building.level = Math.floor(Math.random() * 3) + 3;
@@ -2492,7 +2496,7 @@ export function generateRandomAdvancedCity(size: number = DEFAULT_GRID_SIZE, cit
     // Check for roads in the way
     for (let dy = 0; dy < buildingSize.height; dy++) {
       for (let dx = 0; dx < buildingSize.width; dx++) {
-        if (grid[y + dy][x + dx].building.type === 'road') return false;
+        if (grid[y + dy][x + dx].building.type === 'road' || grid[y + dy][x + dx].building.type === 'rail') return false;
       }
     }
     

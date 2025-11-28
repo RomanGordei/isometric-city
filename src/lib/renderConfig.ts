@@ -493,6 +493,7 @@ const SPRITE_PACK_SPRITES4: SpritePack = {
     subway_station: 'subway_station',
     city_hall: 'city_hall',
     amusement_park: 'amusement_park',
+    rail_station: 'subway_station',
   },
 };
 
