@@ -119,6 +119,9 @@ import {
 } from '@/components/game/renderHelpers';
 import { drawAirplanes as drawAirplanesUtil, drawHelicopters as drawHelicoptersUtil } from '@/components/game/drawAircraft';
 import { drawPedestrians as drawPedestriansUtil } from '@/components/game/drawPedestrians';
+import { useCars, useEmergencyVehicles, usePedestrians, useCrime } from './hooks';
+import { drawCars as drawCarsUtil, drawEmergencyVehicles as drawEmergencyVehiclesUtil, drawIncidentIndicators as drawIncidentIndicatorsUtil } from './drawing';
+import { isPartOfMultiTileBuilding, findBuildingOrigin, isPartOfParkBuilding } from './helpers/buildingHelpers';
 
 // Props interface for CanvasIsometricGrid
 export interface CanvasIsometricGridProps {
@@ -153,21 +156,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     screenY: number;
   } | null>(null);
   const [zoom, setZoom] = useState(isMobile ? 0.6 : 1);
-  const carsRef = useRef<Car[]>([]);
-  const carIdRef = useRef(0);
-  const carSpawnTimerRef = useRef(0);
-  const emergencyVehiclesRef = useRef<EmergencyVehicle[]>([]);
-  const emergencyVehicleIdRef = useRef(0);
-  const emergencyDispatchTimerRef = useRef(0);
   const activeFiresRef = useRef<Set<string>>(new Set()); // Track fires that already have a truck dispatched
   const activeCrimesRef = useRef<Set<string>>(new Set()); // Track crimes that already have a car dispatched
-  const activeCrimeIncidentsRef = useRef<Map<string, { x: number; y: number; type: 'robbery' | 'burglary' | 'disturbance' | 'traffic'; timeRemaining: number }>>(new Map()); // Persistent crime incidents
-  const crimeSpawnTimerRef = useRef(0); // Timer for spawning new crime incidents
-  
-  // Pedestrian system refs
-  const pedestriansRef = useRef<Pedestrian[]>([]);
-  const pedestrianIdRef = useRef(0);
-  const pedestrianSpawnTimerRef = useRef(0);
   
   // Touch gesture state for mobile
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -218,6 +208,25 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     speed,
     canvasSize: { width: 1200, height: 800 },
   });
+
+  // Use extracted hooks
+  const { carsRef, updateCars } = useCars(worldStateRef, isMobile);
+  const { activeCrimeIncidentsRef, spawnCrimeIncidents, updateCrimeIncidents: updateCrimeIncidentsBase, findCrimeIncidents } = useCrime(worldStateRef, state);
+  const updateCrimeIncidents = useCallback((delta: number) => updateCrimeIncidentsBase(delta, activeCrimesRef), [updateCrimeIncidentsBase, activeCrimesRef]);
+  const { emergencyVehiclesRef, updateEmergencyVehicles } = useEmergencyVehicles(
+    worldStateRef,
+    activeFiresRef,
+    activeCrimesRef,
+    activeCrimeIncidentsRef,
+    findCrimeIncidents
+  );
+  const { pedestriansRef, updatePedestrians } = usePedestrians(
+    worldStateRef,
+    gridVersionRef,
+    cachedRoadTileCountRef,
+    isMobile
+  );
+
   const [lastPlacedTile, setLastPlacedTile] = useState<{ x: number; y: number } | null>(null);
   const [roadDrawDirection, setRoadDrawDirection] = useState<'h' | 'v' | null>(null);
   const placedRoadTilesRef = useRef<Set<string>>(new Set());
@@ -335,119 +344,6 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     };
   }, []);
 
-  const spawnRandomCar = useCallback(() => {
-    const { grid: currentGrid, gridSize: currentGridSize } = worldStateRef.current;
-    if (!currentGrid || currentGridSize <= 0) return false;
-    
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const tileX = Math.floor(Math.random() * currentGridSize);
-      const tileY = Math.floor(Math.random() * currentGridSize);
-      if (!isRoadTile(currentGrid, currentGridSize, tileX, tileY)) continue;
-      
-      const options = getDirectionOptions(currentGrid, currentGridSize, tileX, tileY);
-      if (options.length === 0) continue;
-      
-      const direction = options[Math.floor(Math.random() * options.length)];
-      carsRef.current.push({
-        id: carIdRef.current++,
-        tileX,
-        tileY,
-        direction,
-        progress: Math.random() * 0.8,
-        speed: (0.35 + Math.random() * 0.35) * 0.7,
-        age: 0,
-        maxAge: 1800 + Math.random() * 2700,
-        color: CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)],
-        laneOffset: (Math.random() < 0.5 ? -1 : 1) * (4 + Math.random() * 3),
-      });
-      return true;
-    }
-    
-    return false;
-  }, []);
-
-  // Find residential buildings for pedestrian spawning (uses imported utility)
-  const findResidentialBuildingsCallback = useCallback((): { x: number; y: number }[] => {
-    const { grid: currentGrid, gridSize: currentGridSize } = worldStateRef.current;
-    return findResidentialBuildings(currentGrid, currentGridSize);
-  }, []);
-
-  // Find destinations for pedestrians (uses imported utility)
-  const findPedestrianDestinationsCallback = useCallback((): { x: number; y: number; type: PedestrianDestType }[] => {
-    const { grid: currentGrid, gridSize: currentGridSize } = worldStateRef.current;
-    return findPedestrianDestinations(currentGrid, currentGridSize);
-  }, []);
-
-  // Spawn a pedestrian from a residential building to a destination
-  const spawnPedestrian = useCallback(() => {
-    const { grid: currentGrid, gridSize: currentGridSize } = worldStateRef.current;
-    if (!currentGrid || currentGridSize <= 0) return false;
-    
-    const residentials = findResidentialBuildingsCallback();
-    if (residentials.length === 0) {
-      return false;
-    }
-    
-    const destinations = findPedestrianDestinationsCallback();
-    if (destinations.length === 0) {
-      return false;
-    }
-    
-    // Pick a random residential building as home
-    const home = residentials[Math.floor(Math.random() * residentials.length)];
-    
-    // Pick a random destination
-    const dest = destinations[Math.floor(Math.random() * destinations.length)];
-    
-    // Find path from home to destination via roads
-    const path = findPathOnRoads(currentGrid, currentGridSize, home.x, home.y, dest.x, dest.y);
-    if (!path || path.length === 0) {
-      return false;
-    }
-    
-    // Start at a random point along the path for better distribution
-    const startIndex = Math.floor(Math.random() * path.length);
-    const startTile = path[startIndex];
-    
-    // Determine initial direction based on next tile in path
-    let direction: CarDirection = 'south';
-    if (startIndex + 1 < path.length) {
-      const nextTile = path[startIndex + 1];
-      const dir = getDirectionToTile(startTile.x, startTile.y, nextTile.x, nextTile.y);
-      if (dir) direction = dir;
-    } else if (startIndex > 0) {
-      // At end of path, use previous tile to determine direction
-      const prevTile = path[startIndex - 1];
-      const dir = getDirectionToTile(prevTile.x, prevTile.y, startTile.x, startTile.y);
-      if (dir) direction = dir;
-    }
-    
-    pedestriansRef.current.push({
-      id: pedestrianIdRef.current++,
-      tileX: startTile.x,
-      tileY: startTile.y,
-      direction,
-      progress: Math.random(),
-      speed: 0.12 + Math.random() * 0.08, // Pedestrians are slower than cars
-      pathIndex: startIndex,
-      age: 0,
-      maxAge: 60 + Math.random() * 90, // 60-150 seconds lifespan
-      skinColor: PEDESTRIAN_SKIN_COLORS[Math.floor(Math.random() * PEDESTRIAN_SKIN_COLORS.length)],
-      shirtColor: PEDESTRIAN_SHIRT_COLORS[Math.floor(Math.random() * PEDESTRIAN_SHIRT_COLORS.length)],
-      walkOffset: Math.random() * Math.PI * 2,
-      sidewalkSide: Math.random() < 0.5 ? 'left' : 'right',
-      destType: dest.type,
-      homeX: home.x,
-      homeY: home.y,
-      destX: dest.x,
-      destY: dest.y,
-      returningHome: startIndex >= path.length - 1, // If starting at end, they're returning
-      path,
-    });
-    
-    return true;
-  }, [findResidentialBuildingsCallback, findPedestrianDestinationsCallback]);
-
   // Find stations (uses imported utility)
   const findStationsCallback = useCallback((type: 'fire_station' | 'police_station'): { x: number; y: number }[] => {
     const { grid: currentGrid, gridSize: currentGridSize } = worldStateRef.current;
@@ -460,123 +356,10 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     return findFires(currentGrid, currentGridSize);
   }, []);
 
-  // Spawn new crime incidents periodically (persistent like fires)
-  const spawnCrimeIncidents = useCallback((delta: number) => {
-    const { grid: currentGrid, gridSize: currentGridSize, speed: currentSpeed } = worldStateRef.current;
-    if (!currentGrid || currentGridSize <= 0 || currentSpeed === 0) return;
-    
-    const speedMultiplier = currentSpeed === 1 ? 1 : currentSpeed === 2 ? 2 : 3;
-    crimeSpawnTimerRef.current -= delta * speedMultiplier;
-    
-    // Spawn new crimes every 3-5 seconds (game time adjusted)
-    if (crimeSpawnTimerRef.current > 0) return;
-    crimeSpawnTimerRef.current = 3 + Math.random() * 2;
-    
-    // Collect eligible tiles for crime (buildings with activity)
-    const eligibleTiles: { x: number; y: number; policeCoverage: number }[] = [];
-    
-    for (let y = 0; y < currentGridSize; y++) {
-      for (let x = 0; x < currentGridSize; x++) {
-        const tile = currentGrid[y][x];
-        // Only consider populated buildings (residential/commercial/industrial)
-        // FIX: Proper parentheses for operator precedence
-        const isBuilding = tile.building.type !== 'grass' && 
-            tile.building.type !== 'water' && 
-            tile.building.type !== 'road' && 
-            tile.building.type !== 'tree' &&
-            tile.building.type !== 'empty';
-        const hasActivity = tile.building.population > 0 || tile.building.jobs > 0;
-        
-        if (isBuilding && hasActivity) {
-          const policeCoverage = state.services.police[y]?.[x] || 0;
-          // Crime can happen anywhere, but more likely in low-coverage areas
-          eligibleTiles.push({ x, y, policeCoverage });
-        }
-      }
-    }
-    
-    if (eligibleTiles.length === 0) return;
-    
-    // Determine how many new crimes to spawn (based on city size and coverage)
-    const avgCoverage = eligibleTiles.reduce((sum, t) => sum + t.policeCoverage, 0) / eligibleTiles.length;
-    const baseChance = avgCoverage < 20 ? 0.4 : avgCoverage < 40 ? 0.25 : avgCoverage < 60 ? 0.15 : 0.08;
-    
-    // Max active crimes based on population (more people = more potential crime)
-    const population = state.stats.population;
-    const maxActiveCrimes = Math.max(2, Math.floor(population / 500));
-    
-    if (activeCrimeIncidentsRef.current.size >= maxActiveCrimes) return;
-    
-    // Try to spawn 1-2 crimes
-    const crimesToSpawn = Math.random() < 0.3 ? 2 : 1;
-    
-    for (let i = 0; i < crimesToSpawn; i++) {
-      if (activeCrimeIncidentsRef.current.size >= maxActiveCrimes) break;
-      if (Math.random() > baseChance) continue;
-      
-      // Weight selection toward low-coverage areas
-      const weightedTiles = eligibleTiles.filter(t => {
-        const key = `${t.x},${t.y}`;
-        if (activeCrimeIncidentsRef.current.has(key)) return false;
-        // Higher weight for lower coverage
-        const weight = Math.max(0.1, 1 - t.policeCoverage / 100);
-        return Math.random() < weight;
-      });
-      
-      if (weightedTiles.length === 0) continue;
-      
-      const target = weightedTiles[Math.floor(Math.random() * weightedTiles.length)];
-      const key = `${target.x},${target.y}`;
-      
-      // Different crime types with different durations
-      const crimeTypes: Array<'robbery' | 'burglary' | 'disturbance' | 'traffic'> = ['robbery', 'burglary', 'disturbance', 'traffic'];
-      const crimeType = crimeTypes[Math.floor(Math.random() * crimeTypes.length)];
-      const duration = crimeType === 'traffic' ? 15 : crimeType === 'disturbance' ? 20 : 30; // Seconds to resolve if no police
-      
-      activeCrimeIncidentsRef.current.set(key, {
-        x: target.x,
-        y: target.y,
-        type: crimeType,
-        timeRemaining: duration,
-      });
-    }
-  }, [state.services.police, state.stats.population]);
-  
-  // Update crime incidents (decay over time if not responded to)
-  const updateCrimeIncidents = useCallback((delta: number) => {
-    const { speed: currentSpeed } = worldStateRef.current;
-    if (currentSpeed === 0) return;
-    
-    const speedMultiplier = currentSpeed === 1 ? 1 : currentSpeed === 2 ? 2 : 3;
-    const keysToDelete: string[] = [];
-    
-    // Iterate and track which crimes to delete
-    activeCrimeIncidentsRef.current.forEach((crime, key) => {
-      // If police car is responding, don't decay
-      if (activeCrimesRef.current.has(key)) return;
-      
-      // Update time remaining by creating a new crime object
-      const newTimeRemaining = crime.timeRemaining - delta * speedMultiplier;
-      if (newTimeRemaining <= 0) {
-        // Crime "resolved" without police (criminal escaped, situation de-escalated)
-        keysToDelete.push(key);
-      } else {
-        // Update the crime's time remaining
-        activeCrimeIncidentsRef.current.set(key, { ...crime, timeRemaining: newTimeRemaining });
-      }
-    });
-    
-    // Delete expired crimes
-    keysToDelete.forEach(key => activeCrimeIncidentsRef.current.delete(key));
-  }, []);
-  
-  // Find active crime incidents that need police response
-  const findCrimeIncidents = useCallback((): { x: number; y: number }[] => {
-    return Array.from(activeCrimeIncidentsRef.current.values()).map(c => ({ x: c.x, y: c.y }));
-  }, []);
+  // All crime-related functions are now in useCrime hook
 
-  // Dispatch emergency vehicle
-  const dispatchEmergencyVehicle = useCallback((
+  // Dispatch emergency vehicle - now in useEmergencyVehicles hook
+  // const dispatchEmergencyVehicle = useCallback((
     type: EmergencyVehicleType,
     stationX: number,
     stationY: number,
@@ -2917,6 +2700,24 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
   // Animation time ref for incident indicator pulsing
   const incidentAnimTimeRef = useRef(0);
   
+  // Update animation time in render loop
+  useEffect(() => {
+    let animationFrameId: number;
+    let lastTime = performance.now();
+    
+    const updateAnimTime = (time: number) => {
+      animationFrameId = requestAnimationFrame(updateAnimTime);
+      const delta = Math.min((time - lastTime) / 1000, 0.3);
+      lastTime = time;
+      if (delta > 0) {
+        incidentAnimTimeRef.current += delta;
+      }
+    };
+    
+    animationFrameId = requestAnimationFrame(updateAnimTime);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, []);
+  
   // Draw incident indicators (fires and crimes) with pulsing effect
   const drawIncidentIndicators = useCallback((ctx: CanvasRenderingContext2D, delta: number) => {
     const { offset: currentOffset, zoom: currentZoom, grid: currentGrid, gridSize: currentGridSize } = worldStateRef.current;
@@ -3114,125 +2915,24 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     return () => clearTimeout(timer);
   }, [currentSpritePack]);
   
-  // Helper function to check if a tile is part of a multi-tile building footprint
-  const isPartOfMultiTileBuilding = useCallback((gridX: number, gridY: number): boolean => {
-    // Check all possible origin positions that could have a multi-tile building covering this tile
-    // For a 2x2 building, check up to 1 tile away in each direction
-    // For a 3x3 building, check up to 2 tiles away
-    // For a 4x4 building, check up to 3 tiles away
-    const maxSize = 4; // Maximum building size
-    
-    for (let dy = 0; dy < maxSize; dy++) {
-      for (let dx = 0; dx < maxSize; dx++) {
-        const originX = gridX - dx;
-        const originY = gridY - dy;
-        
-        if (originX >= 0 && originX < gridSize && originY >= 0 && originY < gridSize) {
-          const originTile = grid[originY][originX];
-          const buildingSize = getBuildingSize(originTile.building.type);
-          
-          // Check if this tile is within the footprint of the building at origin
-          if (buildingSize.width > 1 || buildingSize.height > 1) {
-            if (gridX >= originX && gridX < originX + buildingSize.width &&
-                gridY >= originY && gridY < originY + buildingSize.height) {
-              return true;
-            }
-          }
-        }
-      }
-    }
-    
-    return false;
+  // Helper functions are now in buildingHelpers.ts - use memoized versions
+  const isPartOfMultiTileBuildingMemo = useMemo(() => {
+    return (gridX: number, gridY: number): boolean => {
+      return isPartOfMultiTileBuilding(gridX, gridY, grid, gridSize);
+    };
   }, [grid, gridSize]);
   
-  // Helper function to find the origin of a multi-tile building that contains a given tile
-  // Returns the origin coordinates and building type, or null if not part of a multi-tile building
-  const findBuildingOrigin = useCallback((gridX: number, gridY: number): { originX: number; originY: number; buildingType: BuildingType } | null => {
-    const maxSize = 4; // Maximum building size
-    
-    // First check if this tile itself has a multi-tile building
-    const tile = grid[gridY]?.[gridX];
-    if (!tile) return null;
-    
-    // If this tile has a real building (not empty), check if it's multi-tile
-    if (tile.building.type !== 'empty' && 
-        tile.building.type !== 'grass' && 
-        tile.building.type !== 'water' && 
-        tile.building.type !== 'road' && 
-        tile.building.type !== 'tree') {
-      const size = getBuildingSize(tile.building.type);
-      if (size.width > 1 || size.height > 1) {
-        return { originX: gridX, originY: gridY, buildingType: tile.building.type };
-      }
-      return null; // Single-tile building
-    }
-    
-    // If this is an 'empty' tile, search for the origin building
-    if (tile.building.type === 'empty') {
-      for (let dy = 0; dy < maxSize; dy++) {
-        for (let dx = 0; dx < maxSize; dx++) {
-          const originX = gridX - dx;
-          const originY = gridY - dy;
-          
-          if (originX >= 0 && originX < gridSize && originY >= 0 && originY < gridSize) {
-            const originTile = grid[originY][originX];
-            
-            if (originTile.building.type !== 'empty' && 
-                originTile.building.type !== 'grass' &&
-                originTile.building.type !== 'water' &&
-                originTile.building.type !== 'road' &&
-                originTile.building.type !== 'tree') {
-              const size = getBuildingSize(originTile.building.type);
-              
-              // Check if the clicked tile is within this building's footprint
-              if (size.width > 1 || size.height > 1) {
-                if (gridX >= originX && gridX < originX + size.width &&
-                    gridY >= originY && gridY < originY + size.height) {
-                  return { originX, originY, buildingType: originTile.building.type };
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    return null;
+  const findBuildingOriginMemo = useMemo(() => {
+    return (gridX: number, gridY: number): { originX: number; originY: number; buildingType: BuildingType } | null => {
+      return findBuildingOrigin(gridX, gridY, grid, gridSize);
+    };
   }, [grid, gridSize]);
   
-// PERF: Static Set for park building lookups (O(1) instead of O(n) array includes)
-  const parkBuildingsSet = useMemo(() => new Set<BuildingType>([
-    'park_large', 'baseball_field_small', 'football_field',
-    'mini_golf_course', 'go_kart_track', 'amphitheater', 'greenhouse_garden',
-    'marina_docks_small', 'roller_coaster_small', 'mountain_lodge', 'playground_large', 'mountain_trailhead'
-  ]), []);
-  
-  // Helper function to check if a tile is part of a park building footprint
-  // Note: buildings with grey bases (baseball_stadium, swimming_pool, community_center, office_building_small) are NOT included
-  const isPartOfParkBuilding = useCallback((gridX: number, gridY: number): boolean => {
-    const maxSize = 4; // Maximum building size
-
-    for (let dy = 0; dy < maxSize; dy++) {
-      for (let dx = 0; dx < maxSize; dx++) {
-        const originX = gridX - dx;
-        const originY = gridY - dy;
-
-        if (originX >= 0 && originX < gridSize && originY >= 0 && originY < gridSize) {
-          const originTile = grid[originY][originX];
-
-          // PERF: Use Set.has() instead of array.includes() for O(1) lookup
-          if (parkBuildingsSet.has(originTile.building.type)) {
-            const buildingSize = getBuildingSize(originTile.building.type);
-            if (gridX >= originX && gridX < originX + buildingSize.width &&
-                gridY >= originY && gridY < originY + buildingSize.height) {
-              return true;
-            }
-          }
-        }
-      }
-    }
-    return false;
-  }, [grid, gridSize, parkBuildingsSet]);
+  const isPartOfParkBuildingMemo = useMemo(() => {
+    return (gridX: number, gridY: number): boolean => {
+      return isPartOfParkBuilding(gridX, gridY, grid, gridSize);
+    };
+  }, [grid, gridSize]);
   
   // Update canvas size on resize with high-DPI support
   useEffect(() => {
@@ -3799,7 +3499,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         'pier_large', 'roller_coaster_small', 'community_garden', 'pond_park', 'park_gate', 
         'mountain_lodge', 'mountain_trailhead'];
       const isPark = allParkTypes.includes(tile.building.type) ||
-                     (tile.building.type === 'empty' && isPartOfParkBuilding(tile.x, tile.y));
+                     (tile.building.type === 'empty' && isPartOfParkBuildingMemo(tile.x, tile.y));
       // Check if this is a building (not grass, empty, water, road, tree, or parks)
       // Also check if it's part of a multi-tile building footprint
       const isDirectBuilding = !isPark &&
@@ -3808,7 +3508,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         tile.building.type !== 'water' &&
         tile.building.type !== 'road' &&
         tile.building.type !== 'tree';
-      const isPartOfBuilding = tile.building.type === 'empty' && isPartOfMultiTileBuilding(tile.x, tile.y);
+      const isPartOfBuilding = tile.building.type === 'empty' && isPartOfMultiTileBuildingMemo(tile.x, tile.y);
       const isBuilding = isDirectBuilding || isPartOfBuilding;
       
       // ALL buildings get grey/concrete base tiles (except parks which stay green)
@@ -4538,7 +4238,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
           tile.building.type !== 'water' &&
           tile.building.type !== 'road' &&
           tile.building.type !== 'tree';
-        const isPartOfBuilding = tile.building.type === 'empty' && isPartOfMultiTileBuilding(x, y);
+        const isPartOfBuilding = tile.building.type === 'empty' && isPartOfMultiTileBuildingMemo(x, y);
         const needsGreyBase = (isDirectBuilding || isPartOfBuilding) && !isPark;
         
         // Check if this is a grass/empty tile adjacent to water (needs green base drawn over water)
@@ -4547,7 +4247,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         
         // Check if this is a park that needs a green base tile
         const needsGreenBaseForPark = (tile.building.type === 'park' || tile.building.type === 'park_large') ||
-                                      (tile.building.type === 'empty' && isPartOfParkBuilding(x, y));
+                                      (tile.building.type === 'empty' && isPartOfParkBuildingMemo(x, y));
         
         // Draw base tile for all tiles (including water), but skip gray bases for buildings and green bases for grass/empty adjacent to water or parks
         // Highlight subway stations when subway overlay is active
@@ -4785,7 +4485,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       if (delta > 0) {
         updateCars(delta);
         spawnCrimeIncidents(delta); // Spawn new crime incidents
-        updateCrimeIncidents(delta); // Update/decay crime incidents
+        updateCrimeIncidents(delta, activeCrimesRef); // Update/decay crime incidents
         updateEmergencyVehicles(delta); // Update emergency vehicles!
         updatePedestrians(delta); // Update pedestrians (zoom-gated)
         updateAirplanes(delta); // Update airplanes (airport required)
@@ -4795,12 +4495,12 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         updateSmog(delta); // Update factory smog particles
         navLightFlashTimerRef.current += delta * 3; // Update nav light flash timer
       }
-      drawCars(ctx);
+      drawCarsUtil(ctx, carsRef.current, worldStateRef.current);
       drawPedestrians(ctx); // Draw pedestrians (zoom-gated)
       drawBoats(ctx); // Draw boats on water
       drawSmog(ctx); // Draw factory smog (above ground, below aircraft)
-      drawEmergencyVehicles(ctx); // Draw emergency vehicles!
-      drawIncidentIndicators(ctx, delta); // Draw fire/crime incident indicators!
+      drawEmergencyVehiclesUtil(ctx, emergencyVehiclesRef.current, worldStateRef.current); // Draw emergency vehicles!
+      drawIncidentIndicatorsUtil(ctx, delta, incidentAnimTimeRef.current, worldStateRef.current, activeCrimeIncidentsRef.current); // Draw fire/crime incident indicators!
       drawHelicopters(ctx); // Draw helicopters (below planes, above ground)
       drawAirplanes(ctx); // Draw airplanes above everything
       drawFireworks(ctx); // Draw fireworks above everything (nighttime only)
@@ -5091,7 +4791,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         if (gridX >= 0 && gridX < gridSize && gridY >= 0 && gridY < gridSize) {
           if (selectedTool === 'select') {
             // For multi-tile buildings, select the origin tile
-            const origin = findBuildingOrigin(gridX, gridY);
+            const origin = findBuildingOriginMemo(gridX, gridY);
             if (origin) {
               setSelectedTile({ x: origin.originX, y: origin.originY });
             } else {
@@ -5453,7 +5153,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
 
             if (gridX >= 0 && gridX < gridSize && gridY >= 0 && gridY < gridSize) {
               if (selectedTool === 'select') {
-                const origin = findBuildingOrigin(gridX, gridY);
+                const origin = findBuildingOriginMemo(gridX, gridY);
                 if (origin) {
                   setSelectedTile({ x: origin.originX, y: origin.originY });
                 } else {
