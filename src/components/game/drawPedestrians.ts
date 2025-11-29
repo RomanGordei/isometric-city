@@ -330,7 +330,7 @@ function drawDogSimple(ctx: CanvasRenderingContext2D, ped: Pedestrian): void {
  * Draw a basketball player
  */
 function drawBasketballPlayer(ctx: CanvasRenderingContext2D, ped: Pedestrian): void {
-  const scale = 0.38;
+  const scale = 0.35;
   const bounce = Math.abs(Math.sin(ped.activityAnimTimer * 3)) * 2;
   const armMove = Math.sin(ped.activityAnimTimer * 6) * 4;
 
@@ -391,7 +391,7 @@ function drawBasketballPlayer(ctx: CanvasRenderingContext2D, ped: Pedestrian): v
  * Draw a tennis player
  */
 function drawTennisPlayer(ctx: CanvasRenderingContext2D, ped: Pedestrian): void {
-  const scale = 0.36;
+  const scale = 0.35;
   const swing = Math.sin(ped.activityAnimTimer * 2) * 5;
 
   // Head
@@ -461,7 +461,7 @@ function drawTennisPlayer(ctx: CanvasRenderingContext2D, ped: Pedestrian): void 
  * Draw a soccer player
  */
 function drawSoccerPlayer(ctx: CanvasRenderingContext2D, ped: Pedestrian): void {
-  const scale = 0.36;
+  const scale = 0.35;
   const kick = Math.sin(ped.activityAnimTimer * 4) * 4;
   const run = Math.abs(Math.sin(ped.activityAnimTimer * 5));
 
@@ -522,7 +522,7 @@ function drawSoccerPlayer(ctx: CanvasRenderingContext2D, ped: Pedestrian): void 
  * Draw a baseball player
  */
 function drawBaseballPlayer(ctx: CanvasRenderingContext2D, ped: Pedestrian): void {
-  const scale = 0.36;
+  const scale = 0.35;
   const swing = Math.sin(ped.activityAnimTimer * 2) * 6;
 
   // Head
@@ -638,7 +638,7 @@ function drawSwimmer(ctx: CanvasRenderingContext2D, ped: Pedestrian): void {
  * Draw a skateboarder
  */
 function drawSkateboarder(ctx: CanvasRenderingContext2D, ped: Pedestrian): void {
-  const scale = 0.36;
+  const scale = 0.35;
   const ride = Math.sin(ped.activityAnimTimer * 3);
   const bob = Math.abs(ride) * 1.5;
 
@@ -699,7 +699,7 @@ function drawSkateboarder(ctx: CanvasRenderingContext2D, ped: Pedestrian): void 
  * Draw a person sitting on a bench
  */
 function drawSittingPerson(ctx: CanvasRenderingContext2D, ped: Pedestrian): void {
-  const scale = 0.36;
+  const scale = 0.35;
   const breathe = Math.sin(ped.activityAnimTimer * 0.5) * 0.3;
 
   // Bench
@@ -772,7 +772,7 @@ const BLANKET_COLORS = [
 ];
 
 function drawPicnicker(ctx: CanvasRenderingContext2D, ped: Pedestrian): void {
-  const scale = 0.34;
+  const scale = 0.35;
 
   // Picnic blanket - muted pastel colors based on pedestrian ID
   const blanketColor = BLANKET_COLORS[ped.id % BLANKET_COLORS.length];
@@ -817,7 +817,7 @@ function drawPicnicker(ctx: CanvasRenderingContext2D, ped: Pedestrian): void {
  * Draw a jogger
  */
 function drawJogger(ctx: CanvasRenderingContext2D, ped: Pedestrian): void {
-  const scale = 0.36;
+  const scale = 0.35;
   const run = ped.walkOffset;
   const bounce = Math.abs(Math.sin(run * 2)) * 2;
 
