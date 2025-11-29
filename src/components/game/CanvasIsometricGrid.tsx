@@ -173,7 +173,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hoverCanvasRef = useRef<HTMLCanvasElement>(null); // PERF: Separate canvas for hover/selection highlights
   const carsCanvasRef = useRef<HTMLCanvasElement>(null);
-  const tallBuildingsCanvasRef = useRef<HTMLCanvasElement>(null); // Canvas for tall buildings that render above vehicles
+  const tallBuildingsCanvasRef = useRef<HTMLCanvasElement>(null); // Canvas for high density buildings that render above vehicles
   const lightingCanvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const renderPendingRef = useRef<number | null>(null); // PERF: Track pending render frame
@@ -1722,43 +1722,16 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     return () => window.removeEventListener('resize', updateSize);
   }, []);
   
-  // Helper function to check if a building is tall (should render above vehicles)
-  // Buildings with significant vertical offsets (like skyscrapers) are considered tall
-  const isTallBuilding = useCallback((buildingType: BuildingType): boolean => {
-    const activePack = getActiveSpritePack();
-    const spriteKey = BUILDING_TO_SPRITE[buildingType];
-    if (!spriteKey) return false;
-    
-    // Check building-specific vertical offsets first
-    const buildingVerticalOffset = activePack.buildingVerticalOffsets?.[buildingType];
-    if (buildingVerticalOffset !== undefined) {
-      return buildingVerticalOffset <= -0.5; // Tall if offset is -0.5 or more negative
-    }
-    
-    // Check sprite-level vertical offsets
-    const spriteVerticalOffset = activePack.verticalOffsets[spriteKey];
-    if (spriteVerticalOffset !== undefined) {
-      return spriteVerticalOffset <= -0.5; // Tall if offset is -0.5 or more negative
-    }
-    
-    // Check for known tall building types
-    const tallBuildingTypes: BuildingType[] = [
+  // Helper function to check if a building is high density (should render above vehicles)
+  // High density buildings are apartment_high, office_high, and mall
+  const isHighDensityBuilding = useCallback((buildingType: BuildingType): boolean => {
+    const highDensityTypes: BuildingType[] = [
       'apartment_high',
-      'apartment_low',
       'office_high',
-      'office_low',
       'mall',
-      'stadium',
-      'museum',
-      'airport',
-      'amusement_park',
-      'space_program',
-      'city_hall',
-      'university',
-      'hospital',
     ];
-    return tallBuildingTypes.includes(buildingType);
-  }, [currentSpritePack]);
+    return highDensityTypes.includes(buildingType);
+  }, []);
   
   // Main render function - PERF: Uses requestAnimationFrame throttling to batch multiple state updates
   useEffect(() => {
@@ -1824,7 +1797,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     // PERF: Reuse queue arrays across frames to avoid GC pressure
     // Arrays are cleared by setting length = 0 which is faster than recreating
     const buildingQueue: BuildingDraw[] = [];
-    const tallBuildingQueue: BuildingDraw[] = []; // Tall buildings that render above vehicles
+    const tallBuildingQueue: BuildingDraw[] = []; // High density buildings that render above vehicles
     const waterQueue: BuildingDraw[] = [];
     const roadQueue: BuildingDraw[] = []; // Roads drawn above water
     const railQueue: BuildingDraw[] = []; // Rail tracks drawn above water
@@ -3446,8 +3419,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
           if (isBuilding) {
             const size = getBuildingSize(tile.building.type);
             const depth = x + y + size.width + size.height - 2;
-            // Separate tall buildings (like skyscrapers) to render above vehicles
-            if (isTallBuilding(tile.building.type)) {
+            // Separate high density buildings to render above vehicles
+            if (isHighDensityBuilding(tile.building.type)) {
               tallBuildingQueue.push({ screenX, screenY, tile, depth });
             } else {
               buildingQueue.push({ screenX, screenY, tile, depth });
@@ -3800,7 +3773,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     return () => cancelAnimationFrame(animationFrameId);
   }, [canvasSize.width, canvasSize.height, updateCars, drawCars, spawnCrimeIncidents, updateCrimeIncidents, updateEmergencyVehicles, drawEmergencyVehicles, updatePedestrians, drawPedestrians, updateAirplanes, drawAirplanes, updateHelicopters, drawHelicopters, updateBoats, drawBoats, updateTrains, drawTrainsCallback, drawIncidentIndicators, updateFireworks, drawFireworks, updateSmog, drawSmog, visualHour, isMobile]);
   
-  // Render tall buildings on separate canvas layer above vehicles
+  // Render high density buildings on separate canvas layer above vehicles
   useEffect(() => {
     const canvas = tallBuildingsCanvasRef.current;
     if (!canvas) return;
@@ -3831,8 +3804,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     const viewRight = viewWidth - offset.x / zoom + TILE_WIDTH;
     const viewBottom = viewHeight - offset.y / zoom + TILE_HEIGHT * 2;
     
-    // Collect tall buildings
-    const tallBuildings: Array<{ tile: Tile; screenX: number; screenY: number; depth: number }> = [];
+    // Collect high density buildings
+    const highDensityBuildings: Array<{ tile: Tile; screenX: number; screenY: number; depth: number }> = [];
     
     for (let y = 0; y < gridSize; y++) {
       for (let x = 0; x < gridSize; x++) {
@@ -3842,7 +3815,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
           continue;
         }
         
-        if (isTallBuilding(tile.building.type)) {
+        if (isHighDensityBuilding(tile.building.type)) {
           const { screenX, screenY } = gridToScreen(x, y, 0, 0);
           
           // Viewport culling
@@ -3853,15 +3826,15 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
           
           const size = getBuildingSize(tile.building.type);
           const depth = x + y + size.width + size.height - 2;
-          tallBuildings.push({ tile, screenX, screenY, depth });
+          highDensityBuildings.push({ tile, screenX, screenY, depth });
         }
       }
     }
     
     // Sort by depth for proper rendering order
-    tallBuildings.sort((a, b) => a.depth - b.depth);
+    highDensityBuildings.sort((a, b) => a.depth - b.depth);
     
-    // Draw tall buildings using the same logic as main render
+    // Draw high density buildings using the same logic as main render
     // We need to recreate the drawBuilding function here since it's defined inside the main render effect
     const drawTallBuilding = (ctx: CanvasRenderingContext2D, x: number, y: number, tile: Tile) => {
       const buildingType = tile.building.type;
@@ -3910,12 +3883,12 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       }
     };
     
-    tallBuildings.forEach(({ tile, screenX, screenY }) => {
+    highDensityBuildings.forEach(({ tile, screenX, screenY }) => {
       drawTallBuilding(ctx, screenX, screenY, tile);
     });
     
     ctx.restore();
-  }, [grid, gridSize, offset, zoom, canvasSize, imagesLoaded, imageLoadVersion, currentSpritePack, isTallBuilding]);
+  }, [grid, gridSize, offset, zoom, canvasSize, imagesLoaded, imageLoadVersion, currentSpritePack, isHighDensityBuilding]);
   
   // Day/Night cycle lighting rendering - optimized for performance
   useEffect(() => {
