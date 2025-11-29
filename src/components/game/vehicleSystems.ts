@@ -4,9 +4,10 @@ import { CAR_COLORS, PEDESTRIAN_SKIN_COLORS, PEDESTRIAN_SHIRT_COLORS, PEDESTRIAN
 import { isRoadTile, getDirectionOptions, pickNextDirection, findPathOnRoads, getDirectionToTile, gridToScreen } from './utils';
 import { findResidentialBuildings, findPedestrianDestinations, findStations, findFires } from './gridFinders';
 import { drawPedestrians as drawPedestriansUtil } from './drawPedestrians';
-import { BuildingType, Tile } from '@/types/game';
+import { Tile } from '@/types/game';
 import { getTrafficLightState, canProceedThroughIntersection, TRAFFIC_LIGHT_TIMING } from './trafficSystem';
 import { CrimeType, getRandomCrimeType, getCrimeDuration } from './incidentData';
+import { isEntityBehindBuilding } from './renderHelpers';
 
 export interface VehicleSystemRefs {
   carsRef: React.MutableRefObject<Car[]>;
@@ -953,6 +954,10 @@ export function useVehicleSystems(
     ctx.translate(currentOffset.x / currentZoom, currentOffset.y / currentZoom);
     
     carsRef.current.forEach(car => {
+      if (isEntityBehindBuilding(currentGrid, currentGridSize, car.tileX, car.tileY)) {
+        return; // Skip cars hidden behind taller buildings
+      }
+
       const { screenX, screenY } = gridToScreen(car.tileX, car.tileY, 0, 0);
       const centerX = screenX + TILE_WIDTH / 2;
       const centerY = screenY + TILE_HEIGHT / 2;
@@ -1039,40 +1044,11 @@ export function useVehicleSystems(
     const viewRight = viewWidth - currentOffset.x / currentZoom + TILE_WIDTH;
     const viewBottom = viewHeight - currentOffset.y / currentZoom + TILE_HEIGHT * 2;
     
-    const isVehicleBehindBuilding = (tileX: number, tileY: number): boolean => {
-      const vehicleDepth = tileX + tileY;
-      
-      for (let dy = 0; dy <= 1; dy++) {
-        for (let dx = 0; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          
-          const checkX = tileX + dx;
-          const checkY = tileY + dy;
-          
-          if (checkX < 0 || checkY < 0 || checkX >= currentGridSize || checkY >= currentGridSize) {
-            continue;
-          }
-          
-          const tile = currentGrid[checkY]?.[checkX];
-          if (!tile) continue;
-          
-          const buildingType = tile.building.type;
-          const skipTypes: BuildingType[] = ['road', 'grass', 'empty', 'water', 'tree'];
-          if (skipTypes.includes(buildingType)) {
-            continue;
-          }
-          
-          const buildingDepth = checkX + checkY;
-          if (buildingDepth > vehicleDepth) {
-            return true;
-          }
-        }
-      }
-      
-      return false;
-    };
-    
     emergencyVehiclesRef.current.forEach(vehicle => {
+      if (isEntityBehindBuilding(currentGrid, currentGridSize, vehicle.tileX, vehicle.tileY)) {
+        return; // Skip emergency vehicles hidden behind taller buildings
+      }
+
       const { screenX, screenY } = gridToScreen(vehicle.tileX, vehicle.tileY, 0, 0);
       const centerX = screenX + TILE_WIDTH / 2;
       const centerY = screenY + TILE_HEIGHT / 2;

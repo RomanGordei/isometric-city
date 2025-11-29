@@ -23,6 +23,7 @@ import {
   TrackType,
 } from './railSystem';
 import { gridToScreen } from './utils';
+import { isEntityBehindBuilding } from './renderHelpers';
 
 // ============================================================================
 // Curve Interpolation Helpers
@@ -1120,6 +1121,10 @@ export function drawTrains(
       if (screenX < viewLeft || screenX > viewRight || 
           screenY < viewTop || screenY > viewBottom) {
         continue;
+      }
+
+      if (isEntityBehindBuilding(grid, gridSize, carriage.tileX, carriage.tileY)) {
+        continue; // Building in front should occlude this carriage
       }
       
       drawCarriage(ctx, carriage, zoom, grid, gridSize);
