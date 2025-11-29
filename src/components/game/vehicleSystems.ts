@@ -7,6 +7,7 @@ import { drawPedestrians as drawPedestriansUtil } from './drawPedestrians';
 import { BuildingType, Tile } from '@/types/game';
 import { getTrafficLightState, canProceedThroughIntersection, TRAFFIC_LIGHT_TIMING } from './trafficSystem';
 import { CrimeType, getRandomCrimeType, getCrimeDuration } from './incidentData';
+import { isEntityBehindBuilding } from './renderHelpers';
 
 export interface VehicleSystemRefs {
   carsRef: React.MutableRefObject<Car[]>;
@@ -952,6 +953,14 @@ export function useVehicleSystems(
     ctx.scale(dpr * currentZoom, dpr * currentZoom);
     ctx.translate(currentOffset.x / currentZoom, currentOffset.y / currentZoom);
     
+    // Calculate viewport bounds for culling
+    const viewWidth = canvas.width / (dpr * currentZoom);
+    const viewHeight = canvas.height / (dpr * currentZoom);
+    const viewLeft = -currentOffset.x / currentZoom - TILE_WIDTH;
+    const viewTop = -currentOffset.y / currentZoom - TILE_HEIGHT * 2;
+    const viewRight = viewWidth - currentOffset.x / currentZoom + TILE_WIDTH;
+    const viewBottom = viewHeight - currentOffset.y / currentZoom + TILE_HEIGHT * 2;
+    
     carsRef.current.forEach(car => {
       const { screenX, screenY } = gridToScreen(car.tileX, car.tileY, 0, 0);
       const centerX = screenX + TILE_WIDTH / 2;
@@ -959,6 +968,17 @@ export function useVehicleSystems(
       const meta = DIRECTION_META[car.direction];
       const carX = centerX + meta.vec.dx * car.progress + meta.normal.nx * car.laneOffset;
       const carY = centerY + meta.vec.dy * car.progress + meta.normal.ny * car.laneOffset;
+      
+      // Viewport culling
+      if (carX < viewLeft - 20 || carX > viewRight + 20 ||
+          carY < viewTop - 20 || carY > viewBottom + 20) {
+        return;
+      }
+      
+      // Skip cars that are behind buildings (occluded by tall buildings)
+      if (isEntityBehindBuilding(currentGrid, currentGridSize, car.tileX, car.tileY)) {
+        return;
+      }
       
       ctx.save();
       ctx.translate(carX, carY);
@@ -1081,6 +1101,11 @@ export function useVehicleSystems(
       const vehicleY = centerY + meta.vec.dy * vehicle.progress + meta.normal.ny * vehicle.laneOffset;
       
       if (vehicleX < viewLeft - 40 || vehicleX > viewRight + 40 || vehicleY < viewTop - 60 || vehicleY > viewBottom + 60) {
+        return;
+      }
+      
+      // Skip emergency vehicles that are behind buildings (occluded by tall buildings)
+      if (isVehicleBehindBuilding(vehicle.tileX, vehicle.tileY)) {
         return;
       }
       
