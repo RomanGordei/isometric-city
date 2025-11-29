@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import { Car, CarDirection, EmergencyVehicle, EmergencyVehicleType, Pedestrian, PedestrianDestType, WorldRenderState, TILE_WIDTH, TILE_HEIGHT } from './types';
-import { CAR_COLORS, PEDESTRIAN_MIN_ZOOM, DIRECTION_META, PEDESTRIAN_MAX_COUNT, PEDESTRIAN_SPAWN_BATCH_SIZE, PEDESTRIAN_SPAWN_INTERVAL } from './constants';
+import { CAR_COLORS, PEDESTRIAN_MIN_ZOOM, DIRECTION_META, PEDESTRIAN_MAX_COUNT, PEDESTRIAN_PER_ROAD_TILE, PEDESTRIAN_SPAWN_BATCH_SIZE, PEDESTRIAN_SPAWN_INTERVAL } from './constants';
 import { isRoadTile, getDirectionOptions, pickNextDirection, findPathOnRoads, getDirectionToTile, gridToScreen } from './utils';
 import { findResidentialBuildings, findPedestrianDestinations, findStations, findFires, findRecreationAreas, findEnterableBuildings } from './gridFinders';
 import { drawPedestrians as drawPedestriansUtil } from './drawPedestrians';
@@ -844,7 +844,10 @@ export function useVehicleSystems(
     }
     
     // Scale pedestrian count with city size (road tiles), with a reasonable cap
-    const maxPedestrians = Math.min(PEDESTRIAN_MAX_COUNT, Math.max(150, roadTileCount * 3));
+    const maxPedestrians = Math.min(
+      PEDESTRIAN_MAX_COUNT,
+      Math.max(150, roadTileCount * PEDESTRIAN_PER_ROAD_TILE)
+    );
     pedestrianSpawnTimerRef.current -= delta;
     
     if (pedestriansRef.current.length < maxPedestrians && pedestrianSpawnTimerRef.current <= 0) {
