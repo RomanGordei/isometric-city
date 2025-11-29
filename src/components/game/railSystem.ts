@@ -407,26 +407,86 @@ function drawBallast(
     case 'curve_sw':
       drawDoubleCurvedBallast(southEdge, westEdge, center, NEG_ISO_EW, NEG_ISO_NS, { x: 0, y: -1 });
       break;
-    case 'junction_t_n':
+    case 'junction_t_n': {
+      // Top bar: East-West
       drawDoubleStraightBallast(eastEdge, westEdge, ISO_NS);
-      drawDoubleStraightBallast(center, southEdge, ISO_EW);
+      // Shortened stem: center to 35% toward south
+      const stemEndN = { x: center.x + (southEdge.x - center.x) * 0.35, y: center.y + (southEdge.y - center.y) * 0.35 };
+      drawDoubleStraightBallast(stemEndN, southEdge, ISO_EW);
+      // Curves: from stem to top bar
+      // Left stem track curves to right (west-going) track
+      const stemLeft = offsetPoint(stemEndN, ISO_EW, -halfSep);
+      const westOuter = offsetPoint(westEdge, ISO_NS, -halfSep);
+      const ctrlLeftWest = { x: (stemLeft.x + westOuter.x) / 2, y: (stemLeft.y + westOuter.y) / 2 + h * 0.1 };
+      drawSingleCurvedBallast(stemLeft, westOuter, ctrlLeftWest, ISO_EW, ISO_NS);
+      // Right stem track curves to left (east-going) track
+      const stemRight = offsetPoint(stemEndN, ISO_EW, halfSep);
+      const eastOuter = offsetPoint(eastEdge, ISO_NS, halfSep);
+      const ctrlRightEast = { x: (stemRight.x + eastOuter.x) / 2, y: (stemRight.y + eastOuter.y) / 2 + h * 0.1 };
+      drawSingleCurvedBallast(stemRight, eastOuter, ctrlRightEast, ISO_EW, ISO_NS);
       drawCenterBallast();
       break;
-    case 'junction_t_e':
+    }
+    case 'junction_t_e': {
+      // Top bar: North-South
       drawDoubleStraightBallast(northEdge, southEdge, ISO_EW);
-      drawDoubleStraightBallast(center, westEdge, ISO_NS);
+      // Shortened stem: center to 35% toward west
+      const stemEndE = { x: center.x + (westEdge.x - center.x) * 0.35, y: center.y + (westEdge.y - center.y) * 0.35 };
+      drawDoubleStraightBallast(stemEndE, westEdge, ISO_NS);
+      // Curves: from stem to top bar
+      // Left stem track curves to north-going track
+      const stemLeft = offsetPoint(stemEndE, ISO_NS, -halfSep);
+      const northOuter = offsetPoint(northEdge, ISO_EW, -halfSep);
+      const ctrlLeftNorth = { x: (stemLeft.x + northOuter.x) / 2 - w * 0.1, y: (stemLeft.y + northOuter.y) / 2 };
+      drawSingleCurvedBallast(stemLeft, northOuter, ctrlLeftNorth, ISO_NS, ISO_EW);
+      // Right stem track curves to south-going track
+      const stemRight = offsetPoint(stemEndE, ISO_NS, halfSep);
+      const southOuter = offsetPoint(southEdge, ISO_EW, halfSep);
+      const ctrlRightSouth = { x: (stemRight.x + southOuter.x) / 2 - w * 0.1, y: (stemRight.y + southOuter.y) / 2 };
+      drawSingleCurvedBallast(stemRight, southOuter, ctrlRightSouth, ISO_NS, ISO_EW);
       drawCenterBallast();
       break;
-    case 'junction_t_s':
+    }
+    case 'junction_t_s': {
+      // Top bar: East-West
       drawDoubleStraightBallast(eastEdge, westEdge, ISO_NS);
-      drawDoubleStraightBallast(center, northEdge, ISO_EW);
+      // Shortened stem: center to 35% toward north
+      const stemEndS = { x: center.x + (northEdge.x - center.x) * 0.35, y: center.y + (northEdge.y - center.y) * 0.35 };
+      drawDoubleStraightBallast(stemEndS, northEdge, ISO_EW);
+      // Curves: from stem to top bar
+      // Left stem track curves to east-going track
+      const stemLeft = offsetPoint(stemEndS, ISO_EW, halfSep);
+      const eastOuter = offsetPoint(eastEdge, ISO_NS, halfSep);
+      const ctrlLeftEast = { x: (stemLeft.x + eastOuter.x) / 2, y: (stemLeft.y + eastOuter.y) / 2 - h * 0.1 };
+      drawSingleCurvedBallast(stemLeft, eastOuter, ctrlLeftEast, ISO_EW, ISO_NS);
+      // Right stem track curves to west-going track
+      const stemRight = offsetPoint(stemEndS, ISO_EW, -halfSep);
+      const westOuter = offsetPoint(westEdge, ISO_NS, -halfSep);
+      const ctrlRightWest = { x: (stemRight.x + westOuter.x) / 2, y: (stemRight.y + westOuter.y) / 2 - h * 0.1 };
+      drawSingleCurvedBallast(stemRight, westOuter, ctrlRightWest, ISO_EW, ISO_NS);
       drawCenterBallast();
       break;
-    case 'junction_t_w':
+    }
+    case 'junction_t_w': {
+      // Top bar: North-South
       drawDoubleStraightBallast(northEdge, southEdge, ISO_EW);
-      drawDoubleStraightBallast(center, eastEdge, ISO_NS);
+      // Shortened stem: center to 35% toward east
+      const stemEndW = { x: center.x + (eastEdge.x - center.x) * 0.35, y: center.y + (eastEdge.y - center.y) * 0.35 };
+      drawDoubleStraightBallast(stemEndW, eastEdge, ISO_NS);
+      // Curves: from stem to top bar
+      // Left stem track curves to south-going track
+      const stemLeft = offsetPoint(stemEndW, ISO_NS, halfSep);
+      const southOuter = offsetPoint(southEdge, ISO_EW, halfSep);
+      const ctrlLeftSouth = { x: (stemLeft.x + southOuter.x) / 2 + w * 0.1, y: (stemLeft.y + southOuter.y) / 2 };
+      drawSingleCurvedBallast(stemLeft, southOuter, ctrlLeftSouth, ISO_NS, ISO_EW);
+      // Right stem track curves to north-going track
+      const stemRight = offsetPoint(stemEndW, ISO_NS, -halfSep);
+      const northOuter = offsetPoint(northEdge, ISO_EW, -halfSep);
+      const ctrlRightNorth = { x: (stemRight.x + northOuter.x) / 2 + w * 0.1, y: (stemRight.y + northOuter.y) / 2 };
+      drawSingleCurvedBallast(stemRight, northOuter, ctrlRightNorth, ISO_NS, ISO_EW);
       drawCenterBallast();
       break;
+    }
     case 'junction_cross':
       drawDoubleStraightBallast(northEdge, southEdge, ISO_EW);
       drawDoubleStraightBallast(eastEdge, westEdge, ISO_NS);
@@ -615,22 +675,74 @@ function drawTies(
     case 'curve_sw':
       drawDoubleCurveTies(southEdge, westEdge, center, NEG_ISO_EW, NEG_ISO_NS, NEG_ISO_EW, NEG_ISO_NS, { x: 0, y: -1 }, TIES_PER_TILE);
       break;
-    case 'junction_t_n':
+    case 'junction_t_n': {
+      // Top bar: East-West
       drawDoubleTies(eastEdge, westEdge, ISO_NS, ISO_NS, TIES_PER_TILE);
-      drawDoubleTies(center, southEdge, ISO_EW, ISO_EW, tiesHalf);
+      // Shortened stem: center to 35% toward south
+      const stemEndN = { x: center.x + (southEdge.x - center.x) * 0.35, y: center.y + (southEdge.y - center.y) * 0.35 };
+      drawDoubleTies(stemEndN, southEdge, ISO_EW, ISO_EW, tiesHalf);
+      // Curves: from stem to top bar
+      const stemLeft = offsetPoint(stemEndN, ISO_EW, -halfSep);
+      const westOuter = offsetPoint(westEdge, ISO_NS, -halfSep);
+      const ctrlLeftWest = { x: (stemLeft.x + westOuter.x) / 2, y: (stemLeft.y + westOuter.y) / 2 + h * 0.1 };
+      drawSingleCurveTies(stemLeft, westOuter, ctrlLeftWest, ISO_EW, ISO_NS, tiesHalf);
+      const stemRight = offsetPoint(stemEndN, ISO_EW, halfSep);
+      const eastOuter = offsetPoint(eastEdge, ISO_NS, halfSep);
+      const ctrlRightEast = { x: (stemRight.x + eastOuter.x) / 2, y: (stemRight.y + eastOuter.y) / 2 + h * 0.1 };
+      drawSingleCurveTies(stemRight, eastOuter, ctrlRightEast, ISO_EW, ISO_NS, tiesHalf);
       break;
-    case 'junction_t_e':
+    }
+    case 'junction_t_e': {
+      // Top bar: North-South
       drawDoubleTies(northEdge, southEdge, ISO_EW, ISO_EW, TIES_PER_TILE);
-      drawDoubleTies(center, westEdge, ISO_NS, ISO_NS, tiesHalf);
+      // Shortened stem: center to 35% toward west
+      const stemEndE = { x: center.x + (westEdge.x - center.x) * 0.35, y: center.y + (westEdge.y - center.y) * 0.35 };
+      drawDoubleTies(stemEndE, westEdge, ISO_NS, ISO_NS, tiesHalf);
+      // Curves: from stem to top bar
+      const stemLeft = offsetPoint(stemEndE, ISO_NS, -halfSep);
+      const northOuter = offsetPoint(northEdge, ISO_EW, -halfSep);
+      const ctrlLeftNorth = { x: (stemLeft.x + northOuter.x) / 2 - w * 0.1, y: (stemLeft.y + northOuter.y) / 2 };
+      drawSingleCurveTies(stemLeft, northOuter, ctrlLeftNorth, ISO_NS, ISO_EW, tiesHalf);
+      const stemRight = offsetPoint(stemEndE, ISO_NS, halfSep);
+      const southOuter = offsetPoint(southEdge, ISO_EW, halfSep);
+      const ctrlRightSouth = { x: (stemRight.x + southOuter.x) / 2 - w * 0.1, y: (stemRight.y + southOuter.y) / 2 };
+      drawSingleCurveTies(stemRight, southOuter, ctrlRightSouth, ISO_NS, ISO_EW, tiesHalf);
       break;
-    case 'junction_t_s':
+    }
+    case 'junction_t_s': {
+      // Top bar: East-West
       drawDoubleTies(eastEdge, westEdge, ISO_NS, ISO_NS, TIES_PER_TILE);
-      drawDoubleTies(center, northEdge, ISO_EW, ISO_EW, tiesHalf);
+      // Shortened stem: center to 35% toward north
+      const stemEndS = { x: center.x + (northEdge.x - center.x) * 0.35, y: center.y + (northEdge.y - center.y) * 0.35 };
+      drawDoubleTies(stemEndS, northEdge, ISO_EW, ISO_EW, tiesHalf);
+      // Curves: from stem to top bar
+      const stemLeft = offsetPoint(stemEndS, ISO_EW, halfSep);
+      const eastOuter = offsetPoint(eastEdge, ISO_NS, halfSep);
+      const ctrlLeftEast = { x: (stemLeft.x + eastOuter.x) / 2, y: (stemLeft.y + eastOuter.y) / 2 - h * 0.1 };
+      drawSingleCurveTies(stemLeft, eastOuter, ctrlLeftEast, ISO_EW, ISO_NS, tiesHalf);
+      const stemRight = offsetPoint(stemEndS, ISO_EW, -halfSep);
+      const westOuter = offsetPoint(westEdge, ISO_NS, -halfSep);
+      const ctrlRightWest = { x: (stemRight.x + westOuter.x) / 2, y: (stemRight.y + westOuter.y) / 2 - h * 0.1 };
+      drawSingleCurveTies(stemRight, westOuter, ctrlRightWest, ISO_EW, ISO_NS, tiesHalf);
       break;
-    case 'junction_t_w':
+    }
+    case 'junction_t_w': {
+      // Top bar: North-South
       drawDoubleTies(northEdge, southEdge, ISO_EW, ISO_EW, TIES_PER_TILE);
-      drawDoubleTies(center, eastEdge, ISO_NS, ISO_NS, tiesHalf);
+      // Shortened stem: center to 35% toward east
+      const stemEndW = { x: center.x + (eastEdge.x - center.x) * 0.35, y: center.y + (eastEdge.y - center.y) * 0.35 };
+      drawDoubleTies(stemEndW, eastEdge, ISO_NS, ISO_NS, tiesHalf);
+      // Curves: from stem to top bar
+      const stemLeft = offsetPoint(stemEndW, ISO_NS, halfSep);
+      const southOuter = offsetPoint(southEdge, ISO_EW, halfSep);
+      const ctrlLeftSouth = { x: (stemLeft.x + southOuter.x) / 2 + w * 0.1, y: (stemLeft.y + southOuter.y) / 2 };
+      drawSingleCurveTies(stemLeft, southOuter, ctrlLeftSouth, ISO_NS, ISO_EW, tiesHalf);
+      const stemRight = offsetPoint(stemEndW, ISO_NS, -halfSep);
+      const northOuter = offsetPoint(northEdge, ISO_EW, -halfSep);
+      const ctrlRightNorth = { x: (stemRight.x + northOuter.x) / 2 + w * 0.1, y: (stemRight.y + northOuter.y) / 2 };
+      drawSingleCurveTies(stemRight, northOuter, ctrlRightNorth, ISO_NS, ISO_EW, tiesHalf);
       break;
+    }
     case 'junction_cross':
       drawDoubleTies(northEdge, southEdge, ISO_EW, ISO_EW, TIES_PER_TILE);
       drawDoubleTies(eastEdge, westEdge, ISO_NS, ISO_NS, TIES_PER_TILE);
@@ -836,22 +948,74 @@ function drawRails(
     case 'curve_sw':
       drawDoubleCurvedRails(southEdge, westEdge, center, NEG_ISO_EW, NEG_ISO_NS, { x: 0, y: -1 });
       break;
-    case 'junction_t_n':
+    case 'junction_t_n': {
+      // Top bar: East-West
       drawDoubleStraightRails(eastEdge, westEdge, ISO_NS);
-      drawDoubleStraightRails(center, southEdge, ISO_EW);
+      // Shortened stem: center to 35% toward south
+      const stemEndN = { x: center.x + (southEdge.x - center.x) * 0.35, y: center.y + (southEdge.y - center.y) * 0.35 };
+      drawDoubleStraightRails(stemEndN, southEdge, ISO_EW);
+      // Curves: from stem to top bar
+      const stemLeft = offsetPoint(stemEndN, ISO_EW, -halfSep);
+      const westOuter = offsetPoint(westEdge, ISO_NS, -halfSep);
+      const ctrlLeftWest = { x: (stemLeft.x + westOuter.x) / 2, y: (stemLeft.y + westOuter.y) / 2 + h * 0.1 };
+      drawSingleCurvedRails(stemLeft, westOuter, ctrlLeftWest, ISO_EW, ISO_NS);
+      const stemRight = offsetPoint(stemEndN, ISO_EW, halfSep);
+      const eastOuter = offsetPoint(eastEdge, ISO_NS, halfSep);
+      const ctrlRightEast = { x: (stemRight.x + eastOuter.x) / 2, y: (stemRight.y + eastOuter.y) / 2 + h * 0.1 };
+      drawSingleCurvedRails(stemRight, eastOuter, ctrlRightEast, ISO_EW, ISO_NS);
       break;
-    case 'junction_t_e':
+    }
+    case 'junction_t_e': {
+      // Top bar: North-South
       drawDoubleStraightRails(northEdge, southEdge, ISO_EW);
-      drawDoubleStraightRails(center, westEdge, ISO_NS);
+      // Shortened stem: center to 35% toward west
+      const stemEndE = { x: center.x + (westEdge.x - center.x) * 0.35, y: center.y + (westEdge.y - center.y) * 0.35 };
+      drawDoubleStraightRails(stemEndE, westEdge, ISO_NS);
+      // Curves: from stem to top bar
+      const stemLeft = offsetPoint(stemEndE, ISO_NS, -halfSep);
+      const northOuter = offsetPoint(northEdge, ISO_EW, -halfSep);
+      const ctrlLeftNorth = { x: (stemLeft.x + northOuter.x) / 2 - w * 0.1, y: (stemLeft.y + northOuter.y) / 2 };
+      drawSingleCurvedRails(stemLeft, northOuter, ctrlLeftNorth, ISO_NS, ISO_EW);
+      const stemRight = offsetPoint(stemEndE, ISO_NS, halfSep);
+      const southOuter = offsetPoint(southEdge, ISO_EW, halfSep);
+      const ctrlRightSouth = { x: (stemRight.x + southOuter.x) / 2 - w * 0.1, y: (stemRight.y + southOuter.y) / 2 };
+      drawSingleCurvedRails(stemRight, southOuter, ctrlRightSouth, ISO_NS, ISO_EW);
       break;
-    case 'junction_t_s':
+    }
+    case 'junction_t_s': {
+      // Top bar: East-West
       drawDoubleStraightRails(eastEdge, westEdge, ISO_NS);
-      drawDoubleStraightRails(center, northEdge, ISO_EW);
+      // Shortened stem: center to 35% toward north
+      const stemEndS = { x: center.x + (northEdge.x - center.x) * 0.35, y: center.y + (northEdge.y - center.y) * 0.35 };
+      drawDoubleStraightRails(stemEndS, northEdge, ISO_EW);
+      // Curves: from stem to top bar
+      const stemLeft = offsetPoint(stemEndS, ISO_EW, halfSep);
+      const eastOuter = offsetPoint(eastEdge, ISO_NS, halfSep);
+      const ctrlLeftEast = { x: (stemLeft.x + eastOuter.x) / 2, y: (stemLeft.y + eastOuter.y) / 2 - h * 0.1 };
+      drawSingleCurvedRails(stemLeft, eastOuter, ctrlLeftEast, ISO_EW, ISO_NS);
+      const stemRight = offsetPoint(stemEndS, ISO_EW, -halfSep);
+      const westOuter = offsetPoint(westEdge, ISO_NS, -halfSep);
+      const ctrlRightWest = { x: (stemRight.x + westOuter.x) / 2, y: (stemRight.y + westOuter.y) / 2 - h * 0.1 };
+      drawSingleCurvedRails(stemRight, westOuter, ctrlRightWest, ISO_EW, ISO_NS);
       break;
-    case 'junction_t_w':
+    }
+    case 'junction_t_w': {
+      // Top bar: North-South
       drawDoubleStraightRails(northEdge, southEdge, ISO_EW);
-      drawDoubleStraightRails(center, eastEdge, ISO_NS);
+      // Shortened stem: center to 35% toward east
+      const stemEndW = { x: center.x + (eastEdge.x - center.x) * 0.35, y: center.y + (eastEdge.y - center.y) * 0.35 };
+      drawDoubleStraightRails(stemEndW, eastEdge, ISO_NS);
+      // Curves: from stem to top bar
+      const stemLeft = offsetPoint(stemEndW, ISO_NS, halfSep);
+      const southOuter = offsetPoint(southEdge, ISO_EW, halfSep);
+      const ctrlLeftSouth = { x: (stemLeft.x + southOuter.x) / 2 + w * 0.1, y: (stemLeft.y + southOuter.y) / 2 };
+      drawSingleCurvedRails(stemLeft, southOuter, ctrlLeftSouth, ISO_NS, ISO_EW);
+      const stemRight = offsetPoint(stemEndW, ISO_NS, -halfSep);
+      const northOuter = offsetPoint(northEdge, ISO_EW, -halfSep);
+      const ctrlRightNorth = { x: (stemRight.x + northOuter.x) / 2 + w * 0.1, y: (stemRight.y + northOuter.y) / 2 };
+      drawSingleCurvedRails(stemRight, northOuter, ctrlRightNorth, ISO_NS, ISO_EW);
       break;
+    }
     case 'junction_cross':
       drawDoubleStraightRails(northEdge, southEdge, ISO_EW);
       drawDoubleStraightRails(eastEdge, westEdge, ISO_NS);
