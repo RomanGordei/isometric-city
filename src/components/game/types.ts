@@ -22,6 +22,26 @@ export type Car = {
   laneOffset: number;
 };
 
+export type TrainState = 'outbound' | 'returning';
+
+export type Train = {
+  id: number;
+  tileX: number;
+  tileY: number;
+  direction: CarDirection;
+  progress: number;
+  speed: number;
+  path: { x: number; y: number }[];
+  pathIndex: number;
+  state: TrainState;
+  originX: number;
+  originY: number;
+  destX: number;
+  destY: number;
+  color: string;
+  length: number;
+};
+
 // Airplane types for airport animation
 export type AirplaneState = 'flying' | 'landing' | 'taking_off' | 'taxiing';
 

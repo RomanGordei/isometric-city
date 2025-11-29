@@ -198,7 +198,8 @@ export function useVehicleSystems(
         const tile = currentGrid[y][x];
         const isBuilding = tile.building.type !== 'grass' && 
             tile.building.type !== 'water' && 
-            tile.building.type !== 'road' && 
+            tile.building.type !== 'road' &&
+            tile.building.type !== 'rail' && 
             tile.building.type !== 'tree' &&
             tile.building.type !== 'empty';
         const hasActivity = tile.building.population > 0 || tile.building.jobs > 0;

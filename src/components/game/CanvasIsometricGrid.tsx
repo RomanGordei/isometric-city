@@ -30,6 +30,7 @@ import {
   PedestrianDestType,
   Firework,
   WorldRenderState,
+  Train,
 } from '@/components/game/types';
 import {
   CAR_COLORS,
@@ -116,6 +117,7 @@ import { drawPedestrians as drawPedestriansUtil } from '@/components/game/drawPe
 import { useVehicleSystems, VehicleSystemRefs, VehicleSystemState } from '@/components/game/vehicleSystems';
 import { useBuildingHelpers } from '@/components/game/buildingHelpers';
 import { useAircraftSystems, AircraftSystemRefs, AircraftSystemState } from '@/components/game/aircraftSystems';
+import { useTrainSystem, TrainSystemRefs, TrainSystemState } from '@/components/game/trainSystem';
 import {
   analyzeMergedRoad,
   getAdjacentRoads,
@@ -186,6 +188,9 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
   const pedestriansRef = useRef<Pedestrian[]>([]);
   const pedestrianIdRef = useRef(0);
   const pedestrianSpawnTimerRef = useRef(0);
+  const trainsRef = useRef<Train[]>([]);
+  const trainIdRef = useRef(0);
+  const trainSpawnTimerRef = useRef(0);
   
   // Touch gesture state for mobile
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -332,6 +337,17 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     updateAirplanes,
     updateHelicopters,
   } = useAircraftSystems(aircraftSystemRefs, aircraftSystemState);
+  
+  const trainSystemRefs: TrainSystemRefs = {
+    trainsRef,
+    trainIdRef,
+    trainSpawnTimerRef,
+  };
+  const trainSystemState: TrainSystemState = {
+    worldStateRef,
+    isMobile,
+  };
+  const { updateTrains, drawTrains } = useTrainSystem(trainSystemRefs, trainSystemState);
   
   useEffect(() => {
     worldStateRef.current.grid = grid;
@@ -1650,6 +1666,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     const buildingQueue: BuildingDraw[] = [];
     const waterQueue: BuildingDraw[] = [];
     const roadQueue: BuildingDraw[] = []; // Roads drawn above water
+    const railQueue: BuildingDraw[] = []; // Rails drawn above water
     const beachQueue: BuildingDraw[] = [];
     const baseTileQueue: BuildingDraw[] = [];
     const greenBaseTileQueue: BuildingDraw[] = [];
@@ -1686,6 +1703,12 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     function hasRoad(gridX: number, gridY: number): boolean {
       if (gridX < 0 || gridX >= gridSize || gridY < 0 || gridY >= gridSize) return false;
       return grid[gridY][gridX].building.type === 'road';
+    }
+    
+    function hasRail(gridX: number, gridY: number): boolean {
+      if (gridX < 0 || gridX >= gridSize || gridY < 0 || gridY >= gridSize) return false;
+      const type = grid[gridY][gridX].building.type;
+      return type === 'rail' || type === 'rail_station';
     }
     
     // Helper function to check if a tile has a marina dock or pier (no beaches next to these)
@@ -2330,6 +2353,98 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       }
     }
     
+    function drawRail(ctx: CanvasRenderingContext2D, x: number, y: number, gridX: number, gridY: number, currentZoom: number) {
+      const w = TILE_WIDTH;
+      const h = TILE_HEIGHT;
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      
+      // Base ballast diamond
+      ctx.fillStyle = '#3d3127';
+      ctx.beginPath();
+      ctx.moveTo(x + w / 2, y);
+      ctx.lineTo(x + w, y + h / 2);
+      ctx.lineTo(x + w / 2, y + h);
+      ctx.lineTo(x, y + h / 2);
+      ctx.closePath();
+      ctx.fill();
+      
+      const north = hasRail(gridX - 1, gridY);
+      const east = hasRail(gridX, gridY - 1);
+      const south = hasRail(gridX + 1, gridY);
+      const west = hasRail(gridX, gridY + 1);
+      
+      const northEdge = { x: x + w * 0.25, y: y + h * 0.25 };
+      const eastEdge = { x: x + w * 0.75, y: y + h * 0.25 };
+      const southEdge = { x: x + w * 0.75, y: y + h * 0.75 };
+      const westEdge = { x: x + w * 0.25, y: y + h * 0.75 };
+      
+      const connectors: Array<{ edgeX: number; edgeY: number; dirX: number; dirY: number; perpX: number; perpY: number }> = [];
+      const createConnector = (edge: { x: number; y: number }) => {
+        const dx = edge.x - cx;
+        const dy = edge.y - cy;
+        const len = Math.hypot(dx, dy) || 1;
+        const dirX = dx / len;
+        const dirY = dy / len;
+        const perpX = -dirY;
+        const perpY = dirX;
+        connectors.push({ edgeX: edge.x, edgeY: edge.y, dirX, dirY, perpX, perpY });
+      };
+      if (north) createConnector(northEdge);
+      if (east) createConnector(eastEdge);
+      if (south) createConnector(southEdge);
+      if (west) createConnector(westEdge);
+      
+      const railSpacing = w * 0.08;
+      const railThickness = Math.max(1.3, w * 0.035);
+      const stopFactor = 0.96;
+      
+      ctx.strokeStyle = '#cbd2da';
+      ctx.lineWidth = railThickness;
+      ctx.lineCap = 'round';
+      
+      const offsets = [railSpacing, -railSpacing];
+      offsets.forEach(offset => {
+        connectors.forEach(conn => {
+          ctx.beginPath();
+          const startX = cx + conn.perpX * offset;
+          const startY = cy + conn.perpY * offset;
+          const endX = cx + (conn.edgeX - cx) * stopFactor + conn.perpX * offset;
+          const endY = cy + (conn.edgeY - cy) * stopFactor + conn.perpY * offset;
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+        });
+      });
+      
+      // Draw wood ties as short strokes perpendicular to rails
+      ctx.strokeStyle = 'rgba(82, 64, 48, 0.85)';
+      ctx.lineWidth = railThickness * 1.6;
+      connectors.forEach(conn => {
+        const tieCount = 3;
+        for (let i = 1; i <= tieCount; i++) {
+          const t = i / (tieCount + 1);
+          const px = cx + (conn.edgeX - cx) * t;
+          const py = cy + (conn.edgeY - cy) * t;
+          ctx.beginPath();
+          ctx.moveTo(px + conn.perpX * railSpacing * 0.8, py + conn.perpY * railSpacing * 0.8);
+          ctx.lineTo(px - conn.perpX * railSpacing * 0.8, py - conn.perpY * railSpacing * 0.8);
+          ctx.stroke();
+        }
+      });
+      
+      // Center diamond joint
+      ctx.fillStyle = '#1e1a16';
+      const centerSize = w * 0.08;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - centerSize);
+      ctx.lineTo(cx + centerSize, cy);
+      ctx.lineTo(cx, cy + centerSize);
+      ctx.lineTo(cx - centerSize, cy);
+      ctx.closePath();
+      ctx.fill();
+    }
+    
     // Draw isometric tile base
     function drawIsometricTile(ctx: CanvasRenderingContext2D, x: number, y: number, tile: Tile, highlight: boolean, currentZoom: number, skipGreyBase: boolean = false, skipGreenBase: boolean = false) {
       const w = TILE_WIDTH;
@@ -2466,6 +2581,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     // Draw building sprite
     function drawBuilding(ctx: CanvasRenderingContext2D, x: number, y: number, tile: Tile) {
       const buildingType = tile.building.type;
+      const visualBuildingType = buildingType === 'rail_station' ? 'subway_station' : buildingType;
       const w = TILE_WIDTH;
       const h = TILE_HEIGHT;
       
@@ -2475,10 +2591,19 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         return;
       }
       
+      if (buildingType === 'rail') {
+        drawRail(ctx, x, y, tile.x, tile.y, zoom);
+        return;
+      }
+      
+      if (buildingType === 'rail_station') {
+        drawRail(ctx, x, y, tile.x, tile.y, zoom);
+      }
+      
       // Check if this building type has a sprite in the tile renderer or parks sheet
       const activePack = getActiveSpritePack();
-      const hasTileSprite = BUILDING_TO_SPRITE[buildingType] || 
-        (activePack.parksBuildings && activePack.parksBuildings[buildingType]);
+      const hasTileSprite = BUILDING_TO_SPRITE[visualBuildingType] || 
+        (activePack.parksBuildings && activePack.parksBuildings[visualBuildingType]);
       
       if (hasTileSprite) {
         // Special handling for water: use separate water.png image with blending for adjacent water tiles
@@ -2671,11 +2796,11 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
           let useParksBuilding: { row: number; col: number } | null = null;
           
           // Check if this is a parks building first
-          const isParksBuilding = activePack.parksBuildings && activePack.parksBuildings[buildingType];
+          const isParksBuilding = activePack.parksBuildings && activePack.parksBuildings[visualBuildingType];
           
           if (isConstructionPhase && isParksBuilding && activePack.parksConstructionSrc) {
             // Parks building under construction (phase 2) - use parks construction sheet
-            useParksBuilding = activePack.parksBuildings![buildingType];
+            useParksBuilding = activePack.parksBuildings![visualBuildingType];
             spriteSource = activePack.parksConstructionSrc;
           } else if (isConstructionPhase && activePack.constructionSrc) {
             // Regular building under construction (phase 2) - use construction sheet
@@ -2684,13 +2809,13 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
             spriteSource = activePack.abandonedSrc;
           } else if (isParksBuilding && activePack.parksSrc) {
             // Check if this building type is from the parks sprite sheet
-            useParksBuilding = activePack.parksBuildings![buildingType];
+            useParksBuilding = activePack.parksBuildings![visualBuildingType];
             spriteSource = activePack.parksSrc;
-          } else if (activePack.denseSrc && activePack.denseVariants && activePack.denseVariants[buildingType]) {
+          } else if (activePack.denseSrc && activePack.denseVariants && activePack.denseVariants[visualBuildingType]) {
             // Check if this building type has dense variants available
-            const denseVariants = activePack.denseVariants[buildingType];
-            const modernVariants = activePack.modernSrc && activePack.modernVariants && activePack.modernVariants[buildingType]
-              ? activePack.modernVariants[buildingType]
+            const denseVariants = activePack.denseVariants[visualBuildingType];
+            const modernVariants = activePack.modernSrc && activePack.modernVariants && activePack.modernVariants[visualBuildingType]
+              ? activePack.modernVariants[visualBuildingType]
               : [];
             // Use deterministic random based on tile position to select variant
             // This ensures the same building always shows the same variant
@@ -2712,18 +2837,18 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
                 spriteSource = activePack.denseSrc;
               }
             }
-          } else if (activePack.modernSrc && activePack.modernVariants && activePack.modernVariants[buildingType]) {
+          } else if (activePack.modernSrc && activePack.modernVariants && activePack.modernVariants[visualBuildingType]) {
             // Check if this building type has modern variants available (without dense variants)
-            const variants = activePack.modernVariants[buildingType];
+            const variants = activePack.modernVariants[visualBuildingType];
             const seed = (tile.x * 31 + tile.y * 17) % 100;
             if (seed < 50 && variants.length > 0) {
               const variantIndex = (tile.x * 7 + tile.y * 13) % variants.length;
               useModernVariant = variants[variantIndex];
               spriteSource = activePack.modernSrc;
             }
-          } else if (activePack.farmsSrc && activePack.farmsVariants && activePack.farmsVariants[buildingType]) {
+          } else if (activePack.farmsSrc && activePack.farmsVariants && activePack.farmsVariants[visualBuildingType]) {
             // Check if this building type has farm variants available (low-density industrial)
-            const variants = activePack.farmsVariants[buildingType];
+            const variants = activePack.farmsVariants[visualBuildingType];
             // Use deterministic random based on tile position to select variant
             // This ensures the same building always shows the same variant
             const seed = (tile.x * 31 + tile.y * 17) % 100;
@@ -2734,9 +2859,9 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
               useFarmVariant = variants[variantIndex];
               spriteSource = activePack.farmsSrc;
             }
-          } else if (activePack.shopsSrc && activePack.shopsVariants && activePack.shopsVariants[buildingType]) {
+          } else if (activePack.shopsSrc && activePack.shopsVariants && activePack.shopsVariants[visualBuildingType]) {
             // Check if this building type has shop variants available (low-density commercial)
-            const variants = activePack.shopsVariants[buildingType];
+            const variants = activePack.shopsVariants[visualBuildingType];
             // Use deterministic random based on tile position to select variant
             // This ensures the same building always shows the same variant
             const seed = (tile.x * 31 + tile.y * 17) % 100;
@@ -2952,32 +3077,32 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
                 scaleMultiplier *= 0.85;
               }
               // Apply dense-specific scale if building uses dense variant and has custom scale in config
-              if (isDenseVariant && activePack.denseScales && buildingType in activePack.denseScales) {
-                scaleMultiplier *= activePack.denseScales[buildingType];
+              if (isDenseVariant && activePack.denseScales && visualBuildingType in activePack.denseScales) {
+                scaleMultiplier *= activePack.denseScales[visualBuildingType];
               }
               // Apply modern-specific scale if building uses modern variant and has custom scale in config
-              if (isModernVariant && activePack.modernScales && buildingType in activePack.modernScales) {
-                scaleMultiplier *= activePack.modernScales[buildingType];
+              if (isModernVariant && activePack.modernScales && visualBuildingType in activePack.modernScales) {
+                scaleMultiplier *= activePack.modernScales[visualBuildingType];
               }
               // Apply farm-specific scale if building uses farm variant and has custom scale in config
-              if (isFarmVariant && activePack.farmsScales && buildingType in activePack.farmsScales) {
-                scaleMultiplier *= activePack.farmsScales[buildingType];
+              if (isFarmVariant && activePack.farmsScales && visualBuildingType in activePack.farmsScales) {
+                scaleMultiplier *= activePack.farmsScales[visualBuildingType];
               }
               // Apply shop-specific scale if building uses shop variant and has custom scale in config
-              if (isShopVariant && activePack.shopsScales && buildingType in activePack.shopsScales) {
-                scaleMultiplier *= activePack.shopsScales[buildingType];
+              if (isShopVariant && activePack.shopsScales && visualBuildingType in activePack.shopsScales) {
+                scaleMultiplier *= activePack.shopsScales[visualBuildingType];
               }
               // Apply parks-specific scale if building is from parks sheet and has custom scale in config
-              if (isParksBuilding && activePack.parksScales && buildingType in activePack.parksScales) {
-                scaleMultiplier *= activePack.parksScales[buildingType];
+              if (isParksBuilding && activePack.parksScales && visualBuildingType in activePack.parksScales) {
+                scaleMultiplier *= activePack.parksScales[visualBuildingType];
               }
               // Apply construction-specific scale if building is in construction phase (phase 2) and has custom scale
-              if (isConstructionPhase && activePack.constructionScales && buildingType in activePack.constructionScales) {
-                scaleMultiplier *= activePack.constructionScales[buildingType];
+              if (isConstructionPhase && activePack.constructionScales && visualBuildingType in activePack.constructionScales) {
+                scaleMultiplier *= activePack.constructionScales[visualBuildingType];
               }
               // Apply abandoned-specific scale if building is abandoned and has custom scale
-              if (isAbandoned && activePack.abandonedScales && buildingType in activePack.abandonedScales) {
-                scaleMultiplier *= activePack.abandonedScales[buildingType];
+              if (isAbandoned && activePack.abandonedScales && visualBuildingType in activePack.abandonedScales) {
+                scaleMultiplier *= activePack.abandonedScales[visualBuildingType];
               }
               // Apply global scale from sprite pack if available
               const globalScale = activePack.globalScale ?? 1;
@@ -2989,19 +3114,19 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
               let drawX = drawPosX + w / 2 - destWidth / 2;
               
               // Apply per-sprite horizontal offset adjustments
-              const spriteKey = BUILDING_TO_SPRITE[buildingType];
+              const spriteKey = BUILDING_TO_SPRITE[visualBuildingType];
               let horizontalOffset = (spriteKey && SPRITE_HORIZONTAL_OFFSETS[spriteKey]) ? SPRITE_HORIZONTAL_OFFSETS[spriteKey] * w : 0;
               // Apply parks-specific horizontal offset if available
-              if (isParksBuilding && activePack.parksHorizontalOffsets && buildingType in activePack.parksHorizontalOffsets) {
-                horizontalOffset = activePack.parksHorizontalOffsets[buildingType] * w;
+              if (isParksBuilding && activePack.parksHorizontalOffsets && visualBuildingType in activePack.parksHorizontalOffsets) {
+                horizontalOffset = activePack.parksHorizontalOffsets[visualBuildingType] * w;
               }
               // Apply farm-specific horizontal offset if available
-              if (isFarmVariant && activePack.farmsHorizontalOffsets && buildingType in activePack.farmsHorizontalOffsets) {
-                horizontalOffset = activePack.farmsHorizontalOffsets[buildingType] * w;
+              if (isFarmVariant && activePack.farmsHorizontalOffsets && visualBuildingType in activePack.farmsHorizontalOffsets) {
+                horizontalOffset = activePack.farmsHorizontalOffsets[visualBuildingType] * w;
               }
               // Apply shop-specific horizontal offset if available
-              if (isShopVariant && activePack.shopsHorizontalOffsets && buildingType in activePack.shopsHorizontalOffsets) {
-                horizontalOffset = activePack.shopsHorizontalOffsets[buildingType] * w;
+              if (isShopVariant && activePack.shopsHorizontalOffsets && visualBuildingType in activePack.shopsHorizontalOffsets) {
+                horizontalOffset = activePack.shopsHorizontalOffsets[visualBuildingType] * w;
               }
               drawX += horizontalOffset;
               
@@ -3020,33 +3145,33 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
               // Use state-specific offset if available, then fall back to building-type or sprite-key offsets
               // Priority: parks-construction > construction > abandoned > parks > dense > building-type > sprite-key
               let extraOffset = 0;
-              if (isConstructionPhase && isParksBuilding && activePack.parksConstructionVerticalOffsets && buildingType in activePack.parksConstructionVerticalOffsets) {
+              if (isConstructionPhase && isParksBuilding && activePack.parksConstructionVerticalOffsets && visualBuildingType in activePack.parksConstructionVerticalOffsets) {
                 // Parks building in construction phase (phase 2) - use parks construction offset
-                extraOffset = activePack.parksConstructionVerticalOffsets[buildingType] * h;
-              } else if (isConstructionPhase && activePack.constructionVerticalOffsets && buildingType in activePack.constructionVerticalOffsets) {
+                extraOffset = activePack.parksConstructionVerticalOffsets[visualBuildingType] * h;
+              } else if (isConstructionPhase && activePack.constructionVerticalOffsets && visualBuildingType in activePack.constructionVerticalOffsets) {
                 // Regular building in construction phase (phase 2) - use construction offset
-                extraOffset = activePack.constructionVerticalOffsets[buildingType] * h;
-              } else if (isAbandoned && activePack.abandonedVerticalOffsets && buildingType in activePack.abandonedVerticalOffsets) {
+                extraOffset = activePack.constructionVerticalOffsets[visualBuildingType] * h;
+              } else if (isAbandoned && activePack.abandonedVerticalOffsets && visualBuildingType in activePack.abandonedVerticalOffsets) {
                 // Abandoned buildings may need different positioning than normal
-                extraOffset = activePack.abandonedVerticalOffsets[buildingType] * h;
-              } else if (isParksBuilding && activePack.parksVerticalOffsets && buildingType in activePack.parksVerticalOffsets) {
+                extraOffset = activePack.abandonedVerticalOffsets[visualBuildingType] * h;
+              } else if (isParksBuilding && activePack.parksVerticalOffsets && visualBuildingType in activePack.parksVerticalOffsets) {
                 // Parks buildings may need specific positioning
-                extraOffset = activePack.parksVerticalOffsets[buildingType] * h;
-              } else if (isDenseVariant && activePack.denseVerticalOffsets && buildingType in activePack.denseVerticalOffsets) {
+                extraOffset = activePack.parksVerticalOffsets[visualBuildingType] * h;
+              } else if (isDenseVariant && activePack.denseVerticalOffsets && visualBuildingType in activePack.denseVerticalOffsets) {
                 // Dense variants may need different positioning than normal
-                extraOffset = activePack.denseVerticalOffsets[buildingType] * h;
-              } else if (isModernVariant && activePack.modernVerticalOffsets && buildingType in activePack.modernVerticalOffsets) {
+                extraOffset = activePack.denseVerticalOffsets[visualBuildingType] * h;
+              } else if (isModernVariant && activePack.modernVerticalOffsets && visualBuildingType in activePack.modernVerticalOffsets) {
                 // Modern variants may need different positioning than normal
-                extraOffset = activePack.modernVerticalOffsets[buildingType] * h;
-              } else if (isFarmVariant && activePack.farmsVerticalOffsets && buildingType in activePack.farmsVerticalOffsets) {
+                extraOffset = activePack.modernVerticalOffsets[visualBuildingType] * h;
+              } else if (isFarmVariant && activePack.farmsVerticalOffsets && visualBuildingType in activePack.farmsVerticalOffsets) {
                 // Farm variants may need different positioning than normal
-                extraOffset = activePack.farmsVerticalOffsets[buildingType] * h;
-              } else if (isShopVariant && activePack.shopsVerticalOffsets && buildingType in activePack.shopsVerticalOffsets) {
+                extraOffset = activePack.farmsVerticalOffsets[visualBuildingType] * h;
+              } else if (isShopVariant && activePack.shopsVerticalOffsets && visualBuildingType in activePack.shopsVerticalOffsets) {
                 // Shop variants may need different positioning than normal
-                extraOffset = activePack.shopsVerticalOffsets[buildingType] * h;
-              } else if (activePack.buildingVerticalOffsets && buildingType in activePack.buildingVerticalOffsets) {
+                extraOffset = activePack.shopsVerticalOffsets[visualBuildingType] * h;
+              } else if (activePack.buildingVerticalOffsets && visualBuildingType in activePack.buildingVerticalOffsets) {
                 // Building-type-specific offset (for buildings sharing sprites but needing different positioning)
-                extraOffset = activePack.buildingVerticalOffsets[buildingType] * h;
+                extraOffset = activePack.buildingVerticalOffsets[visualBuildingType] * h;
               } else if (spriteKey && SPRITE_VERTICAL_OFFSETS[spriteKey]) {
                 extraOffset = SPRITE_VERTICAL_OFFSETS[spriteKey] * h;
               }
@@ -3195,6 +3320,10 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
           const depth = x + y;
           roadQueue.push({ screenX, screenY, tile, depth });
         }
+        else if (tile.building.type === 'rail' || tile.building.type === 'rail_station') {
+          const depth = x + y;
+          railQueue.push({ screenX, screenY, tile, depth });
+        }
         // Check for beach tiles (grass/empty tiles adjacent to water) - use pre-computed metadata
         else if ((tile.building.type === 'grass' || tile.building.type === 'empty') &&
                  (tileMetadata?.isAdjacentToWater ?? false)) {
@@ -3218,7 +3347,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
             ? tile.building.type !== 'water'  // For subway mode, show all non-water tiles
             : (tile.building.type !== 'grass' &&
                tile.building.type !== 'water' &&
-               tile.building.type !== 'road'));
+               tile.building.type !== 'road' &&
+               tile.building.type !== 'rail'));
         if (showOverlay) {
           overlayQueue.push({ screenX, screenY, tile });
         }
@@ -3291,6 +3421,22 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         ctx.fill();
         
         // Draw road markings and sidewalks
+        drawBuilding(ctx, screenX, screenY, tile);
+      });
+    
+    insertionSortByDepth(railQueue);
+    railQueue.forEach(({ tile, screenX, screenY }) => {
+        const w = TILE_WIDTH;
+        const h = TILE_HEIGHT;
+        ctx.fillStyle = '#31261f';
+        ctx.beginPath();
+        ctx.moveTo(screenX + w / 2, screenY);
+        ctx.lineTo(screenX + w, screenY + h / 2);
+        ctx.lineTo(screenX + w / 2, screenY + h);
+        ctx.lineTo(screenX, screenY + h / 2);
+        ctx.closePath();
+        ctx.fill();
+        
         drawBuilding(ctx, screenX, screenY, tile);
       });
     
@@ -3492,6 +3638,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         updateAirplanes(delta); // Update airplanes (airport required)
         updateHelicopters(delta); // Update helicopters (hospital/airport required)
         updateBoats(delta); // Update boats (marina/pier required)
+        updateTrains(delta); // Update trains on surface rails
         updateFireworks(delta, visualHour); // Update fireworks (nighttime only)
         updateSmog(delta); // Update factory smog particles
         navLightFlashTimerRef.current += delta * 3; // Update nav light flash timer
@@ -3504,6 +3651,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       } else {
+        drawTrains(ctx);
         drawCars(ctx);
         drawPedestrians(ctx); // Draw pedestrians (zoom-gated)
         drawBoats(ctx); // Draw boats on water
@@ -3518,7 +3666,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     
     animationFrameId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [canvasSize.width, canvasSize.height, updateCars, drawCars, spawnCrimeIncidents, updateCrimeIncidents, updateEmergencyVehicles, drawEmergencyVehicles, updatePedestrians, drawPedestrians, updateAirplanes, drawAirplanes, updateHelicopters, drawHelicopters, updateBoats, drawBoats, drawIncidentIndicators, updateFireworks, drawFireworks, updateSmog, drawSmog, visualHour, isMobile]);
+  }, [canvasSize.width, canvasSize.height, updateCars, drawCars, spawnCrimeIncidents, updateCrimeIncidents, updateEmergencyVehicles, drawEmergencyVehicles, updatePedestrians, drawPedestrians, updateAirplanes, drawAirplanes, updateHelicopters, drawHelicopters, updateBoats, drawBoats, updateTrains, drawTrains, drawIncidentIndicators, updateFireworks, drawFireworks, updateSmog, drawSmog, visualHour, isMobile]);
   
   // Day/Night cycle lighting rendering - optimized for performance
   useEffect(() => {
@@ -3603,7 +3751,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     };
     
     // Set for building types that are not lit
-    const nonLitTypes = new Set(['grass', 'empty', 'water', 'road', 'tree', 'park', 'park_large', 'tennis']);
+    const nonLitTypes = new Set(['grass', 'empty', 'water', 'road', 'rail', 'tree', 'park', 'park_large', 'tennis']);
     const residentialTypes = new Set(['house_small', 'house_medium', 'mansion', 'apartment_low', 'apartment_high']);
     const commercialTypes = new Set(['shop_small', 'shop_medium', 'office_low', 'office_high', 'mall']);
     
@@ -3811,7 +3959,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
             // Place immediately on first click
             placeAtTile(gridX, gridY);
             // Track initial tile for roads and subways
-            if (selectedTool === 'road' || selectedTool === 'subway') {
+            if (selectedTool === 'road' || selectedTool === 'rail' || selectedTool === 'subway') {
               placedRoadTilesRef.current.add(`${gridX},${gridY}`);
             }
           }
@@ -3929,7 +4077,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
           setDragEndTile({ x: gridX, y: gridY });
         }
         // For roads and subways, use straight-line snapping
-        else if (isDragging && (selectedTool === 'road' || selectedTool === 'subway') && dragStartTile) {
+        else if (isDragging && (selectedTool === 'road' || selectedTool === 'rail' || selectedTool === 'subway') && dragStartTile) {
           const dx = Math.abs(gridX - dragStartTile.x);
           const dy = Math.abs(gridY - dragStartTile.y);
           
@@ -3993,7 +4141,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     
     // After placing roads, check if any cities should be discovered
     // This happens after any road placement (drag or click) reaches an edge
-    if (isDragging && selectedTool === 'road') {
+    if (isDragging && (selectedTool === 'road' || selectedTool === 'rail')) {
       // Use setTimeout to allow state to update first, then check for discoverable cities
       setTimeout(() => {
         checkAndDiscoverCities((discoveredCity) => {
