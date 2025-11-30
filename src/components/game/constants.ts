@@ -86,14 +86,16 @@ export const PLANE_DIRECTION_COLS: Record<string, { col: number; mirrorX: boolea
   'n': { col: 3, mirrorX: false, mirrorY: false, baseAngle: (3 * Math.PI) / 2 },          // 270° - North top-down (col 3)
   // Derived directions through mirroring
   'se': { col: 1, mirrorX: false, mirrorY: true, baseAngle: (3 * Math.PI) / 4 - 0.26 },   // NE mirrored vertically = SE (~120°)
-  'nw': { col: 1, mirrorX: false, mirrorY: true, baseAngle: (5 * Math.PI) / 4 + 0.26 },   // NE mirrored vertically then rotated = NW (~240°)
+  'nw': { col: 1, mirrorX: false, mirrorY: true, baseAngle: Math.PI / 4 - 0.26 },         // NE mirrored vertically then rotated = NW (~30°)
   'e': { col: 2, mirrorX: true, mirrorY: false, baseAngle: 0 },                           // 0° - East (W mirrored horizontally)
   's': { col: 3, mirrorX: false, mirrorY: true, baseAngle: Math.PI / 2 },                 // 90° - South (N mirrored vertically)
 };
 
-// Seaplane-specific direction overrides: cannot use col 1 (NE), use col 3 (N) instead
-export const SEAPLANE_DIRECTION_OVERRIDES: Record<string, { col: number; mirrorX: boolean; mirrorY: boolean; baseAngle: number }> = {
-  'ne': { col: 3, mirrorX: true, mirrorY: false, baseAngle: Math.PI / 4 - 0.26 },         // Use N sprite rotated for NE
+// Direction overrides for planes that cannot use col 1 (NE): seaplane and g650
+// Use col 3 (N) instead
+export const COL1_OVERRIDE_PLANE_TYPES = ['seaplane', 'g650'];
+export const COL1_DIRECTION_OVERRIDES: Record<string, { col: number; mirrorX: boolean; mirrorY: boolean; baseAngle: number }> = {
+  'ne': { col: 3, mirrorX: true, mirrorY: false, baseAngle: -Math.PI / 4 - 0.69 },        // Use N sprite rotated for NE
   'se': { col: 3, mirrorX: true, mirrorY: true, baseAngle: (3 * Math.PI) / 4 - 0.26 },    // Use N sprite rotated for SE
   'nw': { col: 3, mirrorX: false, mirrorY: true, baseAngle: (5 * Math.PI) / 4 + 0.26 },   // Use N sprite rotated for NW
 };

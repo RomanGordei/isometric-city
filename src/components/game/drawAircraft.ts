@@ -9,7 +9,8 @@ import {
   AIRPLANE_SPRITE_ROWS,
   PLANE_TYPE_ROWS,
   PLANE_DIRECTION_COLS,
-  SEAPLANE_DIRECTION_OVERRIDES,
+  COL1_OVERRIDE_PLANE_TYPES,
+  COL1_DIRECTION_OVERRIDES,
   PLANE_SCALES,
 } from './constants';
 import { getCachedImage } from './imageLoader';
@@ -79,10 +80,10 @@ function getPlaneSprite(
   const row = PLANE_TYPE_ROWS[planeType];
   if (row === undefined) return null;
   
-  // For seaplanes, check if we need to use direction overrides
+  // For seaplanes and g650, check if we need to use direction overrides (avoid col 1)
   let dirInfo = PLANE_DIRECTION_COLS[direction];
-  if (planeType === 'seaplane' && SEAPLANE_DIRECTION_OVERRIDES[direction]) {
-    dirInfo = SEAPLANE_DIRECTION_OVERRIDES[direction];
+  if (COL1_OVERRIDE_PLANE_TYPES.includes(planeType) && COL1_DIRECTION_OVERRIDES[direction]) {
+    dirInfo = COL1_DIRECTION_OVERRIDES[direction];
   }
   if (!dirInfo) return null;
   
