@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import { Playfair_Display, DM_Sans } from 'next/font/google';
 import './globals.css';
 
+const OG_IMAGE_URL = '/opengraph-image';
+
 const playfair = Playfair_Display({
   subsets: ['latin'],
   variable: '--font-display',
@@ -30,9 +32,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/og-image.png',
-        width: 1179,
-        height: 1406,
+        url: OG_IMAGE_URL,
         type: 'image/png',
       },
     ],
@@ -41,13 +41,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'ISOCITY — Metropolis Builder',
     description: 'A richly detailed isometric city builder. Build your metropolis and manage resources with cars, planes, helicopters, boats, trains, citizens, and more.',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1179,
-        height: 1406,
-      },
-    ],
+    images: [OG_IMAGE_URL],
   },
   appleWebApp: {
     capable: true,
