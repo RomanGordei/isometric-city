@@ -40,7 +40,7 @@ function formatMoney(money: number): string {
 }
 
 export function SettingsPanel() {
-  const { state, setActivePanel, setDisastersEnabled, newGame, loadState, exportState, generateRandomCity, currentSpritePack, availableSpritePacks, setSpritePack, dayNightMode, setDayNightMode, getSavedCityInfo, restoreSavedCity, clearSavedCity, savedCities, saveCity, loadSavedCity, deleteSavedCity, renameSavedCity } = useGame();
+  const { state, setActivePanel, setDisastersEnabled, newGame, loadState, exportState, currentSpritePack, availableSpritePacks, setSpritePack, dayNightMode, setDayNightMode, getSavedCityInfo, restoreSavedCity, clearSavedCity, savedCities, saveCity, loadSavedCity, deleteSavedCity, renameSavedCity } = useGame();
   const { disastersEnabled, cityName, gridSize, id: currentCityId } = state;
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -566,16 +566,6 @@ export function SettingsPanel() {
               }}
             >
               Load Example State 9
-            </Button>
-            <Button
-              variant="default"
-              className="w-full mt-4"
-              onClick={() => {
-                generateRandomCity();
-                setActivePanel('none');
-              }}
-            >
-              Generate Random City
             </Button>
             
             <div className="mt-4 pt-4 border-t border-border">
