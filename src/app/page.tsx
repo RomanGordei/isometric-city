@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { GameProvider } from '@/context/GameContext';
 import Game from '@/components/Game';
 import { useMobile } from '@/hooks/useMobile';
 import { getSpritePack, getSpriteCoords, DEFAULT_SPRITE_PACK_ID } from '@/lib/renderConfig';
 import { SavedCityMeta } from '@/types/game';
+import { Building2, Train, Plane, Users, Zap, TreePine } from 'lucide-react';
 
 const STORAGE_KEY = 'isocity-game-state';
 const SAVED_CITIES_INDEX_KEY = 'isocity-saved-cities-index';
@@ -90,17 +91,98 @@ function loadSavedCities(): SavedCityMeta[] {
   return [];
 }
 
-// Sprite Gallery component that renders sprites using canvas (like SpriteTestPanel)
-function SpriteGallery({ count = 16, cols = 4, cellSize = 120 }: { count?: number; cols?: number; cellSize?: number }) {
+// Feature highlights data
+const FEATURES = [
+  { icon: Building2, label: 'Build', color: 'text-blue-400' },
+  { icon: Users, label: 'Grow', color: 'text-green-400' },
+  { icon: Train, label: 'Connect', color: 'text-amber-400' },
+  { icon: Plane, label: 'Expand', color: 'text-purple-400' },
+  { icon: Zap, label: 'Power', color: 'text-yellow-400' },
+  { icon: TreePine, label: 'Sustain', color: 'text-emerald-400' },
+];
+
+// Floating Sprite component - individual sprite that floats
+function FloatingSprite({ 
+  spriteKey, 
+  coords, 
+  filteredSheet, 
+  size = 80,
+  delay = 0,
+  duration = 4,
+}: { 
+  spriteKey: string;
+  coords: { sx: number; sy: number; sw: number; sh: number };
+  filteredSheet: HTMLCanvasElement;
+  size?: number;
+  delay?: number;
+  duration?: number;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !filteredSheet) return;
+    
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) return;
+    
+    const dpr = window.devicePixelRatio || 1;
+    const padding = 8;
+    
+    // Calculate destination size preserving aspect ratio
+    const maxSize = size - padding * 2;
+    const aspectRatio = coords.sh / coords.sw;
+    let destWidth = maxSize;
+    let destHeight = destWidth * aspectRatio;
+    
+    if (destHeight > maxSize) {
+      destHeight = maxSize;
+      destWidth = destHeight / aspectRatio;
+    }
+    
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    canvas.style.width = `${size}px`;
+    canvas.style.height = `${size}px`;
+    
+    ctx.scale(dpr, dpr);
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, size, size);
+    
+    // Center sprite in canvas
+    const drawX = (size - destWidth) / 2;
+    const drawY = (size - destHeight) / 2 + destHeight * 0.1;
+    
+    ctx.drawImage(
+      filteredSheet,
+      coords.sx, coords.sy, coords.sw, coords.sh,
+      Math.round(drawX), Math.round(drawY),
+      Math.round(destWidth), Math.round(destHeight)
+    );
+  }, [filteredSheet, coords, size]);
+  
+  return (
+    <canvas
+      ref={canvasRef}
+      className="transition-all duration-300 hover:scale-110"
+      style={{ 
+        imageRendering: 'pixelated',
+        animation: `float ${duration}s ease-in-out infinite`,
+        animationDelay: `${delay}s`,
+      }}
+      title={spriteKey}
+    />
+  );
+}
+
+// Animated Sprite Gallery with floating sprites
+function AnimatedSpriteGallery({ count = 12, isMobile = false }: { count?: number; isMobile?: boolean }) {
   const [filteredSheet, setFilteredSheet] = useState<HTMLCanvasElement | null>(null);
   const spritePack = useMemo(() => getSpritePack(DEFAULT_SPRITE_PACK_ID), []);
   
   // Get random sprite keys from the sprite order, pre-validated to have valid coords
   const randomSpriteKeys = useMemo(() => {
-    // Filter to only sprites that have valid building type mappings
     const validSpriteKeys = spritePack.spriteOrder.filter(spriteKey => {
-      // Check if this sprite key has a building type mapping
       const hasBuildingMapping = Object.values(spritePack.buildingToSprite).includes(spriteKey);
       return hasBuildingMapping;
     });
@@ -125,89 +207,66 @@ function SpriteGallery({ count = 16, cols = 4, cellSize = 120 }: { count?: numbe
     const sheetWidth = filteredSheet.width;
     const sheetHeight = filteredSheet.height;
     
-    return randomSpriteKeys.map(spriteKey => {
+    return randomSpriteKeys.map((spriteKey, index) => {
       const buildingType = Object.entries(spritePack.buildingToSprite).find(
         ([, value]) => value === spriteKey
       )?.[0] || spriteKey;
       
       const coords = getSpriteCoords(buildingType, sheetWidth, sheetHeight, spritePack);
-      return coords ? { spriteKey, coords } : null;
-    }).filter((item): item is { spriteKey: string; coords: { sx: number; sy: number; sw: number; sh: number } } => item !== null);
+      return coords ? { 
+        spriteKey, 
+        coords,
+        delay: (index * 0.3) % 3,
+        duration: 3 + (index % 3),
+      } : null;
+    }).filter((item): item is { 
+      spriteKey: string; 
+      coords: { sx: number; sy: number; sw: number; sh: number };
+      delay: number;
+      duration: number;
+    } => item !== null);
   }, [filteredSheet, randomSpriteKeys, spritePack]);
   
-  // Draw sprites to canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !filteredSheet || spriteData.length === 0) return;
-    
-    const ctx = canvas.getContext('2d', { alpha: true });
-    if (!ctx) return;
-    
-    const dpr = window.devicePixelRatio || 1;
-    const rows = Math.ceil(spriteData.length / cols);
-    const padding = 10;
-    
-    const canvasWidth = cols * cellSize;
-    const canvasHeight = rows * cellSize;
-    
-    canvas.width = canvasWidth * dpr;
-    canvas.height = canvasHeight * dpr;
-    canvas.style.width = `${canvasWidth}px`;
-    canvas.style.height = `${canvasHeight}px`;
-    
-    ctx.scale(dpr, dpr);
-    ctx.imageSmoothingEnabled = false;
-    
-    // Clear canvas (transparent)
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    
-    // Draw each sprite
-    spriteData.forEach(({ coords }, index) => {
-      const col = index % cols;
-      const row = Math.floor(index / cols);
-      const cellX = col * cellSize;
-      const cellY = row * cellSize;
-      
-      // Draw cell background
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.roundRect(cellX + 2, cellY + 2, cellSize - 4, cellSize - 4, 4);
-      ctx.fill();
-      ctx.stroke();
-      
-      // Calculate destination size preserving aspect ratio
-      const maxSize = cellSize - padding * 2;
-      const aspectRatio = coords.sh / coords.sw;
-      let destWidth = maxSize;
-      let destHeight = destWidth * aspectRatio;
-      
-      if (destHeight > maxSize) {
-        destHeight = maxSize;
-        destWidth = destHeight / aspectRatio;
-      }
-      
-      // Center sprite in cell
-      const drawX = cellX + (cellSize - destWidth) / 2;
-      const drawY = cellY + (cellSize - destHeight) / 2 + destHeight * 0.1; // Slight offset down
-      
-      // Draw sprite
-      ctx.drawImage(
-        filteredSheet,
-        coords.sx, coords.sy, coords.sw, coords.sh,
-        Math.round(drawX), Math.round(drawY),
-        Math.round(destWidth), Math.round(destHeight)
-      );
-    });
-  }, [filteredSheet, spriteData, cols, cellSize]);
+  if (!filteredSheet) return null;
+  
+  const spriteSize = isMobile ? 64 : 90;
+  const cols = isMobile ? 3 : 4;
   
   return (
-    <canvas
-      ref={canvasRef}
-      className="opacity-80 hover:opacity-100 transition-opacity"
-      style={{ imageRendering: 'pixelated' }}
-    />
+    <div 
+      className="grid gap-2 opacity-90"
+      style={{ 
+        gridTemplateColumns: `repeat(${cols}, ${spriteSize}px)`,
+      }}
+    >
+      {spriteData.map(({ spriteKey, coords, delay, duration }, index) => (
+        <div 
+          key={`${spriteKey}-${index}`}
+          className="flex items-center justify-center"
+        >
+          <FloatingSprite
+            spriteKey={spriteKey}
+            coords={coords}
+            filteredSheet={filteredSheet}
+            size={spriteSize}
+            delay={delay}
+            duration={duration}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Feature Badge Component
+function FeatureBadge({ icon: Icon, label, color }: { icon: React.ElementType; label: string; color: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 group">
+      <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10 group-hover:border-white/20 transition-all duration-300">
+        <Icon className={`w-5 h-5 ${color} transition-transform duration-300 group-hover:scale-110`} />
+      </div>
+      <span className="text-[10px] text-white/40 uppercase tracking-wider font-medium">{label}</span>
+    </div>
   );
 }
 
@@ -216,7 +275,7 @@ function SavedCityCard({ city, onLoad }: { city: SavedCityMeta; onLoad: () => vo
   return (
     <button
       onClick={onLoad}
-      className="w-full text-left p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-none transition-all duration-200 group"
+      className="w-full text-left p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg transition-all duration-200 group"
     >
       <h3 className="text-white font-medium truncate group-hover:text-white/90 text-sm">
         {city.cityName}
@@ -247,7 +306,6 @@ export default function HomePage() {
         setShowGame(true);
       }
     };
-    // Use requestAnimationFrame to avoid synchronous setState in effect
     requestAnimationFrame(checkSavedGame);
   }, []);
 
@@ -270,10 +328,38 @@ export default function HomePage() {
     }
   };
 
+  // Start game handler
+  const handleStart = useCallback(() => setShowGame(true), []);
+
+  // Load example handler
+  const handleLoadExample = useCallback(async () => {
+    const { default: exampleState } = await import('@/resources/example_state_8.json');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(exampleState));
+    setShowGame(true);
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (showGame || isChecking) return;
+      
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleStart();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showGame, isChecking, handleStart]);
+
   if (isChecking) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <div className="text-white/60">Loading...</div>
+      <main className="min-h-screen hero-gradient flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+          <div className="text-white/40 text-sm tracking-wide">Loading...</div>
+        </div>
       </main>
     );
   }
@@ -291,47 +377,63 @@ export default function HomePage() {
   // Mobile landing page
   if (isMobile) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-4 safe-area-top safe-area-bottom overflow-y-auto">
+      <main className="min-h-screen hero-gradient flex flex-col items-center justify-center p-4 safe-area-top safe-area-bottom overflow-y-auto">
+        {/* Decorative top line */}
+        <div className="w-32 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent mb-6" />
+        
         {/* Title */}
-        <h1 className="text-5xl sm:text-6xl font-light tracking-wider text-white/90 mb-6">
+        <h1 className="text-5xl font-display font-light tracking-wider text-white/90 mb-2">
           IsoCity
         </h1>
+        <p className="text-white/40 text-sm tracking-widest uppercase mb-6">
+          Build Your Metropolis
+        </p>
         
-        {/* Sprite Gallery - keep visible even when saves exist */}
+        {/* Sprite Gallery */}
         <div className="mb-6">
-          <SpriteGallery count={9} cols={3} cellSize={72} />
+          <AnimatedSpriteGallery count={9} isMobile={true} />
+        </div>
+        
+        {/* Feature Badges */}
+        <div className="flex gap-4 mb-6">
+          {FEATURES.slice(0, 4).map((feature) => (
+            <FeatureBadge key={feature.label} {...feature} />
+          ))}
         </div>
         
         {/* Buttons */}
         <div className="flex flex-col gap-3 w-full max-w-xs">
           <Button 
-            onClick={() => setShowGame(true)}
-            className="w-full py-6 text-xl font-light tracking-wide bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-none transition-all duration-300"
+            onClick={handleStart}
+            className="w-full py-6 text-xl font-light tracking-wide bg-gradient-to-r from-blue-600/80 to-blue-500/80 hover:from-blue-500/90 hover:to-blue-400/90 text-white border border-blue-400/30 rounded-lg transition-all duration-300 btn-glow"
           >
-            Start
+            Start Building
           </Button>
           
           <Button 
-            onClick={async () => {
-              const { default: exampleState } = await import('@/resources/example_state_8.json');
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(exampleState));
-              setShowGame(true);
-            }}
+            onClick={handleLoadExample}
             variant="outline"
-            className="w-full py-6 text-xl font-light tracking-wide bg-white/5 hover:bg-white/15 text-white/60 hover:text-white border border-white/15 rounded-none transition-all duration-300"
+            className="w-full py-5 text-lg font-light tracking-wide bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/15 rounded-lg transition-all duration-300"
           >
-            Load Example
+            Explore Example City
           </Button>
         </div>
         
+        {/* Keyboard hint */}
+        <p className="text-white/20 text-xs mt-4 tracking-wide">
+          Press <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white/40">Enter</kbd> to start
+        </p>
+        
         {/* Saved Cities */}
         {savedCities.length > 0 && (
-          <div className="w-full max-w-xs mt-4">
-            <h2 className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2">
+          <div className="w-full max-w-xs mt-6">
+            <h2 className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+              <span className="w-4 h-px bg-white/20" />
               Saved Cities
+              <span className="w-4 h-px bg-white/20" />
             </h2>
-            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
-              {savedCities.slice(0, 5).map((city) => (
+            <div className="flex flex-col gap-2 max-h-40 overflow-y-auto scrollbar-hide">
+              {savedCities.slice(0, 3).map((city) => (
                 <SavedCityCard
                   key={city.id}
                   city={city}
@@ -341,48 +443,75 @@ export default function HomePage() {
             </div>
           </div>
         )}
+        
+        {/* Decorative bottom line */}
+        <div className="w-24 h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent mt-6" />
       </main>
     );
   }
 
   // Desktop landing page
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-8">
+    <main className="min-h-screen hero-gradient flex items-center justify-center p-8 geo-pattern">
       <div className="max-w-7xl w-full grid lg:grid-cols-2 gap-16 items-center">
         
         {/* Left - Title and Start Button */}
-        <div className="flex flex-col items-center lg:items-start justify-center space-y-12">
-          <h1 className="text-8xl font-light tracking-wider text-white/90">
-            IsoCity
-          </h1>
-          <div className="flex flex-col gap-3">
+        <div className="flex flex-col items-center lg:items-start justify-center space-y-8 animate-slideInLeft">
+          {/* Decorative line */}
+          <div className="w-24 h-px bg-gradient-to-r from-blue-500/60 to-transparent hidden lg:block" />
+          
+          {/* Title Section */}
+          <div className="text-center lg:text-left">
+            <h1 className="text-8xl font-display font-light tracking-wider text-white/95 mb-3">
+              IsoCity
+            </h1>
+            <p className="text-white/50 text-lg tracking-widest uppercase">
+              Build Your Metropolis
+            </p>
+          </div>
+          
+          {/* Feature Badges */}
+          <div className="flex gap-5 py-4">
+            {FEATURES.map((feature) => (
+              <FeatureBadge key={feature.label} {...feature} />
+            ))}
+          </div>
+          
+          {/* Decorative divider */}
+          <div className="deco-divider w-64" />
+          
+          {/* Buttons */}
+          <div className="flex flex-col gap-3 w-72">
             <Button 
-              onClick={() => setShowGame(true)}
-              className="w-64 py-8 text-2xl font-light tracking-wide bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-none transition-all duration-300"
+              onClick={handleStart}
+              className="w-full py-8 text-2xl font-light tracking-wide bg-gradient-to-r from-blue-600/80 to-blue-500/80 hover:from-blue-500 hover:to-blue-400 text-white border border-blue-400/30 rounded-lg transition-all duration-300 animate-pulseGlow"
             >
-              Start
+              Start Building
             </Button>
             <Button 
-              onClick={async () => {
-                const { default: exampleState } = await import('@/resources/example_state_8.json');
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(exampleState));
-                setShowGame(true);
-              }}
+              onClick={handleLoadExample}
               variant="outline"
-              className="w-64 py-8 text-2xl font-light tracking-wide bg-white/5 hover:bg-white/15 text-white/60 hover:text-white border border-white/15 rounded-none transition-all duration-300"
+              className="w-full py-6 text-xl font-light tracking-wide bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/15 rounded-lg transition-all duration-300"
             >
-              Load Example
+              Explore Example City
             </Button>
           </div>
           
+          {/* Keyboard hint */}
+          <p className="text-white/25 text-sm tracking-wide">
+            Press <kbd className="px-2 py-1 bg-white/10 rounded text-white/40 font-mono text-xs">Enter</kbd> or <kbd className="px-2 py-1 bg-white/10 rounded text-white/40 font-mono text-xs">Space</kbd> to start
+          </p>
+          
           {/* Saved Cities */}
           {savedCities.length > 0 && (
-            <div className="w-64">
-              <h2 className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2">
+            <div className="w-72">
+              <h2 className="text-xs font-medium text-white/40 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span className="w-6 h-px bg-white/20" />
                 Saved Cities
+                <span className="flex-1 h-px bg-white/10" />
               </h2>
-              <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
-                {savedCities.slice(0, 5).map((city) => (
+              <div className="flex flex-col gap-2 max-h-48 overflow-y-auto scrollbar-hide">
+                {savedCities.slice(0, 4).map((city) => (
                   <SavedCityCard
                     key={city.id}
                     city={city}
@@ -394,9 +523,29 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Right - Sprite Gallery */}
-        <div className="flex justify-center lg:justify-end">
-          <SpriteGallery count={16} />
+        {/* Right - Animated Sprite Gallery */}
+        <div className="flex flex-col items-center lg:items-end gap-6 animate-slideInRight">
+          {/* Decorative corner */}
+          <div className="hidden lg:flex items-center gap-3 self-end mb-4">
+            <span className="text-white/20 text-xs tracking-widest uppercase">Preview</span>
+            <div className="w-16 h-px bg-gradient-to-l from-blue-500/40 to-transparent" />
+          </div>
+          
+          {/* Sprite Gallery with glow effect */}
+          <div className="relative">
+            {/* Glow backdrop */}
+            <div className="absolute inset-0 bg-blue-500/5 blur-3xl rounded-full" />
+            
+            {/* Gallery */}
+            <div className="relative p-6 bg-white/[0.02] border border-white/5 rounded-2xl backdrop-blur-sm">
+              <AnimatedSpriteGallery count={12} />
+            </div>
+          </div>
+          
+          {/* Decorative text */}
+          <p className="text-white/20 text-xs tracking-widest uppercase">
+            Cars • Trains • Planes • Citizens
+          </p>
         </div>
       </div>
     </main>
