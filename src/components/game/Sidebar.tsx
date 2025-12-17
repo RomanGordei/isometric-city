@@ -1,3 +1,4 @@
+// Desktop sidebar component with collapsible tool categories and hover submenus
 'use client';
 
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';

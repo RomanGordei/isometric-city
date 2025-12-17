@@ -1,3 +1,4 @@
+// Aircraft systems: airplane and helicopter spawning, movement, and lifecycle management
 import { useCallback } from 'react';
 import { Airplane, Helicopter, WorldRenderState, TILE_WIDTH, TILE_HEIGHT, PlaneType } from './types';
 import {
