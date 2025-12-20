@@ -240,8 +240,12 @@ export function AdvisorIcon({ size = 18, className }: IconProps) {
 export function SettingsIcon({ size = 18, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className}>
+      {/* Gear icon (avoids "sun" look) */}
+      <path
+        {...baseStroke}
+        d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.13.07a2 2 0 0 1-2 0l-.15-.1a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.73v.16a2 2 0 0 1-1 1.73l-.15.1a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.1a2 2 0 0 1 2 0l.13.07a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.13-.07a2 2 0 0 1 2 0l.15.1a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.73v-.16a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.1a2 2 0 0 1-2 0l-.13-.07a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+      />
       <circle {...baseStroke} cx="12" cy="12" r="3" />
-      <path {...baseStroke} d="M4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4" />
     </svg>
   );
 }
