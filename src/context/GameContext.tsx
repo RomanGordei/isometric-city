@@ -10,7 +10,12 @@ import {
   Tool,
   TOOL_INFO,
   ZoneType,
+  MilitaryUnitType,
+  MilitaryUnit,
+  MILITARY_UNIT_STATS,
+  ProductionQueueItem,
 } from '@/types/game';
+import { createMilitaryUnit, selectUnits as selectUnitsHelper, commandUnits } from '@/components/game/militarySystem';
 import {
   bulldozeTile,
   createInitialGameState,
@@ -85,6 +90,13 @@ type GameContextValue = {
   loadSavedCity: (cityId: string) => boolean;
   deleteSavedCity: (cityId: string) => void;
   renameSavedCity: (cityId: string, newName: string) => void;
+  // Military/RTS functions
+  trainMilitaryUnit: (unitType: import('@/types/game').MilitaryUnitType) => void;
+  cancelProduction: (productionId: number) => void;
+  updateMilitaryState: (units: import('@/types/game').MilitaryUnit[]) => void;
+  selectUnits: (unitIds: number[]) => void;
+  commandUnitsToMove: (targetX: number, targetY: number) => void;
+  commandUnitsToAttack: (targetX: number, targetY: number) => void;
 };
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -1118,6 +1130,71 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.id]);
 
+  // Military/RTS functions
+  const trainMilitaryUnit = useCallback((unitType: MilitaryUnitType) => {
+    const stats = MILITARY_UNIT_STATS[unitType];
+    setState((prev) => {
+      if (prev.stats.money < stats.cost) return prev;
+      if (prev.gameMode !== 'competitive') return prev;
+      
+      const newQueueItem: ProductionQueueItem = {
+        id: Date.now(),
+        unitType,
+        progress: 0,
+        totalTime: stats.buildTime,
+        owner: prev.currentPlayerId,
+      };
+      
+      return {
+        ...prev,
+        stats: { ...prev.stats, money: prev.stats.money - stats.cost },
+        productionQueue: [...prev.productionQueue, newQueueItem],
+      };
+    });
+  }, []);
+
+  const cancelProduction = useCallback((productionId: number) => {
+    setState((prev) => {
+      const item = prev.productionQueue.find(p => p.id === productionId);
+      if (!item) return prev;
+      
+      // Refund partial cost based on progress
+      const stats = MILITARY_UNIT_STATS[item.unitType];
+      const refund = Math.floor(stats.cost * (1 - item.progress / 100) * 0.5);
+      
+      return {
+        ...prev,
+        stats: { ...prev.stats, money: prev.stats.money + refund },
+        productionQueue: prev.productionQueue.filter(p => p.id !== productionId),
+      };
+    });
+  }, []);
+
+  const updateMilitaryState = useCallback((units: MilitaryUnit[]) => {
+    setState((prev) => ({ ...prev, militaryUnits: units }));
+  }, []);
+
+  const selectUnitsAction = useCallback((unitIds: number[]) => {
+    setState((prev) => ({
+      ...prev,
+      militaryUnits: selectUnitsHelper(prev.militaryUnits, unitIds),
+    }));
+  }, []);
+
+  const commandUnitsToMove = useCallback((targetX: number, targetY: number) => {
+    setState((prev) => ({
+      ...prev,
+      militaryUnits: commandUnits(prev.militaryUnits, targetX, targetY, false, prev.currentPlayerId),
+    }));
+  }, []);
+
+  const commandUnitsToAttack = useCallback((targetX: number, targetY: number) => {
+    setState((prev) => ({
+      ...prev,
+      militaryUnits: commandUnits(prev.militaryUnits, targetX, targetY, true, prev.currentPlayerId),
+    }));
+  }, []);
+
   const value: GameContextValue = {
     state,
     setTool,
@@ -1157,6 +1234,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     loadSavedCity,
     deleteSavedCity,
     renameSavedCity,
+    // Military/RTS functions
+    trainMilitaryUnit,
+    cancelProduction,
+    updateMilitaryState,
+    selectUnits: selectUnitsAction,
+    commandUnitsToMove,
+    commandUnitsToAttack,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

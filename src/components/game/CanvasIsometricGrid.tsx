@@ -102,6 +102,20 @@ import {
   TRAIN_SPAWN_INTERVAL,
   TRAINS_PER_RAIL_TILES,
 } from '@/components/game/trainSystem';
+import {
+  drawMilitaryUnits,
+  drawFogOfWar,
+  drawTerritoryBorders,
+  drawSelectionRect,
+  updateMilitaryUnits,
+  applyBuildingDamage,
+  getUnitsInRect,
+} from '@/components/game/militarySystem';
+import {
+  updateAIPlayers,
+  checkPlayerElimination,
+} from '@/components/game/aiSystem';
+import { updateFogOfWar } from '@/lib/simulation';
 import { Train } from '@/components/game/types';
 
 // Props interface for CanvasIsometricGrid
@@ -118,15 +132,23 @@ export interface CanvasIsometricGridProps {
 
 // Canvas-based Isometric Grid - HIGH PERFORMANCE
 export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMobile = false, navigationTarget, onNavigationComplete, onViewportChange, onBargeDelivery }: CanvasIsometricGridProps) {
-  const { state, placeAtTile, connectToCity, checkAndDiscoverCities, currentSpritePack, visualHour } = useGame();
-  const { grid, gridSize, selectedTool, speed, adjacentCities, waterBodies, gameVersion } = state;
+  const { state, placeAtTile, connectToCity, checkAndDiscoverCities, currentSpritePack, visualHour, updateMilitaryState, selectUnits, commandUnitsToMove, commandUnitsToAttack, addNotification } = useGame();
+  const { grid, gridSize, selectedTool, speed, adjacentCities, waterBodies, gameVersion, gameMode, militaryUnits, currentPlayerId, players, productionQueue } = state;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hoverCanvasRef = useRef<HTMLCanvasElement>(null); // PERF: Separate canvas for hover/selection highlights
   const carsCanvasRef = useRef<HTMLCanvasElement>(null);
   const buildingsCanvasRef = useRef<HTMLCanvasElement>(null); // Buildings rendered on top of cars/trains
   const airCanvasRef = useRef<HTMLCanvasElement>(null); // Aircraft + fireworks rendered above buildings
+  const militaryCanvasRef = useRef<HTMLCanvasElement>(null); // Military units for competitive mode
   const lightingCanvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Military selection state (for competitive mode)
+  const [isSelectingUnits, setIsSelectingUnits] = useState(false);
+  const [unitSelectionStart, setUnitSelectionStart] = useState<{ x: number; y: number } | null>(null);
+  const [unitSelectionEnd, setUnitSelectionEnd] = useState<{ x: number; y: number } | null>(null);
+  const militaryUpdateTimerRef = useRef<number>(0);
+  const aiUpdateTimerRef = useRef<number>(0);
   const renderPendingRef = useRef<number | null>(null); // PERF: Track pending render frame
   const [offset, setOffset] = useState({ x: isMobile ? 200 : 620, y: isMobile ? 100 : 160 });
   const [isDragging, setIsDragging] = useState(false);
@@ -3082,6 +3104,71 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         trafficLightTimerRef.current += delta; // Update traffic light cycle timer
         crossingFlashTimerRef.current += delta; // Update crossing flash timer
         
+        // Update military units in competitive mode
+        if (gameMode === 'competitive') {
+          const speedMult = speed === 0 ? 0 : speed === 1 ? 1 : speed === 2 ? 2 : 3;
+          militaryUpdateTimerRef.current += delta;
+          aiUpdateTimerRef.current += delta;
+          
+          // Update military units every frame
+          if (militaryUpdateTimerRef.current >= 0.016) {
+            const { updatedUnits, buildingsAttacked } = updateMilitaryUnits(
+              militaryUnits,
+              grid,
+              gridSize,
+              militaryUpdateTimerRef.current,
+              speedMult,
+              gameMode
+            );
+            
+            // Apply building damage if any attacks occurred
+            if (buildingsAttacked.length > 0) {
+              const newGrid = applyBuildingDamage(grid, buildingsAttacked);
+              // The grid will be updated through the simulation tick
+            }
+            
+            // Update fog of war based on unit positions
+            updateFogOfWar(grid, gridSize, updatedUnits, currentPlayerId);
+            
+            // Update units in state
+            if (JSON.stringify(updatedUnits) !== JSON.stringify(militaryUnits)) {
+              updateMilitaryState(updatedUnits);
+            }
+            
+            militaryUpdateTimerRef.current = 0;
+          }
+          
+          // Update AI players less frequently (every 0.5 seconds)
+          if (aiUpdateTimerRef.current >= 0.5) {
+            const { newUnits, unitCommands, moneyChanges } = updateAIPlayers(
+              state,
+              aiUpdateTimerRef.current,
+              speedMult
+            );
+            
+            // Add new AI units to state
+            if (newUnits.length > 0) {
+              const allUnits = [...militaryUnits, ...newUnits];
+              updateMilitaryState(allUnits);
+            }
+            
+            // Check for player elimination
+            const eliminated = checkPlayerElimination(state);
+            for (const playerId of eliminated) {
+              const player = players.find(p => p.id === playerId);
+              if (player && !player.eliminated) {
+                addNotification(
+                  'Player Eliminated!',
+                  `${player.name} has been defeated!`,
+                  'skull'
+                );
+              }
+            }
+            
+            aiUpdateTimerRef.current = 0;
+          }
+        }
+        
         // Update railroad crossing gate angles based on train proximity
         // PERF: Use cached crossing positions instead of O(n²) grid scan
         const trains = trainsRef.current;
@@ -3147,12 +3234,66 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         }
         drawAirplanes(airCtx); // Draw airplanes above everything
         drawFireworks(airCtx); // Draw fireworks above everything (nighttime only)
+        
+        // Draw military units and selection in competitive mode
+        if (gameMode === 'competitive') {
+          const militaryCanvas = militaryCanvasRef.current;
+          if (militaryCanvas) {
+            const militaryCtx = militaryCanvas.getContext('2d');
+            if (militaryCtx) {
+              militaryCtx.setTransform(1, 0, 0, 1, 0, 0);
+              militaryCtx.clearRect(0, 0, militaryCanvas.width, militaryCanvas.height);
+              
+              // Draw territory borders
+              drawTerritoryBorders(
+                militaryCtx,
+                grid,
+                gridSize,
+                worldStateRef.current.offset,
+                zoomRef.current,
+                currentPlayerId
+              );
+              
+              // Draw fog of war
+              drawFogOfWar(
+                militaryCtx,
+                grid,
+                gridSize,
+                worldStateRef.current.offset,
+                zoomRef.current,
+                currentPlayerId
+              );
+              
+              // Draw military units
+              drawMilitaryUnits(
+                militaryCtx,
+                militaryUnits,
+                worldStateRef.current.offset,
+                zoomRef.current,
+                currentPlayerId
+              );
+              
+              // Draw unit selection rectangle if selecting
+              if (isSelectingUnits && unitSelectionStart && unitSelectionEnd) {
+                drawSelectionRect(
+                  militaryCtx,
+                  unitSelectionStart.x,
+                  unitSelectionStart.y,
+                  unitSelectionEnd.x,
+                  unitSelectionEnd.y,
+                  worldStateRef.current.offset,
+                  zoomRef.current
+                );
+              }
+            }
+          }
+        }
       }
     };
     
     animationFrameId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [canvasSize.width, canvasSize.height, updateCars, drawCars, spawnCrimeIncidents, updateCrimeIncidents, updateEmergencyVehicles, drawEmergencyVehicles, updatePedestrians, drawPedestrians, drawRecreationPedestrians, updateAirplanes, drawAirplanes, updateHelicopters, drawHelicopters, updateSeaplanes, drawSeaplanes, updateBoats, drawBoats, updateBarges, drawBarges, updateTrains, drawTrainsCallback, drawIncidentIndicators, updateFireworks, drawFireworks, updateSmog, drawSmog, visualHour, isMobile, grid, gridSize, speed]);
+  }, [canvasSize.width, canvasSize.height, updateCars, drawCars, spawnCrimeIncidents, updateCrimeIncidents, updateEmergencyVehicles, drawEmergencyVehicles, updatePedestrians, drawPedestrians, drawRecreationPedestrians, updateAirplanes, drawAirplanes, updateHelicopters, drawHelicopters, updateSeaplanes, drawSeaplanes, updateBoats, drawBoats, updateBarges, drawBarges, updateTrains, drawTrainsCallback, drawIncidentIndicators, updateFireworks, drawFireworks, updateSmog, drawSmog, visualHour, isMobile, grid, gridSize, speed, gameMode, militaryUnits, currentPlayerId, isSelectingUnits, unitSelectionStart, unitSelectionEnd, updateMilitaryState, state, players, addNotification]);
   
   // Day/Night cycle lighting rendering - optimized for performance
   useEffect(() => {
@@ -3420,6 +3561,34 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     
   }, [grid, gridSize, visualHour, offset, zoom, canvasSize.width, canvasSize.height, isMobile, isPanning]);
   
+  // Handle right-click for attack commands in competitive mode
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    if (gameMode !== 'competitive') return;
+    e.preventDefault();
+    
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const mouseX = (e.clientX - rect.left) / zoom;
+      const mouseY = (e.clientY - rect.top) / zoom;
+      const { gridX, gridY } = screenToGrid(mouseX, mouseY, offset.x / zoom, offset.y / zoom);
+      
+      if (gridX >= 0 && gridX < gridSize && gridY >= 0 && gridY < gridSize) {
+        const selectedUnits = militaryUnits.filter(u => u.selected && u.owner === currentPlayerId);
+        if (selectedUnits.length > 0) {
+          const tile = grid[gridY]?.[gridX];
+          // Check if clicking on enemy building or territory
+          if (tile && tile.owner !== undefined && tile.owner !== currentPlayerId && tile.building.type !== 'grass' && tile.building.type !== 'water') {
+            // Attack command
+            commandUnitsToAttack(gridX, gridY);
+          } else {
+            // Move command
+            commandUnitsToMove(gridX, gridY);
+          }
+        }
+      }
+    }
+  }, [gameMode, offset, zoom, gridSize, militaryUnits, currentPlayerId, grid, commandUnitsToAttack, commandUnitsToMove]);
+  
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
       setIsPanning(true);
@@ -3436,6 +3605,21 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         const { gridX, gridY } = screenToGrid(mouseX, mouseY, offset.x / zoom, offset.y / zoom);
         
         if (gridX >= 0 && gridX < gridSize && gridY >= 0 && gridY < gridSize) {
+          // In competitive mode with select tool, start unit selection box
+          if (gameMode === 'competitive' && selectedTool === 'select') {
+            setIsSelectingUnits(true);
+            setUnitSelectionStart({ x: gridX, y: gridY });
+            setUnitSelectionEnd({ x: gridX, y: gridY });
+            // Also select the tile for building info
+            const origin = findBuildingOrigin(gridX, gridY);
+            if (origin) {
+              setSelectedTile({ x: origin.originX, y: origin.originY });
+            } else {
+              setSelectedTile({ x: gridX, y: gridY });
+            }
+            return;
+          }
+          
           if (selectedTool === 'select') {
             // For multi-tile buildings, select the origin tile
             const origin = findBuildingOrigin(gridX, gridY);
@@ -3467,7 +3651,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         }
       }
     }
-  }, [offset, gridSize, selectedTool, placeAtTile, zoom, showsDragGrid, supportsDragPlace, setSelectedTile, findBuildingOrigin]);
+  }, [offset, gridSize, selectedTool, placeAtTile, zoom, showsDragGrid, supportsDragPlace, setSelectedTile, findBuildingOrigin, gameMode]);
   
   // Calculate camera bounds based on grid size
   const getMapBounds = useCallback((currentZoom: number, canvasW: number, canvasH: number) => {
@@ -3539,6 +3723,11 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       const mouseX = (e.clientX - rect.left) / zoom;
       const mouseY = (e.clientY - rect.top) / zoom;
       const { gridX, gridY } = screenToGrid(mouseX, mouseY, offset.x / zoom, offset.y / zoom);
+      
+      // Update unit selection box while dragging
+      if (isSelectingUnits && unitSelectionStart && gameMode === 'competitive') {
+        setUnitSelectionEnd({ x: gridX, y: gridY });
+      }
       
       if (gridX >= 0 && gridX < gridSize && gridY >= 0 && gridY < gridSize) {
         // Only update hovered tile if it actually changed to avoid unnecessary re-renders
@@ -3623,9 +3812,26 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         }
       }
     }
-  }, [isPanning, dragStart, offset, zoom, gridSize, isDragging, showsDragGrid, dragStartTile, selectedTool, roadDrawDirection, supportsDragPlace, placeAtTile, clampOffset, grid]);
+  }, [isPanning, dragStart, offset, zoom, gridSize, isDragging, showsDragGrid, dragStartTile, selectedTool, roadDrawDirection, supportsDragPlace, placeAtTile, clampOffset, grid, gameMode, isSelectingUnits, unitSelectionStart]);
   
   const handleMouseUp = useCallback(() => {
+    // Handle unit selection completion in competitive mode
+    if (isSelectingUnits && unitSelectionStart && unitSelectionEnd && gameMode === 'competitive') {
+      const selectedInRect = getUnitsInRect(
+        militaryUnits,
+        unitSelectionStart.x,
+        unitSelectionStart.y,
+        unitSelectionEnd.x,
+        unitSelectionEnd.y,
+        currentPlayerId
+      );
+      selectUnits(selectedInRect.map(u => u.id));
+      setIsSelectingUnits(false);
+      setUnitSelectionStart(null);
+      setUnitSelectionEnd(null);
+      return;
+    }
+    
     // Fill the drag rectangle when mouse is released (only for zoning tools)
     if (isDragging && dragStartTile && dragEndTile && showsDragGrid) {
       const minX = Math.min(dragStartTile.x, dragEndTile.x);
@@ -3656,6 +3862,9 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     setIsDragging(false);
     setDragStartTile(null);
     setDragEndTile(null);
+    setIsSelectingUnits(false);
+    setUnitSelectionStart(null);
+    setUnitSelectionEnd(null);
     setIsPanning(false);
     setRoadDrawDirection(null);
     placedRoadTilesRef.current.clear();
@@ -3664,7 +3873,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     if (!containerRef.current) {
       setHoveredTile(null);
     }
-  }, [isDragging, showsDragGrid, dragStartTile, placeAtTile, selectedTool, dragEndTile, checkAndDiscoverCities]);
+  }, [isDragging, showsDragGrid, dragStartTile, placeAtTile, selectedTool, dragEndTile, checkAndDiscoverCities, isSelectingUnits, unitSelectionStart, unitSelectionEnd, gameMode, militaryUnits, currentPlayerId, selectUnits]);
   
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -3845,6 +4054,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onContextMenu={handleContextMenu}
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -3882,6 +4092,15 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         height={canvasSize.height}
         className="absolute top-0 left-0 pointer-events-none"
       />
+      {/* Military units canvas - only rendered in competitive mode */}
+      {gameMode === 'competitive' && (
+        <canvas
+          ref={militaryCanvasRef}
+          width={canvasSize.width}
+          height={canvasSize.height}
+          className="absolute top-0 left-0 pointer-events-none"
+        />
+      )}
       <canvas
         ref={lightingCanvasRef}
         width={canvasSize.width}

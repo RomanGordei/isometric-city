@@ -440,6 +440,20 @@ export const Sidebar = React.memo(function Sidebar({ onExit }: { onExit?: () => 
         </div>
       </ScrollArea>
       
+      {/* Military button for competitive mode */}
+      {state.gameMode === 'competitive' && (
+        <div className="border-t border-sidebar-border p-2">
+          <Button
+            onClick={() => setActivePanel(activePanel === 'military' ? 'none' : 'military')}
+            variant={activePanel === 'military' ? 'default' : 'outline'}
+            className="w-full text-sm bg-red-900/30 hover:bg-red-900/50 border-red-700/30"
+            title="Military Command"
+          >
+            ⚔️ Military
+          </Button>
+        </div>
+      )}
+      
       <div className="border-t border-sidebar-border p-2">
         <div className="grid grid-cols-4 gap-1">
           {[

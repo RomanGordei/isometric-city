@@ -23,7 +23,9 @@ import {
   StatisticsPanel,
   SettingsPanel,
   AdvisorsPanel,
+  MilitaryPanel,
 } from '@/components/game/panels';
+import { Scoreboard } from '@/components/game/Scoreboard';
 import { MiniMap } from '@/components/game/MiniMap';
 import { TopBar, StatsPanel } from '@/components/game/TopBar';
 import { CanvasIsometricGrid } from '@/components/game/CanvasIsometricGrid';
@@ -240,6 +242,10 @@ export default function Game({ onExit }: { onExit?: () => void }) {
           {state.activePanel === 'statistics' && <StatisticsPanel />}
           {state.activePanel === 'advisors' && <AdvisorsPanel />}
           {state.activePanel === 'settings' && <SettingsPanel />}
+          {state.activePanel === 'military' && <MilitaryPanel />}
+          
+          {/* Scoreboard for competitive mode */}
+          {state.gameMode === 'competitive' && <Scoreboard />}
           
           <VinnieDialog open={showVinnieDialog} onOpenChange={setShowVinnieDialog} />
         </div>
@@ -275,6 +281,10 @@ export default function Game({ onExit }: { onExit?: () => void }) {
         {state.activePanel === 'statistics' && <StatisticsPanel />}
         {state.activePanel === 'advisors' && <AdvisorsPanel />}
         {state.activePanel === 'settings' && <SettingsPanel />}
+        {state.activePanel === 'military' && <MilitaryPanel />}
+        
+        {/* Scoreboard for competitive mode */}
+        {state.gameMode === 'competitive' && <Scoreboard />}
         
         <VinnieDialog open={showVinnieDialog} onOpenChange={setShowVinnieDialog} />
         <CommandMenu />

@@ -18,6 +18,13 @@ import {
   RESIDENTIAL_BUILDINGS,
   COMMERCIAL_BUILDINGS,
   INDUSTRIAL_BUILDINGS,
+  Player,
+  PlayerId,
+  MilitaryUnit,
+  MilitaryUnitType,
+  GameMode,
+  ProductionQueueItem,
+  MILITARY_UNIT_STATS,
 } from '@/types/game';
 import { generateCityName, generateWaterName } from './names';
 import { isMobile } from 'react-device-detect';
@@ -838,7 +845,297 @@ export function createInitialGameState(size: number = DEFAULT_GRID_SIZE, cityNam
     adjacentCities,
     waterBodies,
     gameVersion: 0,
+    // Competitive mode defaults (sandbox mode)
+    gameMode: 'sandbox',
+    players: [{
+      id: 0,
+      name: cityName,
+      color: '#3b82f6',
+      money: 50000,
+      score: 0,
+      isAI: false,
+      eliminated: false,
+      startX: Math.floor(size / 2),
+      startY: Math.floor(size / 2),
+    }],
+    currentPlayerId: 0,
+    militaryUnits: [],
+    militaryIdCounter: 1,
+    productionQueue: [],
   };
+}
+
+// AI player names
+const AI_PLAYER_NAMES = [
+  'Emperor Marcus', 'Queen Isabella', 'Warlord Khan', 'General Lee',
+  'Admiral Nelson', 'Caesar Augustus', 'Genghis', 'Alexander',
+];
+
+// Player colors
+const PLAYER_COLORS: Record<PlayerId, string> = {
+  0: '#3b82f6', // Blue - player
+  1: '#ef4444', // Red - AI 1
+  2: '#22c55e', // Green - AI 2
+  3: '#f59e0b', // Orange - AI 3
+};
+
+/**
+ * Create a competitive/RTS game state with multiple players
+ * Features:
+ * - Larger map (100x100)
+ * - 4 players (1 human + 3 AI) with starting cities in corners
+ * - Fog of war (unexplored regions)
+ * - Lower starting resources
+ */
+export function createCompetitiveGameState(playerName: string = 'Commander'): GameState {
+  const size = 100; // Larger map for competitive
+  const { grid, waterBodies } = generateTerrain(size);
+  
+  // Define starting positions in corners (with offset from edges)
+  const cornerOffset = 15;
+  const startPositions: { x: number; y: number }[] = [
+    { x: cornerOffset, y: cornerOffset }, // Top-left (NW)
+    { x: size - cornerOffset, y: cornerOffset }, // Top-right (NE)
+    { x: cornerOffset, y: size - cornerOffset }, // Bottom-left (SW)
+    { x: size - cornerOffset, y: size - cornerOffset }, // Bottom-right (SE)
+  ];
+  
+  // Create players
+  const shuffledNames = [...AI_PLAYER_NAMES].sort(() => Math.random() - 0.5);
+  const players: Player[] = [
+    {
+      id: 0,
+      name: playerName,
+      color: PLAYER_COLORS[0],
+      money: 10000, // Less starting money than sandbox
+      score: 0,
+      isAI: false,
+      eliminated: false,
+      startX: startPositions[0].x,
+      startY: startPositions[0].y,
+    },
+    {
+      id: 1,
+      name: shuffledNames[0],
+      color: PLAYER_COLORS[1],
+      money: 10000,
+      score: 0,
+      isAI: true,
+      eliminated: false,
+      startX: startPositions[1].x,
+      startY: startPositions[1].y,
+    },
+    {
+      id: 2,
+      name: shuffledNames[1],
+      color: PLAYER_COLORS[2],
+      money: 10000,
+      score: 0,
+      isAI: true,
+      eliminated: false,
+      startX: startPositions[2].x,
+      startY: startPositions[2].y,
+    },
+    {
+      id: 3,
+      name: shuffledNames[2],
+      color: PLAYER_COLORS[3],
+      money: 10000,
+      score: 0,
+      isAI: true,
+      eliminated: false,
+      startX: startPositions[3].x,
+      startY: startPositions[3].y,
+    },
+  ];
+  
+  // Initialize fog of war - only starting area is explored for each player
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      grid[y][x].explored = [false, false, false, false];
+      grid[y][x].owner = undefined;
+    }
+  }
+  
+  // Create starting cities for each player
+  for (const player of players) {
+    createStartingCity(grid, size, player.startX, player.startY, player.id);
+    // Reveal area around starting position
+    revealArea(grid, size, player.startX, player.startY, 12, player.id);
+  }
+  
+  // Create initial stats with lower starting money
+  const stats = createInitialStats();
+  stats.money = 10000;
+
+  return {
+    id: generateUUID(),
+    grid,
+    gridSize: size,
+    cityName: playerName + "'s Empire",
+    year: 2024,
+    month: 1,
+    day: 1,
+    hour: 12,
+    tick: 0,
+    speed: 1,
+    selectedTool: 'select',
+    taxRate: 9,
+    effectiveTaxRate: 9,
+    stats,
+    budget: createInitialBudget(),
+    services: createServiceCoverage(size),
+    notifications: [{
+      id: 'game-start',
+      title: 'War Has Begun!',
+      description: `Build your city, create an army, and defeat the other ${players.length - 1} players!`,
+      icon: 'swords',
+      timestamp: Date.now(),
+    }],
+    advisorMessages: [],
+    history: [],
+    activePanel: 'none',
+    disastersEnabled: false, // No random disasters in competitive
+    adjacentCities: [],
+    waterBodies,
+    gameVersion: 0,
+    // Competitive mode settings
+    gameMode: 'competitive',
+    players,
+    currentPlayerId: 0,
+    militaryUnits: [],
+    militaryIdCounter: 1,
+    productionQueue: [],
+  };
+}
+
+/**
+ * Create a starting city for a player
+ */
+function createStartingCity(grid: Tile[][], size: number, centerX: number, centerY: number, owner: PlayerId): void {
+  // Clear water and place roads in a small area
+  const cityRadius = 4;
+  
+  for (let dy = -cityRadius; dy <= cityRadius; dy++) {
+    for (let dx = -cityRadius; dx <= cityRadius; dx++) {
+      const x = centerX + dx;
+      const y = centerY + dy;
+      if (x < 0 || x >= size || y < 0 || y >= size) continue;
+      
+      const tile = grid[y][x];
+      tile.owner = owner;
+      
+      // Clear water
+      if (tile.building.type === 'water') {
+        tile.building = createBuilding('grass');
+      }
+    }
+  }
+  
+  // Place a city hall at the center
+  const cityHallTile = grid[centerY]?.[centerX];
+  if (cityHallTile) {
+    cityHallTile.building = createBuilding('city_hall');
+    cityHallTile.building.constructionProgress = 100;
+    cityHallTile.owner = owner;
+  }
+  
+  // Place roads in a cross pattern
+  for (let i = -cityRadius; i <= cityRadius; i++) {
+    // Horizontal road
+    const hx = centerX + i;
+    if (hx >= 0 && hx < size && centerY >= 0 && centerY < size) {
+      if (grid[centerY][hx].building.type !== 'city_hall') {
+        grid[centerY][hx].building = createBuilding('road');
+        grid[centerY][hx].building.constructionProgress = 100;
+      }
+    }
+    // Vertical road
+    const vy = centerY + i;
+    if (centerX >= 0 && centerX < size && vy >= 0 && vy < size) {
+      if (grid[vy][centerX].building.type !== 'city_hall') {
+        grid[vy][centerX].building = createBuilding('road');
+        grid[vy][centerX].building.constructionProgress = 100;
+      }
+    }
+  }
+  
+  // Place some starting buildings
+  const startingBuildings: { dx: number; dy: number; type: BuildingType }[] = [
+    { dx: -2, dy: -2, type: 'house_small' },
+    { dx: 2, dy: -2, type: 'house_small' },
+    { dx: -2, dy: 2, type: 'shop_small' },
+    { dx: 2, dy: 2, type: 'factory_small' },
+    { dx: -3, dy: 0, type: 'power_plant' },
+    { dx: 3, dy: 1, type: 'police_station' },
+  ];
+  
+  for (const building of startingBuildings) {
+    const x = centerX + building.dx;
+    const y = centerY + building.dy;
+    if (x >= 0 && x < size && y >= 0 && y < size) {
+      if (grid[y][x].building.type === 'grass' || grid[y][x].building.type === 'road') {
+        grid[y][x].building = createBuilding(building.type);
+        grid[y][x].building.constructionProgress = 100;
+        grid[y][x].owner = owner;
+        
+        // Add zoning for residential/commercial/industrial
+        if (building.type === 'house_small') {
+          grid[y][x].zone = 'residential';
+        } else if (building.type === 'shop_small') {
+          grid[y][x].zone = 'commercial';
+        } else if (building.type === 'factory_small') {
+          grid[y][x].zone = 'industrial';
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Reveal fog of war in an area for a player
+ */
+function revealArea(grid: Tile[][], size: number, centerX: number, centerY: number, radius: number, playerId: PlayerId): void {
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      const x = centerX + dx;
+      const y = centerY + dy;
+      if (x < 0 || x >= size || y < 0 || y >= size) continue;
+      
+      // Circular reveal
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance <= radius) {
+        if (!grid[y][x].explored) {
+          grid[y][x].explored = [false, false, false, false];
+        }
+        grid[y][x].explored![playerId] = true;
+      }
+    }
+  }
+}
+
+/**
+ * Update fog of war based on unit and building positions
+ */
+export function updateFogOfWar(grid: Tile[][], size: number, units: MilitaryUnit[], playerId: PlayerId): void {
+  const visionRadius = 8;
+  
+  // Reveal around all units belonging to the player
+  for (const unit of units) {
+    if (unit.owner === playerId) {
+      revealArea(grid, size, Math.floor(unit.x), Math.floor(unit.y), visionRadius, playerId);
+    }
+  }
+  
+  // Reveal around owned buildings
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const tile = grid[y][x];
+      if (tile.owner === playerId && tile.building.type !== 'grass' && tile.building.type !== 'water') {
+        revealArea(grid, size, x, y, 6, playerId);
+      }
+    }
+  }
 }
 
 // Service building configuration - defined once, reused across calls
@@ -1954,6 +2251,62 @@ export function simulateTick(state: GameState): GameState {
     }
   }
 
+  // Process military production queue (competitive mode only)
+  let newProductionQueue = state.productionQueue;
+  let newMilitaryUnits = state.militaryUnits;
+  let newMilitaryIdCounter = state.militaryIdCounter;
+  let newPlayers = state.players;
+  
+  if (state.gameMode === 'competitive' && state.productionQueue.length > 0) {
+    const updatedQueue: ProductionQueueItem[] = [];
+    const completedUnits: MilitaryUnit[] = [];
+    
+    for (const item of state.productionQueue) {
+      // Progress production (1% per tick at speed 1)
+      const progressRate = state.speed === 0 ? 0 : (100 / item.totalTime) / 10; // ~10 ticks per second
+      const newProgress = item.progress + progressRate;
+      
+      if (newProgress >= 100) {
+        // Unit complete - create it
+        const player = state.players.find(p => p.id === item.owner);
+        if (player && !player.eliminated) {
+          // Spawn near player's starting position
+          const spawnOffset = 3 + Math.random() * 2;
+          const angle = Math.random() * Math.PI * 2;
+          const newUnit: MilitaryUnit = {
+            id: newMilitaryIdCounter++,
+            type: item.unitType,
+            owner: item.owner,
+            x: player.startX + Math.cos(angle) * spawnOffset,
+            y: player.startY + Math.sin(angle) * spawnOffset,
+            targetX: null,
+            targetY: null,
+            attackTargetX: null,
+            attackTargetY: null,
+            health: MILITARY_UNIT_STATS[item.unitType].health,
+            maxHealth: MILITARY_UNIT_STATS[item.unitType].health,
+            damage: MILITARY_UNIT_STATS[item.unitType].damage,
+            speed: MILITARY_UNIT_STATS[item.unitType].speed,
+            range: MILITARY_UNIT_STATS[item.unitType].range,
+            attackCooldown: 0,
+            attackSpeed: MILITARY_UNIT_STATS[item.unitType].attackSpeed,
+            selected: false,
+            direction: Math.PI / 4,
+            animationTimer: Math.random() * Math.PI * 2,
+          };
+          completedUnits.push(newUnit);
+        }
+      } else {
+        updatedQueue.push({ ...item, progress: newProgress });
+      }
+    }
+    
+    newProductionQueue = updatedQueue;
+    if (completedUnits.length > 0) {
+      newMilitaryUnits = [...state.militaryUnits, ...completedUnits];
+    }
+  }
+
   return {
     ...state,
     grid: newGrid,
@@ -1969,6 +2322,11 @@ export function simulateTick(state: GameState): GameState {
     advisorMessages,
     notifications: newNotifications,
     history,
+    // Competitive mode updates
+    productionQueue: newProductionQueue,
+    militaryUnits: newMilitaryUnits,
+    militaryIdCounter: newMilitaryIdCounter,
+    players: newPlayers,
   };
 }
 

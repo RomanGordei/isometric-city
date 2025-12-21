@@ -1,5 +1,92 @@
 // Game type definitions for IsoCity
 
+// ============================================================================
+// RTS/Competitive Game Types
+// ============================================================================
+
+export type GameMode = 'sandbox' | 'competitive';
+
+export type PlayerId = 0 | 1 | 2 | 3; // 0 = player, 1-3 = AI players
+
+export interface Player {
+  id: PlayerId;
+  name: string;
+  color: string;
+  money: number;
+  score: number;
+  isAI: boolean;
+  eliminated: boolean;
+  startX: number; // Starting city center
+  startY: number;
+}
+
+// Military unit types
+export type MilitaryUnitType = 'infantry' | 'tank' | 'military_helicopter';
+
+export interface MilitaryUnit {
+  id: number;
+  type: MilitaryUnitType;
+  owner: PlayerId;
+  x: number; // Grid position (can be fractional for smooth movement)
+  y: number;
+  targetX: number | null; // Movement target
+  targetY: number | null;
+  attackTargetX: number | null; // Attack target tile
+  attackTargetY: number | null;
+  health: number;
+  maxHealth: number;
+  damage: number;
+  speed: number; // Tiles per second
+  range: number; // Attack range in tiles
+  attackCooldown: number; // Current cooldown
+  attackSpeed: number; // Attacks per second
+  selected: boolean;
+  direction: number; // Angle in radians
+  animationTimer: number;
+}
+
+export const MILITARY_UNIT_STATS: Record<MilitaryUnitType, {
+  cost: number;
+  health: number;
+  damage: number;
+  speed: number;
+  range: number;
+  attackSpeed: number;
+  buildTime: number; // Seconds to produce
+  description: string;
+}> = {
+  infantry: {
+    cost: 100,
+    health: 50,
+    damage: 10,
+    speed: 0.5,
+    range: 1.5,
+    attackSpeed: 1,
+    buildTime: 5,
+    description: 'Basic foot soldiers. Cheap and effective against buildings.',
+  },
+  tank: {
+    cost: 500,
+    health: 200,
+    damage: 40,
+    speed: 0.8,
+    range: 2,
+    attackSpeed: 0.5,
+    buildTime: 15,
+    description: 'Heavy armored vehicle. Strong but expensive.',
+  },
+  military_helicopter: {
+    cost: 800,
+    health: 100,
+    damage: 30,
+    speed: 1.5,
+    range: 3,
+    attackSpeed: 1,
+    buildTime: 20,
+    description: 'Fast aerial unit. Can bypass obstacles.',
+  },
+};
+
 export type BuildingType =
   | 'empty'
   | 'grass'
@@ -227,6 +314,8 @@ export interface Tile {
   traffic: number;
   hasSubway: boolean;
   hasRailOverlay?: boolean; // Rail tracks overlaid on road (road base with rail tracks on top)
+  owner?: PlayerId; // Which player owns this tile (for competitive mode)
+  explored?: boolean[]; // Which players have explored this tile (fog of war) - index by PlayerId
 }
 
 export interface Stats {
@@ -313,6 +402,15 @@ export interface WaterBody {
   centerY: number;
 }
 
+// Production queue item for building military units
+export interface ProductionQueueItem {
+  id: number;
+  unitType: MilitaryUnitType;
+  progress: number; // 0-100
+  totalTime: number; // in seconds
+  owner: PlayerId;
+}
+
 export interface GameState {
   id: string; // Unique UUID for this game
   grid: Tile[][];
@@ -333,11 +431,18 @@ export interface GameState {
   notifications: Notification[];
   advisorMessages: AdvisorMessage[];
   history: HistoryPoint[];
-  activePanel: 'none' | 'budget' | 'statistics' | 'advisors' | 'settings';
+  activePanel: 'none' | 'budget' | 'statistics' | 'advisors' | 'settings' | 'military';
   disastersEnabled: boolean;
   adjacentCities: AdjacentCity[];
   waterBodies: WaterBody[];
   gameVersion: number; // Increments when a new game starts - used to clear transient state like vehicles
+  // Competitive/RTS mode fields
+  gameMode: GameMode;
+  players: Player[];
+  currentPlayerId: PlayerId;
+  militaryUnits: MilitaryUnit[];
+  militaryIdCounter: number;
+  productionQueue: ProductionQueueItem[];
 }
 
 // Saved city metadata for the multi-save system

@@ -10,6 +10,7 @@ import { SavedCityMeta } from '@/types/game';
 
 const STORAGE_KEY = 'isocity-game-state';
 const SAVED_CITIES_INDEX_KEY = 'isocity-saved-cities-index';
+const COMPETITIVE_MODE_KEY = 'isocity-competitive-mode';
 
 // Background color to filter from sprite sheets (red)
 const BACKGROUND_COLOR = { r: 255, g: 0, b: 0 };
@@ -235,8 +236,19 @@ export default function HomePage() {
   const [showGame, setShowGame] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [savedCities, setSavedCities] = useState<SavedCityMeta[]>([]);
+  const [isCompetitiveMode, setIsCompetitiveMode] = useState(false);
   const { isMobileDevice, isSmallScreen } = useMobile();
   const isMobile = isMobileDevice || isSmallScreen;
+
+  // Start a competitive game
+  const startCompetitiveGame = async () => {
+    const { createCompetitiveGameState } = await import('@/lib/simulation');
+    const competitiveState = createCompetitiveGameState('Commander');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(competitiveState));
+    localStorage.setItem(COMPETITIVE_MODE_KEY, 'true');
+    setIsCompetitiveMode(true);
+    setShowGame(true);
+  };
 
   // Check for saved game after mount (client-side only)
   useEffect(() => {
@@ -308,7 +320,14 @@ export default function HomePage() {
             onClick={() => setShowGame(true)}
             className="w-full py-6 text-xl font-light tracking-wide bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-none transition-all duration-300"
           >
-            Start
+            Start City Builder
+          </Button>
+          
+          <Button 
+            onClick={startCompetitiveGame}
+            className="w-full py-6 text-xl font-light tracking-wide bg-red-900/40 hover:bg-red-900/60 text-red-100 border border-red-700/40 rounded-none transition-all duration-300"
+          >
+            ⚔️ Start Competitive
           </Button>
           
           <Button 
@@ -360,7 +379,13 @@ export default function HomePage() {
               onClick={() => setShowGame(true)}
               className="w-64 py-8 text-2xl font-light tracking-wide bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-none transition-all duration-300"
             >
-              Start
+              Start City Builder
+            </Button>
+            <Button 
+              onClick={startCompetitiveGame}
+              className="w-64 py-8 text-2xl font-light tracking-wide bg-red-900/40 hover:bg-red-900/60 text-red-100 border border-red-700/40 rounded-none transition-all duration-300"
+            >
+              ⚔️ Start Competitive
             </Button>
             <Button 
               onClick={async () => {
