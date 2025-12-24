@@ -134,7 +134,8 @@ export function useAircraftSystems(
       const airport = airports[Math.floor(Math.random() * airports.length)];
       
       // Decide if taking off (departure) or arriving
-      const isDeparture = Math.random() < 0.5;
+      // 30% departures, 70% arrivals to ensure we see landing behavior
+      const isDeparture = Math.random() < 0.3;
       const planeType = PLANE_TYPES[Math.floor(Math.random() * PLANE_TYPES.length)] as PlaneType;
       
       if (isDeparture) {
