@@ -2,6 +2,7 @@
 // IMAGE LOADING UTILITIES
 // ============================================================================
 // Handles loading and caching of sprite images with optional background filtering
+// Uses Next.js image optimization to serve compressed WebP/AVIF formats
 
 // Background color to filter from sprite sheets
 const BACKGROUND_COLOR = { r: 255, g: 0, b: 0 };
@@ -14,6 +15,45 @@ const imageCache = new Map<string, HTMLImageElement>();
 // Event emitter for image loading progress (to trigger re-renders)
 type ImageLoadCallback = () => void;
 const imageLoadCallbacks = new Set<ImageLoadCallback>();
+
+// Configuration for image optimization
+const IMAGE_OPTIMIZATION_CONFIG = {
+  // Default quality for compressed images (1-100)
+  quality: 75,
+  // Maximum width for sprite sheets (preserves detail while reducing size)
+  maxWidth: 2048,
+  // Enable/disable optimization (can be toggled for debugging)
+  enabled: true,
+};
+
+/**
+ * Build an optimized image URL using Next.js image optimization
+ * This converts images to WebP/AVIF format which are much smaller than PNG
+ * @param src Original image source path
+ * @param width Optional specific width (defaults to maxWidth)
+ * @param quality Optional quality (1-100, defaults to configured quality)
+ * @returns Optimized image URL
+ */
+export function getOptimizedImageUrl(
+  src: string,
+  width: number = IMAGE_OPTIMIZATION_CONFIG.maxWidth,
+  quality: number = IMAGE_OPTIMIZATION_CONFIG.quality
+): string {
+  // Skip optimization if disabled or if it's already an optimized URL
+  if (!IMAGE_OPTIMIZATION_CONFIG.enabled || src.startsWith('/_next/image')) {
+    return src;
+  }
+  
+  // Skip optimization for data URLs
+  if (src.startsWith('data:')) {
+    return src;
+  }
+  
+  // Build Next.js image optimization URL
+  // The browser will automatically get WebP or AVIF based on Accept header
+  const encodedUrl = encodeURIComponent(src);
+  return `/_next/image?url=${encodedUrl}&w=${width}&q=${quality}`;
+}
 
 /**
  * Register a callback to be notified when images are loaded
@@ -32,24 +72,45 @@ function notifyImageLoaded() {
 }
 
 /**
- * Load an image from a source URL
+ * Load an image from a source URL with automatic optimization
+ * Uses Next.js image optimization to serve WebP/AVIF when supported
  * @param src The image source path
+ * @param useOptimization Whether to use Next.js image optimization (default: true)
  * @returns Promise resolving to the loaded image
  */
-export function loadImage(src: string): Promise<HTMLImageElement> {
-  if (imageCache.has(src)) {
-    return Promise.resolve(imageCache.get(src)!);
+export function loadImage(src: string, useOptimization: boolean = true): Promise<HTMLImageElement> {
+  // Use original src as cache key to avoid loading duplicates
+  const cacheKey = src;
+  
+  if (imageCache.has(cacheKey)) {
+    return Promise.resolve(imageCache.get(cacheKey)!);
   }
   
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      imageCache.set(src, img);
+      imageCache.set(cacheKey, img);
       notifyImageLoaded(); // Notify listeners that a new image is available
       resolve(img);
     };
-    img.onerror = reject;
-    img.src = src;
+    img.onerror = (error) => {
+      // If optimized URL fails, try falling back to original
+      if (useOptimization && IMAGE_OPTIMIZATION_CONFIG.enabled) {
+        console.warn(`Optimized image failed to load, falling back to original: ${src}`);
+        const fallbackImg = new Image();
+        fallbackImg.onload = () => {
+          imageCache.set(cacheKey, fallbackImg);
+          notifyImageLoaded();
+          resolve(fallbackImg);
+        };
+        fallbackImg.onerror = reject;
+        fallbackImg.src = src;
+      } else {
+        reject(error);
+      }
+    };
+    // Use optimized URL if optimization is enabled
+    img.src = useOptimization ? getOptimizedImageUrl(src) : src;
   });
 }
 
