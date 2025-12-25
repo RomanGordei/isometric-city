@@ -187,6 +187,7 @@ export function useAircraftSystems(
         runwayCenterY,
         taxiAimX: clampedTaxi.x,
         taxiAimY: clampedTaxi.y,
+        clampToGateRadius,
       };
     };
 
@@ -413,6 +414,12 @@ export function useAircraftSystems(
           plane.x += Math.cos(plane.angle) * plane.speed * delta * speedMultiplier;
           plane.y += Math.sin(plane.angle) * plane.speed * delta * speedMultiplier;
 
+          // Hard clamp taxi motion to the airport footprint region.
+          // This prevents even small overshoot steps from drifting outside the asset.
+          const clampedPos = runway.clampToGateRadius(plane.x, plane.y);
+          plane.x = clampedPos.x;
+          plane.y = clampedPos.y;
+
           const dist = Math.hypot(targetX - plane.x, targetY - plane.y);
           if (dist < 22) {
             plane.state = 'takeoff_roll';
@@ -607,6 +614,11 @@ export function useAircraftSystems(
 
           plane.x += Math.cos(plane.angle) * plane.speed * delta * speedMultiplier;
           plane.y += Math.sin(plane.angle) * plane.speed * delta * speedMultiplier;
+
+          // Hard clamp taxi motion to the airport footprint region.
+          const clampedPos = runway.clampToGateRadius(plane.x, plane.y);
+          plane.x = clampedPos.x;
+          plane.y = clampedPos.y;
 
           if (Math.hypot(targetX - plane.x, targetY - plane.y) < 22) {
             // Parked at gate – despawn (could later be extended to stay parked).

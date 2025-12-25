@@ -89,8 +89,9 @@ export const AIRPORT_RUNWAY_LATERAL_OFFSET_X = 78; // px (runway is to the "left
 export const AIRPORT_RUNWAY_LATERAL_OFFSET_Y = 18;  // px (runway sits slightly "forward" vs the terminal apron)
 export const AIRPORT_RUNWAY_APPROACH_DISTANCE = 520; // px back from touchdown
 
-// Clamp how far ground operations can stray from the gate point (screen-space radius)
-export const AIRPORT_GROUND_MAX_RADIUS = 170;
+// Clamp how far ground operations can stray from the gate point (screen-space radius).
+// This is intentionally conservative to keep taxiing inside the airport footprint.
+export const AIRPORT_GROUND_MAX_RADIUS = 150;
 
 // Ground roll particles (tire smoke / dust)
 export const GROUND_TRAIL_MAX_AGE = 1.1;
