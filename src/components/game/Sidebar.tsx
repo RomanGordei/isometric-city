@@ -305,17 +305,32 @@ export const Sidebar = React.memo(function Sidebar({ onExit }: { onExit?: () => 
     { 
       key: 'parks', 
       label: 'Parks', 
-      tools: ['park', 'park_large', 'tennis', 'playground_small', 'playground_large', 'community_garden', 'pond_park', 'park_gate', 'greenhouse_garden'] as Tool[]
+      tools: [
+        // Parks (keep park items on top)
+        'park',
+        'park_large',
+        'tennis',
+        'playground_small',
+        'playground_large',
+        'community_garden',
+        'pond_park',
+        'park_gate',
+        'greenhouse_garden',
+        // Recreation (merged into Parks)
+        'mini_golf_course',
+        'go_kart_track',
+        'amphitheater',
+        'roller_coaster_small',
+        'campground',
+        'cabin_house',
+        'mountain_lodge',
+        'mountain_trailhead',
+      ] as Tool[]
     },
     { 
       key: 'sports', 
       label: 'Sports', 
       tools: ['basketball_courts', 'soccer_field_small', 'baseball_field_small', 'football_field', 'baseball_stadium', 'swimming_pool', 'skate_park', 'bleachers_field'] as Tool[]
-    },
-    { 
-      key: 'recreation', 
-      label: 'Recreation', 
-      tools: ['mini_golf_course', 'go_kart_track', 'amphitheater', 'roller_coaster_small', 'campground', 'cabin_house', 'mountain_lodge', 'mountain_trailhead'] as Tool[]
     },
     { 
       key: 'waterfront', 

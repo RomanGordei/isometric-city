@@ -193,7 +193,15 @@ export function useEffectsSystems(
     // Update existing fireworks
     const updatedFireworks: Firework[] = [];
     
-    for (const firework of fireworksRef.current) {
+    for (const rawFirework of fireworksRef.current) {
+      // Create a fresh copy so we don't mutate ref-held objects directly
+      const firework: Firework = {
+        ...rawFirework,
+        particles: rawFirework.particles.map(particle => ({
+          ...particle,
+          trail: particle.trail.map(tp => ({ ...tp })),
+        })),
+      };
       firework.age += delta;
       
       switch (firework.state) {
@@ -441,9 +449,11 @@ export function useEffectsSystems(
         
         if (existing && existing.buildingType === factory.type) {
           // Update screen position but keep particles
-          existing.screenX = screenX + chimneyOffsetX;
-          existing.screenY = screenY + chimneyOffsetY;
-          return existing;
+          return {
+            ...existing,
+            screenX: screenX + chimneyOffsetX,
+            screenY: screenY + chimneyOffsetY,
+          };
         }
         
         return {
@@ -459,7 +469,13 @@ export function useEffectsSystems(
     }
     
     // Update each factory's smog
-    for (const smog of factorySmogRef.current) {
+    const updatedFactorySmog = factorySmogRef.current.map(rawSmog => {
+      // Create a fresh copy so we don't mutate ref-held objects directly
+      const smog: FactorySmog = {
+        ...rawSmog,
+        particles: rawSmog.particles.map(p => ({ ...p })),
+      };
+
       // Update spawn timer with mobile multiplier
       const baseSpawnInterval = smog.buildingType === 'factory_large' 
         ? SMOG_SPAWN_INTERVAL_LARGE 
@@ -524,7 +540,10 @@ export function useEffectsSystems(
         
         return true;
       });
-    }
+      return smog;
+    });
+
+    factorySmogRef.current = updatedFactorySmog;
   }, [worldStateRef, gridVersionRef, factorySmogRef, smogLastGridVersionRef, findSmogFactoriesCallback, isMobile]);
 
   // Draw smog particles

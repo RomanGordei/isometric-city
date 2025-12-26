@@ -148,7 +148,9 @@ export function useBargeSystem(
     // Update existing barges
     const updatedBarges: Barge[] = [];
     
-    for (const barge of bargesRef.current) {
+    for (const rawBarge of bargesRef.current) {
+      // Create a fresh copy so we don't mutate ref-held objects directly
+      const barge: Barge = { ...rawBarge };
       barge.age += delta;
       
       // Update wake particles
