@@ -1754,7 +1754,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       // DRAW SUPPORT PILLARS (one per tile, at front position to avoid z-order issues)
       // ============================================================
       const pillarW = 4;
-      const pillarH = 22; // Extended further down into water
+      const pillarH = 17;
       
       // Only draw pillar on every other tile to reduce count, and place at back position (0.35)
       // Water tiles toward startEdge are rendered BEFORE this bridge tile, so pillar won't be covered
