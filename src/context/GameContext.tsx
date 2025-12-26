@@ -22,6 +22,7 @@ import {
   simulateTick,
   checkForDiscoverableCities,
   generateRandomAdvancedCity,
+  createBridgesOnPath,
 } from '@/lib/simulation';
 import {
   SPRITE_PACKS,
@@ -56,6 +57,7 @@ type GameContextValue = {
   setActivePanel: (panel: GameState['activePanel']) => void;
   setBudgetFunding: (key: keyof Budget, funding: number) => void;
   placeAtTile: (x: number, y: number) => void;
+  finishRoadDrag: (pathTiles: { x: number; y: number }[]) => void; // Create bridges after road drag
   connectToCity: (cityId: string) => void;
   discoverCity: (cityId: string) => void;
   checkAndDiscoverCities: (onDiscover?: (city: { id: string; direction: 'north' | 'south' | 'east' | 'west'; name: string }) => void) => void;
@@ -782,6 +784,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Called after a road drag operation to create bridges for water crossings
+  const finishRoadDrag = useCallback((pathTiles: { x: number; y: number }[]) => {
+    setState((prev) => createBridgesOnPath(prev, pathTiles));
+  }, []);
+
   const connectToCity = useCallback((cityId: string) => {
     setState((prev) => {
       const city = prev.adjacentCities.find(c => c.id === cityId);
@@ -1223,6 +1230,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setActivePanel,
     setBudgetFunding,
     placeAtTile,
+    finishRoadDrag,
     connectToCity,
     discoverCity,
     checkAndDiscoverCities,

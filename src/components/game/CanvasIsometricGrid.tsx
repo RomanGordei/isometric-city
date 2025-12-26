@@ -127,7 +127,7 @@ export interface CanvasIsometricGridProps {
 
 // Canvas-based Isometric Grid - HIGH PERFORMANCE
 export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile, isMobile = false, navigationTarget, onNavigationComplete, onViewportChange, onBargeDelivery }: CanvasIsometricGridProps) {
-  const { state, placeAtTile, connectToCity, checkAndDiscoverCities, currentSpritePack, visualHour } = useGame();
+  const { state, placeAtTile, finishRoadDrag, connectToCity, checkAndDiscoverCities, currentSpritePack, visualHour } = useGame();
   const { grid, gridSize, selectedTool, speed, adjacentCities, waterBodies, gameVersion } = state;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hoverCanvasRef = useRef<HTMLCanvasElement>(null); // PERF: Separate canvas for hover/selection highlights
@@ -1751,7 +1751,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       
       // Only draw pillar on every other tile to reduce count, and place at back position (0.35)
       // Water tiles toward startEdge are rendered BEFORE this bridge tile, so pillar won't be covered
-      const shouldDrawPillar = (bridgeIndex % 2 === 0) || position === 'start' || position === 'end';
+      // Suspension bridges don't need base pillars - they have tower supports instead
+      const shouldDrawPillar = bridgeType !== 'suspension' && ((bridgeIndex % 2 === 0) || position === 'start' || position === 'end');
       
       if (shouldDrawPillar) {
         // Place pillar toward the "start" edge (back in render order) - water there is already drawn
@@ -4333,9 +4334,35 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       }
     }
     
-    // After placing roads or rail, check if any cities should be discovered
-    // This happens after any road/rail placement (drag or click) reaches an edge
-    if (isDragging && (selectedTool === 'road' || selectedTool === 'rail')) {
+    // After placing roads, create bridges for valid water crossings and check for city discovery
+    if (isDragging && selectedTool === 'road' && dragStartTile && dragEndTile) {
+      // Collect all tiles in the drag path
+      const minX = Math.min(dragStartTile.x, dragEndTile.x);
+      const maxX = Math.max(dragStartTile.x, dragEndTile.x);
+      const minY = Math.min(dragStartTile.y, dragEndTile.y);
+      const maxY = Math.max(dragStartTile.y, dragEndTile.y);
+      
+      const pathTiles: { x: number; y: number }[] = [];
+      for (let x = minX; x <= maxX; x++) {
+        for (let y = minY; y <= maxY; y++) {
+          pathTiles.push({ x, y });
+        }
+      }
+      
+      // Create bridges for valid water crossings in the drag path
+      finishRoadDrag(pathTiles);
+      
+      // Use setTimeout to allow state to update first, then check for discoverable cities
+      setTimeout(() => {
+        checkAndDiscoverCities((discoveredCity) => {
+          // Show dialog for the newly discovered city
+          setCityConnectionDialog({ direction: discoveredCity.direction });
+        });
+      }, 50);
+    }
+    
+    // After placing rail, check if any cities should be discovered
+    if (isDragging && selectedTool === 'rail') {
       // Use setTimeout to allow state to update first, then check for discoverable cities
       setTimeout(() => {
         checkAndDiscoverCities((discoveredCity) => {
@@ -4357,7 +4384,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     if (!containerRef.current) {
       setHoveredTile(null);
     }
-  }, [isDragging, showsDragGrid, dragStartTile, placeAtTile, selectedTool, dragEndTile, checkAndDiscoverCities, findBuildingOrigin, setSelectedTile, isPanning]);
+  }, [isDragging, showsDragGrid, dragStartTile, placeAtTile, finishRoadDrag, selectedTool, dragEndTile, checkAndDiscoverCities, findBuildingOrigin, setSelectedTile, isPanning]);
   
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();

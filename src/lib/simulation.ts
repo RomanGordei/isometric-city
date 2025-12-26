@@ -784,7 +784,9 @@ function createBridgeBuilding(
   bridgeType: BridgeType,
   orientation: BridgeOrientation,
   variant: number,
-  position: 'start' | 'middle' | 'end'
+  position: 'start' | 'middle' | 'end',
+  index: number,
+  span: number
 ): Building {
   return {
     type: 'bridge',
@@ -802,6 +804,8 @@ function createBridgeBuilding(
     bridgeOrientation: orientation,
     bridgeVariant: variant,
     bridgePosition: position,
+    bridgeIndex: index,
+    bridgeSpan: span,
   };
 }
 
@@ -937,6 +941,7 @@ function buildBridges(
     opportunity.bridgeType
   );
   
+  const span = opportunity.waterTiles.length;
   opportunity.waterTiles.forEach((pos, index) => {
     let position: 'start' | 'middle' | 'end';
     if (index === 0) {
@@ -951,7 +956,9 @@ function buildBridges(
       opportunity.bridgeType,
       opportunity.orientation,
       variant,
-      position
+      position,
+      index,
+      span
     );
     // Keep the tile as having no zone
     grid[pos.y][pos.x].zone = 'none';
@@ -970,6 +977,34 @@ function checkAndCreateBridges(
   if (opportunity) {
     buildBridges(grid, opportunity);
   }
+}
+
+/**
+ * Create bridges along a road drag path.
+ * This is called after a road drag operation completes to create bridges
+ * for any valid water crossings in the path.
+ * 
+ * @param state - Current game state
+ * @param pathTiles - Array of {x, y} coordinates that were part of the drag
+ * @returns Updated game state with bridges created
+ */
+export function createBridgesOnPath(
+  state: GameState,
+  pathTiles: { x: number; y: number }[]
+): GameState {
+  if (pathTiles.length === 0) return state;
+  
+  const newGrid = state.grid.map(row => row.map(t => ({ ...t, building: { ...t.building } })));
+  
+  // Check each road tile in the path for bridge opportunities
+  for (const tile of pathTiles) {
+    // Only check from actual road tiles (not water or other types)
+    if (newGrid[tile.y]?.[tile.x]?.building.type === 'road') {
+      checkAndCreateBridges(newGrid, state.gridSize, tile.x, tile.y);
+    }
+  }
+  
+  return { ...state, grid: newGrid };
 }
 
 function createInitialBudget(): Budget {
@@ -2636,10 +2671,9 @@ export function placeBuilding(
       }
     }
     
-    // After placing a road, check if it creates a bridge opportunity
-    if (buildingType === 'road') {
-      checkAndCreateBridges(newGrid, state.gridSize, x, y);
-    }
+    // NOTE: Bridge creation is handled separately during drag operations across water
+    // We do NOT auto-create bridges here because placing individual road tiles on opposite
+    // sides of water should not automatically create a bridge - only explicit dragging should
   }
 
   return { ...state, grid: newGrid };
