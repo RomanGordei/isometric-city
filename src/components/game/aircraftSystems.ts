@@ -116,6 +116,9 @@ export function useAircraftSystems(
       const tile = currentGrid[airportY]?.[airportX];
       if (!tile) return false;
 
+      // Airports should never be mirrored (keep runway/taxi geometry stable).
+      return false;
+
       const buildingSize = getBuildingSize('airport');
       const isWaterfrontAsset = requiresWaterAdjacency('airport');
 
