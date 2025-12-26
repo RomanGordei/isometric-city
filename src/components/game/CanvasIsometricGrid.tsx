@@ -92,6 +92,16 @@ import {
   drawRoadArrow,
 } from '@/components/game/trafficSystem';
 import { drawRoad, RoadDrawingOptions } from '@/components/game/roadDrawing';
+import {
+  BRIDGE_STYLES,
+  getBridgeStyle,
+  getBridgeDeckColor,
+  calculateBridgeEdges,
+  getBridgeWidthRatio,
+  getRailBridgeYOffset,
+  parseBridgeProperties,
+  drawPillar as drawBridgePillar,
+} from '@/components/game/bridgeDrawing';
 import { CrimeType, getCrimeName, getCrimeDescription, getFireDescriptionForTile, getFireNameForTile } from '@/components/game/incidentData';
 import {
   drawRailTrack,
@@ -1073,93 +1083,34 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       const w = TILE_WIDTH;
       const h = TILE_HEIGHT;
       
-      const bridgeType = building.bridgeType || 'large';
-      const orientation = building.bridgeOrientation || 'ns';
-      const variant = building.bridgeVariant || 0;
-      const position = building.bridgePosition || 'middle';
-      const bridgeIndex = building.bridgeIndex ?? 0;
-      const bridgeSpan = building.bridgeSpan ?? 1;
-      const trackType = building.bridgeTrackType || 'road'; // 'road' or 'rail'
-      const isRailBridge = trackType === 'rail';
+      // Parse bridge properties using extracted helper
+      const {
+        bridgeType,
+        orientation,
+        variant,
+        position,
+        bridgeIndex,
+        bridgeSpan,
+        isRailBridge,
+      } = parseBridgeProperties(building);
+      
+      // Get style from extracted constants
+      const style = getBridgeStyle(bridgeType, variant);
       
       // Rail bridges are shifted down slightly on the Y axis
-      const yOffset = isRailBridge ? h * 0.1 : 0;
+      const yOffset = getRailBridgeYOffset(isRailBridge);
       const adjustedY = y + yOffset;
       
       const cx = x + w / 2;
       const cy = adjustedY + h / 2;
       
-      // Bridge styles - road bridges use asphalt, rail bridges use gravel/ballast
-      const bridgeStyles: Record<string, { asphalt: string; barrier: string; accent: string; support: string; cable?: string }[]> = {
-        small: [
-          { asphalt: ROAD_COLORS.ASPHALT, barrier: '#707070', accent: '#606060', support: '#404040' },
-          { asphalt: '#454545', barrier: '#606060', accent: '#555555', support: '#353535' },
-          { asphalt: '#3d3d3d', barrier: '#585858', accent: '#484848', support: '#303030' },
-        ],
-        medium: [
-          { asphalt: ROAD_COLORS.ASPHALT, barrier: '#808080', accent: '#707070', support: '#505050' },
-          { asphalt: '#454545', barrier: '#707070', accent: '#606060', support: '#454545' },
-          { asphalt: '#3d3d3d', barrier: '#656565', accent: '#555555', support: '#404040' },
-        ],
-        large: [
-          { asphalt: '#3d3d3d', barrier: '#4682B4', accent: '#5a8a8a', support: '#3a5a5a' },
-          { asphalt: ROAD_COLORS.ASPHALT, barrier: '#708090', accent: '#607080', support: '#405060' },
-        ],
-        suspension: [
-          { asphalt: '#3d3d3d', barrier: '#707070', accent: '#606060', support: '#909090', cable: '#DC143C' },  // Classic red
-          { asphalt: '#3d3d3d', barrier: '#606060', accent: '#555555', support: '#808080', cable: '#708090' },  // Steel grey
-          { asphalt: '#3d3d3d', barrier: '#656560', accent: '#555550', support: '#858580', cable: '#5a7a5a' },  // Weathered green/rust
-        ],
-      };
-      
-      const style = bridgeStyles[bridgeType]?.[variant] || bridgeStyles.large[0];
-      
       // Bridge width - rail bridges are 20% skinnier than road bridges
-      const bridgeWidthRatio = isRailBridge ? 0.36 : 0.45; // 0.45 * 0.8 = 0.36
+      const bridgeWidthRatio = getBridgeWidthRatio(isRailBridge);
       const halfWidth = w * bridgeWidthRatio * 0.5;
       
-      // For bridges, we draw a SINGLE continuous parallelogram from edge to edge
-      // This avoids the gaps that occur when drawing two segments with different perpendiculars
-      
-      // Use the EXACT same edge points as roads for proper alignment
-      // These match the road edge midpoints used in drawRoad()
-      // For rail bridges, use adjustedY for the vertical offset
-      const northEdge = { x: x + w * 0.25, y: adjustedY + h * 0.25 };
-      const eastEdge = { x: x + w * 0.75, y: adjustedY + h * 0.25 };
-      const southEdge = { x: x + w * 0.75, y: adjustedY + h * 0.75 };
-      const westEdge = { x: x + w * 0.25, y: adjustedY + h * 0.75 };
-      
-      let startEdge: { x: number; y: number };
-      let endEdge: { x: number; y: number };
-      let perpX: number;
-      let perpY: number;
-      
-      // Isometric tile edge direction vectors (normalized)
-      // NE/SW edges: (w/2, h/2) direction - from top to right or bottom to left
-      // NW/SE edges: (-w/2, h/2) direction - from top to left or right to bottom
-      const neEdgeLen = Math.hypot(w / 2, h / 2);
-      const neDirX = (w / 2) / neEdgeLen;  // ~0.857 for 0.6 ratio
-      const neDirY = (h / 2) / neEdgeLen;  // ~0.514 for 0.6 ratio
-      const nwDirX = -(w / 2) / neEdgeLen; // ~-0.857
-      const nwDirY = (h / 2) / neEdgeLen;  // ~0.514
-      
-      if (orientation === 'ns') {
-        // NS bridges: connect northEdge to southEdge (NW to SE on screen)
-        // Travel direction is along NE tile edges, perpendicular follows NW tile edges
-        startEdge = { x: northEdge.x, y: northEdge.y };
-        endEdge = { x: southEdge.x, y: southEdge.y };
-        // Use NW edge direction as perpendicular (parallel to tile edges)
-        perpX = nwDirX;
-        perpY = nwDirY;
-      } else {
-        // EW bridges: connect eastEdge to westEdge (NE to SW on screen)
-        // Travel direction is along NW tile edges, perpendicular follows NE tile edges
-        startEdge = { x: eastEdge.x, y: eastEdge.y };
-        endEdge = { x: westEdge.x, y: westEdge.y };
-        // Use NE edge direction as perpendicular (parallel to tile edges)
-        perpX = neDirX;
-        perpY = neDirY;
-      }
+      // Calculate bridge edge geometry using extracted helper
+      const edges = calculateBridgeEdges(x, y, adjustedY, orientation);
+      const { northEdge, eastEdge, southEdge, westEdge, startEdge, endEdge, perpX, perpY, neDirX, neDirY, nwDirX, nwDirY } = edges;
       
       // ============================================================
       // DRAW SUPPORT PILLARS (one per tile, at front position to avoid z-order issues)
@@ -1180,39 +1131,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
           y: startEdge.y + (endEdge.y - startEdge.y) * pillarT
         };
         
-        const drawPillar = (px: number, py: number) => {
-          // Draw the side face first (darker concrete)
-          ctx.fillStyle = '#606060';
-          ctx.beginPath();
-          ctx.moveTo(px - pillarW, py);
-          ctx.lineTo(px - pillarW, py + pillarH);
-          ctx.lineTo(px, py + pillarH + pillarW/2);
-          ctx.lineTo(px, py + pillarW/2);
-          ctx.closePath();
-          ctx.fill();
-          
-          // Draw the front face (lighter concrete)
-          ctx.fillStyle = '#787878';
-          ctx.beginPath();
-          ctx.moveTo(px, py + pillarW/2);
-          ctx.lineTo(px, py + pillarH + pillarW/2);
-          ctx.lineTo(px + pillarW, py + pillarH);
-          ctx.lineTo(px + pillarW, py);
-          ctx.closePath();
-          ctx.fill();
-          
-          // Draw the top face
-          ctx.fillStyle = style.support;
-          ctx.beginPath();
-          ctx.moveTo(px, py - pillarW/2);
-          ctx.lineTo(px + pillarW, py);
-          ctx.lineTo(px, py + pillarW/2);
-          ctx.lineTo(px - pillarW, py);
-          ctx.closePath();
-          ctx.fill();
-        };
-        
-        drawPillar(pillarPos.x, pillarPos.y);
+        // Use extracted pillar drawing function
+        drawBridgePillar(ctx, pillarPos.x, pillarPos.y, pillarW, pillarH, style.support);
       }
       
       // ============================================================
@@ -1256,7 +1176,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         const connectorBridgeRight = { x: connectorEdge.x - perpX * halfWidth, y: connectorEdge.y - deckElevation - perpY * halfWidth };
         
         // Draw the connector (use appropriate color for road or rail)
-        ctx.fillStyle = isRailBridge ? RAIL_COLORS.BRIDGE_DECK : style.asphalt;
+        ctx.fillStyle = getBridgeDeckColor(isRailBridge, style);
         ctx.beginPath();
         ctx.moveTo(connectorRoadLeft.x, connectorRoadLeft.y);
         ctx.lineTo(connectorBridgeLeft.x, connectorBridgeLeft.y);
@@ -1428,7 +1348,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       
       // Draw the deck as a parallelogram with tile-edge-aligned sides
       // Rail bridges use metallic steel color, road bridges use asphalt
-      ctx.fillStyle = isRailBridge ? RAIL_COLORS.BRIDGE_DECK : style.asphalt;
+      ctx.fillStyle = getBridgeDeckColor(isRailBridge, style);
       ctx.beginPath();
       ctx.moveTo(startLeft.x, startLeft.y);
       ctx.lineTo(endLeft.x, endLeft.y);
