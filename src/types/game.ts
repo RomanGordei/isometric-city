@@ -151,7 +151,7 @@ export const TOOL_INFO: Record<Tool, ToolInfo> = {
   road: { name: 'Road', cost: 25, description: 'Connect your city' },
   rail: { name: 'Rail', cost: 40, description: 'Build railway tracks' },
   subway: { name: 'Subway', cost: 50, description: 'Underground transit' },
-  tree: { name: 'Tree', cost: 15, description: 'Plant trees to improve environment' },
+  tree: { name: 'Tree', cost: 5, description: 'Plant a tree to improve environment' },
   zone_residential: { name: 'Residential', cost: 50, description: 'Zone for housing' },
   zone_commercial: { name: 'Commercial', cost: 50, description: 'Zone for shops and offices' },
   zone_industrial: { name: 'Industrial', cost: 50, description: 'Zone for factories' },
