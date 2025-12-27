@@ -25,10 +25,16 @@
   "0ba4f8589e36ca76": "Educación",
   "0c26fce8dc4990eb": "Agua",
   "0c8b71eedbf075f5": "Solar vacío",
+  "0cb37873771a9b61": {
+    "c": "¿Quieres guardar tu ciudad antes de salir?",
+    "i": 1,
+    "t": "DialogDescription"
+  },
   "0cb408081b45c212": "Ver superposiciones",
   "0cc2c983267b6a33": "Ribera",
   "0df552c71ceffdea": "Cancha de baloncesto al aire libre",
   "11e592ce36623118": "Ayuntamiento",
+  "12c2876faceeb023": "¡Ciudad conectada!",
   "16e15fc06c6a007c": "Piscina pública",
   "196936ae6b19dcdc": {
     "c": [
@@ -65,6 +71,11 @@
   "1f30c00e03eeca50": "Carretera",
   "2052aad231d5a7a0": "Tu ciudad funciona sin problemas.",
   "20b6960f6549e2ce": "Neto",
+  "2139f3a924c1e3f9": {
+    "c": "Cargando...",
+    "i": 1,
+    "t": "div"
+  },
   "22afa76a44fbcefd": "Pista de karts",
   "232eb7f71021bb7c": "Fondos",
   "236b49842190cde3": "Apagar incendios",
@@ -84,8 +95,19 @@
   "2c1c93a646bbea6e": "Idioma",
   "2cfd6433e4b2a26a": "Activar incendios y desastres aleatorios",
   "2e46736f6530763d": "Parque pequeño",
+  "311dc7890d2b1d67": {
+    "c": "Esperando estado del juego",
+    "i": 1,
+    "t": "p"
+  },
   "315f62fadaa37351": "Mejorar la salud (2x2)",
   "32957fce34b7e56b": "Moldear terreno",
+  "341b585a556c71fa": "Crear sala cooperativa",
+  "3606a834d2052307": {
+    "c": "Crear sala",
+    "i": 1,
+    "t": "Button"
+  },
   "361b52252c485db1": "Educación básica (2x2)",
   "36999eca1aa6a62d": "Paneles",
   "3713fd8f06b7bdbd": "Demoler",
@@ -94,6 +116,11 @@
   "39582dc021bd9785": "Ingresos",
   "39ecf0d809cf7519": "Herramientas para desarrolladores",
   "3a6eca7252adb9a5": "{toolName} - área de {width}x{height}",
+  "3bfc71558d157cda": {
+    "c": "Unirse a sala",
+    "i": 1,
+    "t": "Button"
+  },
   "3c4c4d97d5e66b21": "Salud",
   "3ce15d2f4c961d10": "Todavía no hay suficientes datos. Sigue jugando para ver las tendencias históricas.",
   "3d7ab4b2285527d1": "Tu tesoro acaba de volverse mucho más pesado. ¡Has recibido $1,000,000!",
@@ -103,11 +130,31 @@
   "423be6bbfb254615": "Planta árboles para mejorar el entorno",
   "43852fb2c437417a": "{toolName} debe colocarse junto al agua",
   "43f8d980f9a0671a": "Transporte subterráneo",
+  "4412850a5d8a8cc2": {
+    "c": "Creando sala...",
+    "i": 1,
+    "t": "span"
+  },
   "441e4c507e4ad288": "Oficina pequeña",
   "4552acda39be69ce": "Eliminar zonas",
   "459f0b9e4a127d63": "Torre de agua",
   "459fd02379259631": "Empleos",
   "46bcf1a804883ab0": "Jardín comunitario",
+  "470fe699e0ed01d8": {
+    "c": [
+      {
+        "i": 2,
+        "t": "AlertCircle"
+      },
+      {
+        "i": 3,
+        "k": "_gt_value_3",
+        "v": "v"
+      }
+    ],
+    "i": 1,
+    "t": "div"
+  },
   "482a95b964ba67dc": "Inicio del sendero",
   "482ea0cd55a6de89": "Huerto comunitario",
   "4862ed8532afdefe": "Generar electricidad (2x2)",
@@ -117,9 +164,39 @@
   "4b6098b15618c700": "Metro",
   "4c059835fa726e47": "Copia tu estado de partida para compartirlo o hacer una copia de seguridad",
   "4ca435219460c2ac": "Atracción extrema (2x2)",
+  "4f4e072e4349f59c": {
+    "c": {
+      "d": {
+        "b": {
+          "false": {
+            "c": "Crear sala",
+            "i": 3,
+            "t": "C3"
+          },
+          "true": {
+            "c": [
+              {
+                "i": 4,
+                "t": "Loader2"
+              },
+              "Creando..."
+            ],
+            "i": 3,
+            "t": "C3"
+          }
+        },
+        "t": "b"
+      },
+      "i": 2,
+      "t": "Branch"
+    },
+    "i": 1,
+    "t": "Button"
+  },
   "4f7921f3fd81b8b8": "Los edificios necesitan energía, agua y carreteras para que la construcción pueda comenzar.",
   "50e2a364d74d785c": "Neto semanal",
   "5151b5e97cd737af": "Centro comunitario",
+  "5183af24b24e9f83": "Pob: {population}",
   "51ba70d622cd0090": "Anfiteatro",
   "5307628f223147b6": "Centro comunitario local",
   "5346721dd34606cc": "Central eléctrica",
@@ -146,11 +223,22 @@
   "6034e26d8964b615": "Servicios",
   "60eb6be4ae31cecb": "Parque infantil grande con más juegos (2x2)",
   "6136434088767e39": "Elige tu idioma preferido",
+  "61d5d28f76e4b82d": {
+    "c": "Guardar y salir",
+    "i": 1,
+    "t": "Button"
+  },
+  "6291b415256c8629": {
+    "c": "Salir sin guardar",
+    "i": 1,
+    "t": "Button"
+  },
   "62f43adf29906dd6": "Campo de fútbol",
   "644d112397a9d946": "Cargar",
   "668bac01a99df249": "Policía",
   "67b416f395bcb015": "Construye hospitales y escuelas para mejorar la salud y la educación de tus ciudadanos.",
   "67f7439638ec898d": "Comunidad",
+  "687f7b94f6c055cc": "IsoCity",
   "68c8018cb5797990": "Pega el estado de la partida aquí...",
   "693839da902125cb": "Muelle",
   "69ba5155e6e2ef95": "Renombrar",
@@ -170,11 +258,76 @@
   "762fcce45b65eea9": "Guardar",
   "764fb358fb772d35": "Tasa de impuestos",
   "7699c52140c9d9d1": "Parques",
+  "771e0f978df0576b": {
+    "c": {
+      "d": {
+        "b": {
+          "false": {
+            "c": [
+              {
+                "i": 4,
+                "t": "Copy"
+              },
+              "Copiar enlace de invitación"
+            ],
+            "i": 3,
+            "t": "C3"
+          },
+          "true": {
+            "c": [
+              {
+                "i": 4,
+                "t": "Check"
+              },
+              "¡Copiado!"
+            ],
+            "i": 3,
+            "t": "C3"
+          }
+        },
+        "t": "b"
+      },
+      "i": 2,
+      "t": "Branch"
+    },
+    "i": 1,
+    "t": "Button"
+  },
+  "77fd7230b47d30a0": "Copiar enlace de invitación",
   "786f78fa84e8f121": "Parque con estanque pintoresco",
   "7a2dd3bc72dfe4a0": "Campo de fútbol",
+  "7a804aab8cab4639": {
+    "c": [
+      {
+        "c": {
+          "i": 3,
+          "k": "_gt_value_3",
+          "v": "v"
+        },
+        "i": 2,
+        "t": "span"
+      },
+      " ",
+      {
+        "d": {
+          "b": {
+            "one": "jugador",
+            "other": "jugadores"
+          },
+          "t": "p"
+        },
+        "i": 4,
+        "t": "Plural"
+      },
+      " conectados"
+    ],
+    "i": 1,
+    "t": "div"
+  },
   "7ab9534f0cd01856": "Minimapa",
   "7af04611900a2ec1": "materiales a granel",
   "7db45eab1e6e4c9e": "Parque grande",
+  "7f248a14247b63c3": "Construye una ciudad junto a tus amigos en tiempo real",
   "7fb5371007f7f493": "Estadísticas",
   "825d7120d9e5c572": "contenedores",
   "830e21fdb11a5d4a": "Proporcionar agua",
@@ -186,19 +339,40 @@
   "878c45a35ddde226": "Importar partida",
   "87d0409e4047fbca": "Estado de juego no válido. Revisa y vuelve a intentarlo.",
   "884832efb61160d4": "Transformar terreno en agua",
+  "887a25455082ba01": {
+    "c": "Ciudades guardadas",
+    "i": 1,
+    "t": "h2"
+  },
   "89c6ae6c99a26fef": "Cargar estado de ejemplo",
   "8a2629c99203fd4e": "Asesores",
   "8a3ebfe5eefa1f3a": "Servicios",
   "8b5e8de8f4c85850": "Educación superior (3x3)",
   "8b9192b9f5e25ab9": "Elige el estilo gráfico de los edificios",
+  "8cc0d21c9e225a99": "Comparte este enlace con amigos para jugar juntos",
+  "8cf8b2e7760808b5": {
+    "c": "Abrir GitHub",
+    "i": 1,
+    "t": "a"
+  },
   "8cfe5cbc808ec9b6": "Vigila la demanda de zonas. Una demanda negativa puede hacer que los edificios queden abandonados.",
   "8e51a2f65e212afd": "Terraformar agua en tierra",
   "900353afc0ae0c5f": "Todavía no hay ciudades guardadas.",
+  "9079faf80d145050": {
+    "c": "Cooperativo",
+    "i": 1,
+    "t": "Button"
+  },
   "907abc04009841aa": "Minigolf (2x2)",
   "90e19ab2fba5da15": "Restaurar",
   "915ed53f3aec731b": "Copiar estado de la partida",
   "931f3cdc1db7ade0": "Granja interactiva / animales de granja",
   "942af069571719cf": "Gastos mensuales",
+  "94374ac393dcdf6e": {
+    "c": "Atrás",
+    "i": 1,
+    "t": "Button"
+  },
   "947b31327f9622d3": "Iniciar nueva partida",
   "955389bd727d0995": "Estadio de fútbol (2x2)",
   "956afb617989348a": "Especial",
@@ -210,10 +384,12 @@
   },
   "97513d561bf53e55": "Estación de metro",
   "97c7b3a9fd235ee5": "Población",
+  "97da417ea1696c8f": "Ruta comercial establecida con {cityName}. Bonificación de +${tradeBonus} y +${tradeIncome}/mes de ingresos.",
   "9963ed45f2043cb8": "Jardín de invernadero",
   "9bd3d3242f1ed87e": "Sin energía",
   "9c47942e96f87eff": "Salir al menú principal",
   "9d254026827d7830": "Campo con gradas",
+  "9e7842be401ec868": "Multijugador cooperativo",
   "9f2ba8acaf861529": "¿Quieres guardar tu ciudad antes de salir?",
   "9f624c646a344dd9": "Invernadero botánico (2x2)",
   "a1fe3b85fd8e6410": "Reducir ciudad (-30x30)",
@@ -223,6 +399,7 @@
   "a83f273f0a35b2f5": "Gastos",
   "a916da3428403968": "Parque de patinaje",
   "a9749078f63948e2": "Nombre de la nueva ciudad...",
+  "a99cc25fcee6cfc0": "Invitar jugadores",
   "aa29c7e2f00fb24d": "Aumenta la felicidad y el valor del suelo (1x1)",
   "abaacba7b0f79fe8": "Restablecer",
   "abd01d16a9c20c45": "¡No hay problemas urgentes que informar!",
@@ -230,10 +407,49 @@
   "adb5a90c2189aa55": "Aumenta la demanda comercial e industrial (4x4)",
   "add48b8a4d3992b8": "Estadísticas de la ciudad",
   "ae0bc049bb523734": "¿Eliminar esta ciudad?",
+  "ae523efea7feca15": {
+    "c": "Código de sala",
+    "i": 1,
+    "t": "p"
+  },
+  "af98b998d720c02c": {
+    "c": "Esperando a que se unan jugadores...",
+    "i": 1,
+    "t": "p"
+  },
+  "b2d8df38cd17a65f": {
+    "c": [
+      "Jugadores (",
+      {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      },
+      ")"
+    ],
+    "i": 1,
+    "t": "span"
+  },
+  "b35f2f3c4f5d453b": {
+    "c": "(Anfitrión)",
+    "i": 1,
+    "t": "span"
+  },
   "b3b7a1d6663ccd5f": "Hospital",
   "b43d25aa91aa1edd": "Anula la apariencia de la hora del día sin afectar la progresión del tiempo",
   "b453abc6c0aa9847": "Campo de béisbol",
   "b4619e9087ef77c7": "Programa espacial",
+  "b57d4edf9f100f41": {
+    "c": "Nombre de la ciudad",
+    "i": 1,
+    "t": "Label"
+  },
+  "b5c92df925e93358": "Jugador 1",
+  "b5fc6e222d745092": {
+    "c": "Conectando al servidor...",
+    "i": 1,
+    "t": "p"
+  },
   "b7a2c2e53cd1a902": {
     "c": [
       "Conectar a ",
@@ -247,16 +463,31 @@
     "t": "Button"
   },
   "b7cc80c6e92b9484": "Guarda varias ciudades y cambia entre ellas",
+  "b80f965a578b8557": "Copiado",
   "b821113430f5f0af": "Ferrocarril",
+  "b8391246020c5fce": {
+    "c": "Continuar jugando",
+    "i": 1,
+    "t": "Button"
+  },
   "b8ffa77d868a668b": "Nombre de la ciudad",
+  "ba93438b71279bde": "Unirse a sala cooperativa",
   "bad59346a21883a3": "Aeropuerto",
+  "bb36c0d997deedbb": "¡Ciudad descubierta!",
   "bc57a3573b2d731a": "Asesores de la ciudad",
   "bcfcdb828fb6febe": "Industrial",
+  "bd6c5ddc65303225": "Introduce el código de sala de 5 caracteres para unirte",
   "bf03c9d6ae13442a": "No se puede reducir más la ciudad: se alcanzó el tamaño mínimo.",
   "c1118dc21f1a3a70": "Campo de fútbol",
   "c374929bd865ac52": "Albergue de retiro natural (2x2)",
+  "c45278ad82a8a588": "{playerCount} jugadores",
   "c49fb569cf0344a1": "Conecta tu ciudad",
   "c56f5cbb6dbe8edb": "Cabaña",
+  "c648914a84bbc5dd": {
+    "c": "Salir al Menú Principal",
+    "i": 1,
+    "t": "DialogTitle"
+  },
   "c6fa2905d56a750c": "Guardado",
   "c7d1e9c9bd97d52d": "Mensual",
   "c96a3fd1bbe8f38a": "Aumenta la demanda industrial y residencial (3x3)",
@@ -267,21 +498,34 @@
   "cf5babe756808083": "Marina",
   "d062c71072c029de": "¡Truco retro activado!",
   "d08f67cf675a3159": "Estadio de béisbol profesional (3x3)",
+  "d17e430e65f5265e": {
+    "c": "Cargar ejemplo",
+    "i": 1,
+    "t": "Button"
+  },
   "d1acbf32e4fd9c19": "Incidente",
   "d26290781c575c73": "Museo",
   "d28b856e9e8b8a3d": "Dinero",
   "d5120487d8637bd5": "Entrada de parque decorativa",
   "d563172b11e46265": " - Arrastra para colocar",
+  "d594e018bf9f0f1c": {
+    "c": "Tu nombre",
+    "i": 1,
+    "t": "Label"
+  },
   "d5bb9c7d05c9221d": "Exportar partida",
+  "d64acd869e0e23cb": "Jugador 2",
   "d76336950671d1e2": "Muelles para barcos (2x2, debe colocarse junto al agua)",
   "d7804cf2c098d4c3": "Mostrar superposición",
   "d893fd59ec2b90be": "Tamaño de cuadrícula",
   "d8f8e96fe087aec3": "Estadio de béisbol",
+  "d939c67d509de94e": "Buscar (⌘K)",
   "d960080f10b5a21e": "Aumenta todos los tipos de demanda (2x2)",
   "da49b8271b9dffa0": "Eliminar",
   "dd6807c3c88471d5": "Añade 15 casillas a cada lado. Los bordes de tierra se amplían como tierra y los bordes de agua se amplían como agua.",
   "ded883367c8ddcb0": "Abrir vista de prueba de sprites",
   "e0a1cc92bd08aa24": "Energía",
+  "e0a3df021e5a3bfb": "¡Tu Carretera ha alcanzado la frontera {direction}! Ahora puedes conectarte con {cityName}.",
   "e0fa959d80ac0d81": "Seleccionar",
   "e1e699a197e3581d": {
     "c": [
@@ -311,12 +555,15 @@
   ],
   "e23439349cbca510": "Haz clic para ver la información de la casilla",
   "e4ca1c349676657c": "Noche",
+  "e4f07cb539c8b592": "Mi ciudad cooperativa",
   "e79d3dd997b03f78": "Sin agua",
   "e94b8809e7637224": "Configuración del juego",
   "e9574dcabfdab036": "Salir sin guardar",
   "e9f3a9337aab62c6": "Semanal",
   "eaa9e68396589c20": "Construir vías férreas",
+  "eb2599a1f913dcbd": "Invitar jugadores",
   "edb23f2758bbe9f9": "Escuela",
+  "ee875250f1577e70": "Edificios",
   "eeca902329b200e6": "Refugio de montaña",
   "efd9775f35548e44": "¡Copiado!",
   "f037be5184516560": "Parque infantil",
@@ -325,12 +572,76 @@
   "f2faf4aaea86ae97": "Canchas de baloncesto",
   "f313b32c80899b3a": "Añade estaciones de bomberos y de Policía para mantener tu ciudad a salvo de delitos e incendios.",
   "f34a6940381f60d6": "Incidente reportado.",
+  "f3d4e5312086c808": {
+    "c": "Iniciar",
+    "i": 1,
+    "t": "Button"
+  },
   "f3e6f71a8bc19b40": "Pega un estado de juego para cargarlo",
+  "f4658b00532d71cf": {
+    "d": {
+      "b": {
+        "hasCode": {
+          "c": "Comparte el código de sala con amigos para invitarlos",
+          "i": 2,
+          "t": "C2"
+        },
+        "noCode": {
+          "c": "Configura tu ciudad cooperativa",
+          "i": 2,
+          "t": "C2"
+        }
+      },
+      "t": "b"
+    },
+    "i": 1,
+    "t": "Branch"
+  },
   "f62db7ca5ce71d28": "Activado",
   "f69724f1685d216d": "Corrales de animales",
   "f704e9e58929074b": "Información de la ciudad",
   "f8107da5171f54fc": "Incendio",
   "f86d1b3defd75cea": "Ninguno",
+  "f9d1bdd38387b921": {
+    "c": [
+      {
+        "i": 2,
+        "t": "Loader2"
+      },
+      "Conectando a la sala..."
+    ],
+    "i": 1,
+    "t": "div"
+  },
+  "fb1212b31f81a863": {
+    "c": {
+      "d": {
+        "b": {
+          "false": {
+            "c": "Unirse a sala",
+            "i": 3,
+            "t": "C3"
+          },
+          "true": {
+            "c": [
+              {
+                "i": 4,
+                "t": "Loader2"
+              },
+              "Conectando..."
+            ],
+            "i": 3,
+            "t": "C3"
+          }
+        },
+        "t": "b"
+      },
+      "i": 2,
+      "t": "Branch"
+    },
+    "i": 1,
+    "t": "Button"
+  },
   "fb373c7e167e81f2": "Calificación general de la ciudad",
   "fb6c8a01b4a60b2b": "¡Ciudad guardada!",
   "fbed860a569bfb30": "Gran aumento de la demanda comercial (4x4)",
