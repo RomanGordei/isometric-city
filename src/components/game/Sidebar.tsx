@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
-import { msg, useMessages } from 'gt-next';
+import { msg, useMessages, useGT, T } from 'gt-next';
 import { useGame } from '@/context/GameContext';
 import { Tool, TOOL_INFO } from '@/types/game';
 
@@ -260,7 +260,7 @@ const ActionSubmenu = React.memo(function ActionSubmenu({
   actions,
 }: {
   label: unknown;
-  actions: { key: string; name: unknown; description: string; onClick: () => void }[];
+  actions: { key: string; name: unknown; description: unknown; onClick: () => void }[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, buttonHeight: 0, openUpward: false });
@@ -409,7 +409,7 @@ const ActionSubmenu = React.memo(function ActionSubmenu({
                 onClick={action.onClick}
                 variant="ghost"
                 className="w-full justify-start gap-2 px-3 py-2 h-auto text-sm transition-all duration-150 hover:bg-muted/60"
-                title={action.description}
+                title={m(action.description as Parameters<typeof m>[0])}
               >
                 <span className="flex-1 text-left truncate">{m(action.name as Parameters<typeof m>[0])}</span>
               </Button>
@@ -422,13 +422,13 @@ const ActionSubmenu = React.memo(function ActionSubmenu({
 });
 
 // Exit confirmation dialog component
-function ExitDialog({ 
-  open, 
-  onOpenChange, 
-  onSaveAndExit, 
-  onExitWithoutSaving 
-}: { 
-  open: boolean; 
+function ExitDialog({
+  open,
+  onOpenChange,
+  onSaveAndExit,
+  onExitWithoutSaving
+}: {
+  open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaveAndExit: () => void;
   onExitWithoutSaving: () => void;
@@ -437,10 +437,10 @@ function ExitDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Exit to Main Menu</DialogTitle>
-          <DialogDescription>
+          <T><DialogTitle>Exit to Main Menu</DialogTitle></T>
+          <T><DialogDescription>
             Would you like to save your city before exiting?
-          </DialogDescription>
+          </DialogDescription></T>
         </DialogHeader>
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button
@@ -448,13 +448,13 @@ function ExitDialog({
             onClick={onExitWithoutSaving}
             className="w-full sm:w-auto"
           >
-            Exit Without Saving
+            <T>Exit Without Saving</T>
           </Button>
           <Button
             onClick={onSaveAndExit}
             className="w-full sm:w-auto"
           >
-            Save & Exit
+            <T>Save & Exit</T>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -470,17 +470,19 @@ export const Sidebar = React.memo(function Sidebar({ onExit }: { onExit?: () => 
   const [showShareModal, setShowShareModal] = useState(false);
   const multiplayer = useMultiplayerOptional();
   const hasShownShareModalRef = useRef(false);
-  
+
   // Auto-show share modal when first connecting as host (not guest)
   // Guests have initialState set (received from host), hosts don't
   useEffect(() => {
     const isHost = multiplayer?.connectionState === 'connected' && multiplayer?.roomCode && !multiplayer?.initialState;
     if (isHost && !hasShownShareModalRef.current) {
       hasShownShareModalRef.current = true;
-      setShowShareModal(true);
+      // Use setTimeout to avoid synchronous setState in effect
+      setTimeout(() => setShowShareModal(true), 0);
     }
   }, [multiplayer?.connectionState, multiplayer?.roomCode, multiplayer?.initialState]);
   const m = useMessages();
+  const gt = useGT();
   
   const handleSaveAndExit = useCallback(() => {
     saveCity();
@@ -511,13 +513,13 @@ export const Sidebar = React.memo(function Sidebar({ onExit }: { onExit?: () => 
     {
       key: 'expand_city',
       name: TOOL_INFO['expand_city'].name,
-      description: 'Add 15 tiles to each edge of the city',
+      description: msg('Add 15 tiles to each edge of the city'),
       onClick: expandCity,
     },
     {
       key: 'shrink_city',
       name: TOOL_INFO['shrink_city'].name,
-      description: 'Remove 15 tiles from each edge of the city',
+      description: msg('Remove 15 tiles from each edge of the city'),
       onClick: shrinkCity,
     },
   ], [expandCity, shrinkCity]);
@@ -573,13 +575,13 @@ export const Sidebar = React.memo(function Sidebar({ onExit }: { onExit?: () => 
               variant="ghost"
               size="icon-sm"
               onClick={openCommandMenu}
-              title="Search (⌘K)"
+              title={gt('Search (⌘K)')}
               className="h-7 w-7 text-muted-foreground hover:text-sidebar-foreground"
             >
-              <svg 
-                className="w-4 h-4" 
-                fill="none" 
-                viewBox="0 0 24 24" 
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
                 stroke="currentColor"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -591,7 +593,7 @@ export const Sidebar = React.memo(function Sidebar({ onExit }: { onExit?: () => 
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => setShowShareModal(true)}
-                title="Invite Players"
+                title={gt('Invite Players')}
                 className="h-7 w-7 text-muted-foreground hover:text-sidebar-foreground"
               >
                 <Users className="w-4 h-4" />
@@ -602,13 +604,13 @@ export const Sidebar = React.memo(function Sidebar({ onExit }: { onExit?: () => 
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => setShowExitDialog(true)}
-                title="Exit to Main Menu"
+                title={gt('Exit to Main Menu')}
                 className="h-7 w-7 text-muted-foreground hover:text-sidebar-foreground"
               >
-                <svg 
-                  className="w-4 h-4 -scale-x-100" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
+                <svg
+                  className="w-4 h-4 -scale-x-100"
+                  fill="none"
+                  viewBox="0 0 24 24"
                   stroke="currentColor"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -676,10 +678,10 @@ export const Sidebar = React.memo(function Sidebar({ onExit }: { onExit?: () => 
         
         {/* Separator */}
         <div className="mx-4 my-2 h-px bg-sidebar-border/50" />
-        
+
         {/* Buildings header */}
         <div className="px-4 py-2 text-[10px] font-bold tracking-widest text-muted-foreground">
-          BUILDINGS
+          {gt('BUILDINGS')}
         </div>
         
         {/* Submenu categories */}
