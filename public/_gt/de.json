@@ -1,13 +1,16 @@
 {
   "0012d10a61d77a76": "Steigert Gewerbe- & Wohngebiets­nachfrage (3x3)",
+  "002dbb4296181a19": "Fracht geliefert",
   "0099a8e0d6903046": "Umwelt",
   "00ad8aeed0a6c461": "Abbrechen",
   "010d027a9055baf1": "Kleines Bürogebäude",
   "012b78191d3eef87": "Achterbahn",
   "01ed738a35998bee": "Speichern & Beenden",
   "0246f296a9647801": "Werkzeuge",
+  "026adc03115f2abb": "Öl",
   "036be42493f75286": " - Ziehen, um Bereich auszuweisen",
   "03e108901c6d428d": "Personen- und Güterbahnhof",
+  "06cb84462c974933": "Riesenvorkommen!",
   "06cf637219c05461": "Campingbereich im Freien",
   "07440458a59d2f55": "Bist du sicher? Dadurch wird dein gesamter Fortschritt zurückgesetzt.",
   "077acf288fdc5ceb": {
@@ -56,6 +59,7 @@
     "i": 1,
     "t": "div"
   },
+  "1b1481a79d72b160": "Fracht",
   "1d322b583a4b0247": "Erhöht die Gewerbenachfrage (3x3)",
   "1e5fcd19bdbca49e": "Wanderweg-Eingang (3x3)",
   "1f30c00e03eeca50": "Straße",
@@ -85,6 +89,7 @@
   "3a6eca7252adb9a5": "{toolName} - Bereich {width}x{height}",
   "3c4c4d97d5e66b21": "Gesundheit",
   "3ce15d2f4c961d10": "Noch nicht genug Daten. Spiele weiter, um historische Trends zu sehen.",
+  "3d7ab4b2285527d1": "Deine Staatskasse ist gerade viel schwerer geworden. Du hast 1.000.000 $ erhalten!",
   "3e3047cbe8ba9923": "15 Kacheln an jedem Rand entfernen. Gebäude an den Rändern werden gelöscht.",
   "3fed752c6b827eb4": "Skatepark",
   "40bad8960b093d63": "Basierend auf Zufriedenheit, Gesundheit, Bildung, Sicherheit & Umwelt",
@@ -135,6 +140,7 @@
   "62f43adf29906dd6": "Fußballplatz",
   "644d112397a9d946": "Laden",
   "668bac01a99df249": "Polizei",
+  "67b416f395bcb015": "Baue Krankenhäuser und Schulen, um Gesundheit und Bildung deiner Bürger zu verbessern.",
   "67f7439638ec898d": "Gemeinschaft",
   "68c8018cb5797990": "Spielzustand hier einfügen ...",
   "693839da902125cb": "Anleger",
@@ -146,6 +152,7 @@
   "6ef03a3ce71f2e80": "Stadtkasse",
   "6f799a1e48046e50": "Zonen",
   "71ba7468560d8d94": "Kleiner Spielplatz",
+  "71c6a9765d5e2456": "Füge Parks und Bäume hinzu, um die Umwelt deiner Stadt zu verbessern und die Bewohner glücklicher zu machen.",
   "72bef77d7b502f8f": "Steuern",
   "745eee8680d46de2": "Schwimmbad",
   "750760318912cde3": "(aktuell)",
@@ -154,13 +161,27 @@
   "762fcce45b65eea9": "Speichern",
   "764fb358fb772d35": "Steuersatz",
   "7699c52140c9d9d1": "Parkanlagen",
+  "77b15340798655c1": {
+    "c": [
+      "Weiter",
+      {
+        "i": 2,
+        "t": "ArrowRight"
+      }
+    ],
+    "i": 1,
+    "t": "Button"
+  },
   "786f78fa84e8f121": "Park mit malerischem Teich",
   "7a2dd3bc72dfe4a0": "Fußballfeld",
   "7ab9534f0cd01856": "Minikarte",
+  "7af04611900a2ec1": "Schüttgüter",
   "7db45eab1e6e4c9e": "Großer Park",
   "7fb5371007f7f493": "Statistiken",
+  "825d7120d9e5c572": "Behälter",
   "830e21fdb11a5d4a": "Wasser bereitstellen",
   "8422fd86fad87d61": "Zugang zum U-Bahn-Netz",
+  "845da39023dc8d69": "Tipp schließen",
   "84b3fc230d753c82": "Bahnhof",
   "84bfc3db1e596cce": "Teichpark",
   "85c943b4a30a4c69": "Zufriedenheit",
@@ -172,6 +193,7 @@
   "8a3ebfe5eefa1f3a": "Dienste",
   "8b5e8de8f4c85850": "Hochschule (3x3)",
   "8b9192b9f5e25ab9": "Gebäudegrafik-Stil wählen",
+  "8cfe5cbc808ec9b6": "Behalte die Zonennachfrage im Auge. Negative Nachfrage kann dazu führen, dass Gebäude verlassen werden.",
   "8e51a2f65e212afd": "Wasser in Land umwandeln",
   "900353afc0ae0c5f": "Noch keine gespeicherten Städte.",
   "907abc04009841aa": "Minigolfplatz (2x2)",
@@ -197,6 +219,7 @@
   "9f2ba8acaf861529": "Möchtest du deine Stadt vor dem Beenden speichern?",
   "9f624c646a344dd9": "Botanisches Gewächshaus (2x2)",
   "a1fe3b85fd8e6410": "Stadt verkleinern (-30x30)",
+  "a757c44bab1bfc4d": "Eine Lieferung {cargoName} ist im Yachthafen eingetroffen. +${cargoValue} Handelserlöse.",
   "a7894306a08bac01": "Wohngebiet",
   "a7cc8ff7202beca4": "Rustikaler Hüttenrückzugsort",
   "a83f273f0a35b2f5": "Ausgaben",
@@ -243,7 +266,19 @@
   "cba582095df8e4d9": "Minigolf",
   "cd69d8784e9ce625": "Katastrophen",
   "ce17b8c1c26494e0": "Campingplatz",
+  "cf49dabe4c3398e8": {
+    "c": [
+      {
+        "i": 2,
+        "t": "SkipForward"
+      },
+      "Alle Tipps überspringen"
+    ],
+    "i": 1,
+    "t": "Button"
+  },
   "cf5babe756808083": "Jachthafen",
+  "d062c71072c029de": "Retro-Cheat aktiviert!",
   "d08f67cf675a3159": "Professionelles Baseballstadion (3x3)",
   "d1acbf32e4fd9c19": "Vorfall",
   "d26290781c575c73": "Museum",
@@ -261,6 +296,7 @@
   "ded883367c8ddcb0": "Sprite-Testansicht öffnen",
   "e0a1cc92bd08aa24": "Strom",
   "e0fa959d80ac0d81": "Auswählen",
+  "e1db40470096ff1e": "Gebäude brauchen Strom, Wasser und Straßen in der Nähe, um zu wachsen und zu gedeihen.",
   "e1e699a197e3581d": {
     "c": [
       "Deine Straße hat die Grenze von ",
@@ -294,6 +330,7 @@
   "f06fd72176b8179e": "Zonierung",
   "f0cfc502ed112098": "Zone",
   "f2faf4aaea86ae97": "Basketballplätze",
+  "f313b32c80899b3a": "Baue Feuerwachen und Polizeiwachen, um deine Stadt vor Verbrechen und Bränden zu schützen.",
   "f34a6940381f60d6": "Vorfall gemeldet.",
   "f3e6f71a8bc19b40": "Spielzustand einfügen, um ihn zu laden",
   "f62db7ca5ce71d28": "Aktiviert",
@@ -305,5 +342,6 @@
   "fb6c8a01b4a60b2b": "Stadt gespeichert!",
   "fbed860a569bfb30": "Starker Schub für Gewerbenachfrage (4x4)",
   "fd064d8807f0aaa2": "Automatisch",
+  "fd9ddc523610dd77": "Deine Buchhalter sind verwirrt, aber sie beschweren sich nicht. Du hast $50,000 erhalten!",
   "fe8a0b7a0c5d9c6f": "Finanzen"
 }
