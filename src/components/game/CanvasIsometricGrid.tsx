@@ -61,6 +61,7 @@ import {
   drawGreyBaseTile,
   drawBeachOnWater,
   drawFoundationPlot,
+  drawWaterTileAt,
 } from '@/components/game/drawing';
 import {
   getOverlayFillStyle,
@@ -1254,65 +1255,6 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       }
     }
     
-    // Helper function to draw water tile at a given screen position
-    // Used for marina/pier buildings that sit on water
-    function drawWaterTileAt(ctx: CanvasRenderingContext2D, screenX: number, screenY: number, gridX: number, gridY: number) {
-      const waterImage = getCachedImage(WATER_ASSET_PATH);
-      if (!waterImage) return;
-      
-      const w = TILE_WIDTH;
-      const h = TILE_HEIGHT;
-      const tileCenterX = screenX + w / 2;
-      const tileCenterY = screenY + h / 2;
-      
-      // Random subcrop of water texture based on tile position for variety
-      const imgW = waterImage.naturalWidth || waterImage.width;
-      const imgH = waterImage.naturalHeight || waterImage.height;
-      
-      // Deterministic "random" offset based on tile position
-      const seedX = ((gridX * 7919 + gridY * 6271) % 1000) / 1000;
-      const seedY = ((gridX * 4177 + gridY * 9311) % 1000) / 1000;
-      
-      // Take a subcrop for variety
-      const cropScale = 0.35;
-      const cropW = imgW * cropScale;
-      const cropH = imgH * cropScale;
-      const maxOffsetX = imgW - cropW;
-      const maxOffsetY = imgH - cropH;
-      const srcX = seedX * maxOffsetX;
-      const srcY = seedY * maxOffsetY;
-      
-      ctx.save();
-      // Clip to isometric diamond shape
-      ctx.beginPath();
-      ctx.moveTo(screenX + w / 2, screenY);           // top
-      ctx.lineTo(screenX + w, screenY + h / 2);       // right
-      ctx.lineTo(screenX + w / 2, screenY + h);       // bottom
-      ctx.lineTo(screenX, screenY + h / 2);           // left
-      ctx.closePath();
-      ctx.clip();
-      
-      const aspectRatio = cropH / cropW;
-      const jitterX = (seedX - 0.5) * w * 0.3;
-      const jitterY = (seedY - 0.5) * h * 0.3;
-      
-      // Draw water with slight transparency
-      const destWidth = w * 1.15;
-      const destHeight = destWidth * aspectRatio;
-      
-      ctx.globalAlpha = 0.95;
-      ctx.drawImage(
-        waterImage,
-        srcX, srcY, cropW, cropH,
-        Math.round(tileCenterX - destWidth / 2 + jitterX * 0.3),
-        Math.round(tileCenterY - destHeight / 2 + jitterY * 0.3),
-        Math.round(destWidth),
-        Math.round(destHeight)
-      );
-      
-      ctx.restore();
-    }
-    
     // Draw building sprite
     function drawBuilding(ctx: CanvasRenderingContext2D, x: number, y: number, tile: Tile) {
       const buildingType = tile.building.type;
@@ -1333,6 +1275,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       
       // Draw water tiles underneath marina/pier buildings
       if (buildingType === 'marina_docks_small' || buildingType === 'pier_large') {
+        const waterImage = getCachedImage(WATER_ASSET_PATH);
+        if (!waterImage) return;
         const buildingSize = getBuildingSize(buildingType);
         // Draw water tiles for each tile in the building's footprint
         for (let dx = 0; dx < buildingSize.width; dx++) {
@@ -1340,7 +1284,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
             const tileGridX = tile.x + dx;
             const tileGridY = tile.y + dy;
             const { screenX, screenY } = gridToScreen(tileGridX, tileGridY, 0, 0);
-            drawWaterTileAt(ctx, screenX, screenY, tileGridX, tileGridY);
+            drawWaterTileAt(ctx, screenX, screenY, tileGridX, tileGridY, waterImage);
           }
         }
       }
@@ -1856,11 +1800,14 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     
     // Draw bridges AFTER roads to ensure bridge decks cover road centerlines
     insertionSortByDepth(bridgeQueue);
+    const waterImageForBridges = getCachedImage(WATER_ASSET_PATH);
     for (let i = 0; i < bridgeQueue.length; i++) {
       const { tile, screenX, screenY } = bridgeQueue[i];
       
       // Draw water tile underneath the bridge
-      drawWaterTileAt(ctx, screenX, screenY, tile.x, tile.y);
+      if (waterImageForBridges) {
+        drawWaterTileAt(ctx, screenX, screenY, tile.x, tile.y, waterImageForBridges);
+      }
       
       // Draw bridge structure
       drawBuilding(ctx, screenX, screenY, tile);

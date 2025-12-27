@@ -160,6 +160,75 @@ export function drawIsometricDiamond(
   }
 }
 
+/**
+ * Draw a water texture clipped to an isometric diamond at a screen position.
+ * Used for buildings (e.g., marinas/piers) that sit on top of water tiles.
+ */
+export function drawWaterTileAt(
+  ctx: CanvasRenderingContext2D,
+  screenX: number,
+  screenY: number,
+  gridX: number,
+  gridY: number,
+  waterImage: HTMLImageElement,
+  w = TILE_WIDTH,
+  h = TILE_HEIGHT
+): void {
+  const tileCenterX = screenX + w / 2;
+  const tileCenterY = screenY + h / 2;
+
+  // Random subcrop of water texture based on tile position for variety
+  const imgW = waterImage.naturalWidth || waterImage.width;
+  const imgH = waterImage.naturalHeight || waterImage.height;
+
+  // Deterministic "random" offset based on tile position
+  const seedX = ((gridX * 7919 + gridY * 6271) % 1000) / 1000;
+  const seedY = ((gridX * 4177 + gridY * 9311) % 1000) / 1000;
+
+  // Take a subcrop for variety
+  const cropScale = 0.35;
+  const cropW = imgW * cropScale;
+  const cropH = imgH * cropScale;
+  const maxOffsetX = imgW - cropW;
+  const maxOffsetY = imgH - cropH;
+  const srcX = seedX * maxOffsetX;
+  const srcY = seedY * maxOffsetY;
+
+  ctx.save();
+
+  // Clip to isometric diamond shape
+  ctx.beginPath();
+  ctx.moveTo(screenX + w / 2, screenY); // top
+  ctx.lineTo(screenX + w, screenY + h / 2); // right
+  ctx.lineTo(screenX + w / 2, screenY + h); // bottom
+  ctx.lineTo(screenX, screenY + h / 2); // left
+  ctx.closePath();
+  ctx.clip();
+
+  const aspectRatio = cropH / cropW;
+  const jitterX = (seedX - 0.5) * w * 0.3;
+  const jitterY = (seedY - 0.5) * h * 0.3;
+
+  // Draw water with slight transparency
+  const destWidth = w * 1.15;
+  const destHeight = destWidth * aspectRatio;
+
+  ctx.globalAlpha = 0.95;
+  ctx.drawImage(
+    waterImage,
+    srcX,
+    srcY,
+    cropW,
+    cropH,
+    Math.round(tileCenterX - destWidth / 2 + jitterX * 0.3),
+    Math.round(tileCenterY - destHeight / 2 + jitterY * 0.3),
+    Math.round(destWidth),
+    Math.round(destHeight)
+  );
+
+  ctx.restore();
+}
+
 // ============================================================================
 // Tile Drawing Functions
 // ============================================================================
