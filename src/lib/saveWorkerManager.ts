@@ -5,7 +5,8 @@
 import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
 
 type PendingRequest = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Note: stored Promise resolvers are typed narrowly (e.g. (value: string) => void),
+  // so this must be permissive to avoid contravariance assignment issues.
   resolve: (value: any) => void;
   reject: (error: Error) => void;
   timeoutId: ReturnType<typeof setTimeout>;

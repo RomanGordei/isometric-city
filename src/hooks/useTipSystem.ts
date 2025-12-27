@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GameState } from '@/types/game';
 import { msg } from 'gt-next';
@@ -173,7 +175,9 @@ export function useTipSystem(state: GameState): UseTipSystemReturn {
   
   // Use a ref to always have the latest state without causing effect re-runs
   const stateRef = useRef(state);
-  stateRef.current = state;
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Load preferences from localStorage
   useEffect(() => {

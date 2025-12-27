@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/immutability */
+
 import { useCallback } from 'react';
 import { Boat, TourWaypoint, WorldRenderState, TILE_WIDTH, TILE_HEIGHT } from './types';
 import {

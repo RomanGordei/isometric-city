@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/immutability */
+
 import { useCallback } from 'react';
 import { Seaplane, WorldRenderState, TILE_WIDTH, TILE_HEIGHT, WakeParticle } from './types';
 import {

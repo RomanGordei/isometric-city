@@ -223,6 +223,11 @@ const UI_LABELS = {
   statistics: msg('Statistics'),
   advisors: msg('Advisors'),
   settings: msg('Settings'),
+  expandCity: msg('Expand City (+30x30)'),
+  expandCityDesc: msg('Add 15 tiles on each side. Land edges extend as land, water edges extend as water.'),
+  shrinkCity: msg('Shrink City (-30x30)'),
+  shrinkCityDesc: msg('Remove 15 tiles from each edge. Buildings on edges will be deleted.'),
+  cannotShrink: msg('Cannot shrink city further - minimum size reached.'),
 };
 
 const toolCategories = {
@@ -247,8 +252,8 @@ interface MobileToolbarProps {
 }
 
 export function MobileToolbar({ onOpenPanel, overlayMode = 'none', setOverlayMode }: MobileToolbarProps) {
-  const { state, setTool } = useGame();
-  const { selectedTool, stats } = state;
+  const { state, setTool, expandCity, shrinkCity } = useGame();
+  const { selectedTool, stats, gridSize } = state;
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const m = useMessages();
@@ -550,6 +555,55 @@ export function MobileToolbar({ onOpenPanel, overlayMode = 'none', setOverlayMod
                             </Button>
                           );
                         })}
+                      </div>
+                    )}
+
+                    {/* Expand City actions - shown above ZONING */}
+                    {category === 'ZONES' && (
+                      <div className="mx-2 my-2 rounded-lg border border-border bg-secondary/20 p-2">
+                        <div className="px-1 pb-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+                          {m(msg('Expand City'))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-10 w-full text-xs"
+                              onClick={() => {
+                                expandCity();
+                                setExpandedCategory(null);
+                                setShowMenu(false);
+                              }}
+                            >
+                              {m(UI_LABELS.expandCity)}
+                            </Button>
+                            <div className="mt-1 text-[10px] text-muted-foreground leading-snug">
+                              {m(UI_LABELS.expandCityDesc)}
+                            </div>
+                          </div>
+                          <div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-10 w-full text-xs"
+                              disabled={gridSize <= 50}
+                              onClick={() => {
+                                const success = shrinkCity();
+                                if (!success) {
+                                  alert(String(m(UI_LABELS.cannotShrink)));
+                                }
+                                setExpandedCategory(null);
+                                setShowMenu(false);
+                              }}
+                            >
+                              {m(UI_LABELS.shrinkCity)}
+                            </Button>
+                            <div className="mt-1 text-[10px] text-muted-foreground leading-snug">
+                              {m(UI_LABELS.shrinkCityDesc)}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>

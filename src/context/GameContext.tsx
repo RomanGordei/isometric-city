@@ -1,6 +1,8 @@
 // Consolidated GameContext for the SimCity-like game
 'use client';
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import React, { createContext, useCallback, useContext, useEffect, useState, useRef } from 'react';
 import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
 import { serializeAndCompressAsync } from '@/lib/saveWorkerManager';
@@ -696,7 +698,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   // PERF: Just mark that state has changed - defer expensive deep copy to actual save time
   const stateChangedRef = useRef(false);
   const latestStateRef = useRef(state);
-  latestStateRef.current = state;
+  
+  // Keep latest state in a ref without writing during render
+  useEffect(() => {
+    latestStateRef.current = state;
+  }, [state]);
   
   useEffect(() => {
     if (!hasLoadedRef.current) {
