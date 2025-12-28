@@ -87,7 +87,7 @@ export default function RiseGame() {
   return (
     <div className="w-full h-full min-h-screen bg-slate-950 text-slate-100 flex flex-col gap-3 p-3">
       <div className="flex items-center justify-between gap-4">
-        <TopStats resources={player.resources} ageId={player.age} />
+        <TopStats resources={player.resources} ageId={player.age} elapsedSeconds={state.elapsedSeconds} />
         <div className="flex items-center gap-2">
           <button
             className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md text-sm font-semibold"

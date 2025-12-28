@@ -17,9 +17,10 @@ const LABELS: Record<keyof ResourcePool, string> = {
 
 const ORDER: (keyof ResourcePool)[] = ['food', 'wood', 'metal', 'oil', 'wealth', 'knowledge', 'population', 'popCap'];
 
-export function TopStats({ resources, ageId }: { resources: ResourcePool; ageId: string }) {
+export function TopStats({ resources, ageId, elapsedSeconds }: { resources: ResourcePool; ageId: string; elapsedSeconds: number }) {
   const ageLabel = AGE_CONFIGS.find(a => a.id === ageId)?.label ?? ageId;
   const popPct = Math.max(0, Math.min(1, resources.popCap === 0 ? 0 : resources.population / resources.popCap));
+
   return (
     <div className="flex items-center gap-3 px-4 py-2 bg-slate-900/80 text-sm border border-slate-700 rounded-lg shadow-lg">
       <div className="px-3 py-2 rounded-lg bg-slate-800/80 border border-slate-700">
