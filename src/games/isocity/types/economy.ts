@@ -1,8 +1,10 @@
 /**
  * IsoCity Economy Types
- * 
+ *
  * Types for the economic simulation including taxes, budget, and city statistics.
  */
+
+import { msg } from 'gt-next';
 
 // ============================================================================
 // City Statistics
@@ -70,14 +72,14 @@ export interface CityBudget {
 /** Default budget configuration */
 export function createDefaultBudget(): CityBudget {
   return {
-    police: { name: 'Police', funding: 100, cost: 0 },
-    fire: { name: 'Fire Department', funding: 100, cost: 0 },
-    health: { name: 'Health', funding: 100, cost: 0 },
-    education: { name: 'Education', funding: 100, cost: 0 },
-    transportation: { name: 'Transportation', funding: 100, cost: 0 },
-    parks: { name: 'Parks & Recreation', funding: 100, cost: 0 },
-    power: { name: 'Power', funding: 100, cost: 0 },
-    water: { name: 'Water', funding: 100, cost: 0 },
+    police: { name: msg('Police'), funding: 100, cost: 0 },
+    fire: { name: msg('Fire Department'), funding: 100, cost: 0 },
+    health: { name: msg('Health'), funding: 100, cost: 0 },
+    education: { name: msg('Education'), funding: 100, cost: 0 },
+    transportation: { name: msg('Transportation'), funding: 100, cost: 0 },
+    parks: { name: msg('Parks & Recreation'), funding: 100, cost: 0 },
+    power: { name: msg('Power'), funding: 100, cost: 0 },
+    water: { name: msg('Water'), funding: 100, cost: 0 },
   };
 }
 
