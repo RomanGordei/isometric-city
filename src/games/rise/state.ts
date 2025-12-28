@@ -1,4 +1,4 @@
-import { BASE_RESOURCES, BUILDING_COSTS, BUILDING_HP, DIFFICULTY_GATHER_MULT, GATHER_RATES, POP_COST, SPEED_MULTIPLIERS, UNIT_COSTS } from './constants';
+import { BASE_RESOURCES, BUILDING_COSTS, BUILDING_HP, BUILDING_AGE_REQ, DIFFICULTY_GATHER_MULT, GATHER_RATES, POP_COST, SPEED_MULTIPLIERS, UNIT_AGE_REQ, UNIT_COSTS } from './constants';
 import { GridPosition } from '@/core/types';
 import {
   AgeId,
@@ -286,6 +286,9 @@ export function spawnUnit(state: RiseGameState, ownerId: string, type: RiseUnitT
   const player = state.players.find(p => p.id === ownerId);
   if (!player) return state;
 
+  const minAge = UNIT_AGE_REQ[type] || 'classics';
+  if (AGE_ORDER.indexOf(player.age) < AGE_ORDER.indexOf(minAge)) return state;
+
   const cost = UNIT_COSTS[type] as Partial<ResourcePool> | undefined;
   const pop = POP_COST[type] ?? 1;
   if (!cost) return state;
@@ -325,6 +328,9 @@ export function placeBuilding(state: RiseGameState, ownerId: string, type: RiseB
     const node = grid[tileY][tileX].node;
     if (!node || node.type !== 'oil') return state;
   }
+  // age requirement
+  const minAge = BUILDING_AGE_REQ[type] || 'classics';
+  if (AGE_ORDER.indexOf(player.age) < AGE_ORDER.indexOf(minAge)) return state;
 
   const building = createBuilding(ownerId, type, tileX, tileY);
   const newResources = payCost(player.resources, cost);

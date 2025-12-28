@@ -1,4 +1,4 @@
-import { AgeConfig, ResourcePool } from './types';
+import { AgeConfig, AgeId, ResourcePool } from './types';
 
 export const BASE_RESOURCES: ResourcePool = {
   food: 200,
@@ -131,4 +131,31 @@ export const BUILDING_HP: Record<string, number> = {
 export const BUILDING_POP_BONUS: Record<string, number> = {
   city_center: 10,
   house: 5,
+};
+
+export const BUILDING_AGE_REQ: Record<string, AgeId> = {
+  city_center: 'classics',
+  farm: 'classics',
+  lumber_camp: 'classics',
+  mine: 'classics',
+  oil_rig: 'industrial',
+  market: 'classics',
+  library: 'classics',
+  university: 'enlightenment',
+  house: 'classics',
+  barracks: 'classics',
+  factory: 'enlightenment',
+  siege_factory: 'industrial',
+  airbase: 'modern',
+  fort: 'medeival',
+  tower: 'classics',
+};
+
+export const UNIT_AGE_REQ: Record<string, AgeId> = {
+  citizen: 'classics',
+  infantry: 'classics',
+  ranged: 'classics',
+  vehicle: 'enlightenment',
+  siege: 'industrial',
+  air: 'modern',
 };
