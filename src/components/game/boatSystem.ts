@@ -5,7 +5,9 @@ import {
   BOAT_MIN_ZOOM,
   WAKE_MIN_ZOOM_MOBILE,
   BOATS_PER_DOCK,
+  BOATS_PER_DOCK_MOBILE,
   MAX_BOATS,
+  MAX_BOATS_MOBILE,
   WAKE_MAX_AGE,
   WAKE_SPAWN_INTERVAL,
   BOAT_MIN_ZOOM_FAR,
@@ -80,8 +82,10 @@ export function useBoatSystem(
       return;
     }
 
-    // Calculate max boats based on number of docks
-    const maxBoats = Math.min(MAX_BOATS, Math.floor(docks.length * BOATS_PER_DOCK));
+    // Calculate max boats based on number of docks (cap aggressively on mobile)
+    const boatsPerDock = isMobile ? BOATS_PER_DOCK_MOBILE : BOATS_PER_DOCK;
+    const hardCap = isMobile ? MAX_BOATS_MOBILE : MAX_BOATS;
+    const maxBoats = Math.min(hardCap, Math.floor(docks.length * boatsPerDock));
     
     // Speed multiplier based on game speed
     const speedMultiplier = currentSpeed === 1 ? 1 : currentSpeed === 2 ? 1.5 : 2;
@@ -140,7 +144,9 @@ export function useBoatSystem(
         });
       }
       
-      boatSpawnTimerRef.current = 1 + Math.random() * 2; // 1-3 seconds between spawns
+      boatSpawnTimerRef.current = isMobile
+        ? 2 + Math.random() * 2 // 2-4s between spawns on mobile
+        : 1 + Math.random() * 2; // 1-3s between spawns on desktop
     }
 
     // Update existing boats
@@ -512,7 +518,7 @@ export function useBoatSystem(
     }
     
     ctx.restore();
-  }, [worldStateRef, boatsRef, visualHour]);
+  }, [worldStateRef, boatsRef, visualHour, isMobile]);
 
   return {
     updateBoats,

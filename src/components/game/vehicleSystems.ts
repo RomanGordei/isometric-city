@@ -1,6 +1,26 @@
 import React, { useCallback, useRef } from 'react';
 import { Car, CarDirection, EmergencyVehicle, EmergencyVehicleType, Pedestrian, PedestrianDestType, WorldRenderState, TILE_WIDTH, TILE_HEIGHT } from './types';
-import { CAR_COLORS, CAR_MIN_ZOOM, CAR_MIN_ZOOM_MOBILE, PEDESTRIAN_MIN_ZOOM, PEDESTRIAN_MIN_ZOOM_MOBILE, DIRECTION_META, PEDESTRIAN_MAX_COUNT, PEDESTRIAN_ROAD_TILE_DENSITY, PEDESTRIAN_SPAWN_BATCH_SIZE, PEDESTRIAN_SPAWN_INTERVAL, VEHICLE_FAR_ZOOM_THRESHOLD } from './constants';
+import {
+  CAR_COLORS,
+  CAR_MIN_ZOOM,
+  CAR_MIN_ZOOM_MOBILE,
+  CAR_MAX_COUNT_MOBILE,
+  CAR_ROAD_TILE_DENSITY_MOBILE,
+  CAR_SPAWN_INTERVAL_MIN_MOBILE,
+  CAR_SPAWN_INTERVAL_MAX_MOBILE,
+  PEDESTRIAN_MIN_ZOOM,
+  PEDESTRIAN_MIN_ZOOM_MOBILE,
+  DIRECTION_META,
+  PEDESTRIAN_MAX_COUNT,
+  PEDESTRIAN_MAX_COUNT_MOBILE,
+  PEDESTRIAN_ROAD_TILE_DENSITY,
+  PEDESTRIAN_ROAD_TILE_DENSITY_MOBILE,
+  PEDESTRIAN_SPAWN_BATCH_SIZE,
+  PEDESTRIAN_SPAWN_BATCH_SIZE_MOBILE,
+  PEDESTRIAN_SPAWN_INTERVAL,
+  PEDESTRIAN_SPAWN_INTERVAL_MOBILE,
+  VEHICLE_FAR_ZOOM_THRESHOLD,
+} from './constants';
 import { isRoadTile, getDirectionOptions, pickNextDirection, findPathOnRoads, getDirectionToTile, gridToScreen } from './utils';
 import { findResidentialBuildings, findPedestrianDestinations, findStations, findFires, findRecreationAreas, findEnterableBuildings, SPORTS_TYPES, ACTIVE_RECREATION_TYPES } from './gridFinders';
 import { drawPedestrians as drawPedestriansUtil } from './drawPedestrians';
@@ -755,25 +775,33 @@ export function useVehicleSystems(
       cachedRoadTileCountRef.current = { count: roadTileCount, gridVersion: currentGridVersion };
     }
     
-    // Target ~0.5 cars per road tile on desktop, ~0.35 on mobile (for performance)
-    // This ensures large maps with more roads get proportionally more cars
-    const carDensity = isMobile ? 0.35 : 0.5;
+    // Target ~0.5 cars per road tile on desktop, much lower on mobile (for performance)
+    // This ensures large maps with more roads get proportionally more cars, while mobile stays capped.
+    const carDensity = isMobile ? CAR_ROAD_TILE_DENSITY_MOBILE : 0.5;
     const targetCars = Math.floor(roadTileCount * carDensity);
-    // Cap at 800 for performance, minimum 15 for small cities
-    const maxCars = Math.min(800, Math.max(15, targetCars));
+    // Cap aggressively on mobile for big-city performance
+    const hardCap = isMobile ? CAR_MAX_COUNT_MOBILE : 800;
+    const minCars = isMobile ? 10 : 15;
+    const maxCars = Math.min(hardCap, Math.max(minCars, targetCars));
     
     carSpawnTimerRef.current -= delta;
     if (carsRef.current.length < maxCars && carSpawnTimerRef.current <= 0) {
       // Spawn cars at a moderate rate - spawn more at once on large maps to catch up faster
       const deficit = maxCars - carsRef.current.length;
-      const carsToSpawn = Math.min(deficit > 50 ? 4 : 2, deficit);
+      const carsToSpawn = isMobile ? 1 : Math.min(deficit > 50 ? 4 : 2, deficit);
       let spawnedCount = 0;
       for (let i = 0; i < carsToSpawn; i++) {
         if (spawnRandomCar()) {
           spawnedCount++;
         }
       }
-      carSpawnTimerRef.current = spawnedCount > 0 ? 0.3 + Math.random() * 0.4 : 0.1;
+      if (spawnedCount > 0) {
+        carSpawnTimerRef.current = isMobile
+          ? CAR_SPAWN_INTERVAL_MIN_MOBILE + Math.random() * (CAR_SPAWN_INTERVAL_MAX_MOBILE - CAR_SPAWN_INTERVAL_MIN_MOBILE)
+          : 0.3 + Math.random() * 0.4; // 0.3-0.7s on desktop
+      } else {
+        carSpawnTimerRef.current = 0.1;
+      }
     }
     
     // Get current traffic light state
@@ -1008,18 +1036,22 @@ export function useVehicleSystems(
       cachedRoadTileCountRef.current = { count: roadTileCount, gridVersion: currentGridVersion };
     }
     
-    // Scale pedestrian count with city size (road tiles), with a reasonable cap
-    const targetPedestrians = roadTileCount * PEDESTRIAN_ROAD_TILE_DENSITY;
-    const maxPedestrians = Math.min(PEDESTRIAN_MAX_COUNT, Math.max(150, targetPedestrians));
+    // Scale pedestrian count with city size (road tiles), with a strict mobile cap
+    const pedestrianDensity = isMobile ? PEDESTRIAN_ROAD_TILE_DENSITY_MOBILE : PEDESTRIAN_ROAD_TILE_DENSITY;
+    const hardCap = isMobile ? PEDESTRIAN_MAX_COUNT_MOBILE : PEDESTRIAN_MAX_COUNT;
+    const minPeds = isMobile ? 30 : 150;
+    const targetPedestrians = roadTileCount * pedestrianDensity;
+    const maxPedestrians = Math.min(hardCap, Math.max(minPeds, targetPedestrians));
     pedestrianSpawnTimerRef.current -= delta;
     
     if (pedestriansRef.current.length < maxPedestrians && pedestrianSpawnTimerRef.current <= 0) {
       // Spawn pedestrians in batches
-      const spawnBatch = Math.min(PEDESTRIAN_SPAWN_BATCH_SIZE, maxPedestrians - pedestriansRef.current.length);
+      const batchSize = isMobile ? PEDESTRIAN_SPAWN_BATCH_SIZE_MOBILE : PEDESTRIAN_SPAWN_BATCH_SIZE;
+      const spawnBatch = Math.min(batchSize, maxPedestrians - pedestriansRef.current.length);
       for (let i = 0; i < spawnBatch; i++) {
         spawnPedestrian();
       }
-      pedestrianSpawnTimerRef.current = PEDESTRIAN_SPAWN_INTERVAL;
+      pedestrianSpawnTimerRef.current = isMobile ? PEDESTRIAN_SPAWN_INTERVAL_MOBILE : PEDESTRIAN_SPAWN_INTERVAL;
     }
     
     // OPTIMIZED: Reuse array instead of spreading

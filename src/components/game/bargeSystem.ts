@@ -6,6 +6,7 @@ import {
   BARGE_SPEED_MIN,
   BARGE_SPEED_MAX,
   MAX_BARGES,
+  MAX_BARGES_MOBILE,
   BARGE_SPAWN_INTERVAL_MIN,
   BARGE_SPAWN_INTERVAL_MAX,
   BARGE_DOCK_TIME_MIN,
@@ -97,7 +98,8 @@ export function useBargeSystem(
 
     // Spawn timer
     bargeSpawnTimerRef.current -= delta;
-    if (bargesRef.current.length < MAX_BARGES && bargeSpawnTimerRef.current <= 0) {
+    const hardCap = isMobile ? MAX_BARGES_MOBILE : MAX_BARGES;
+    if (bargesRef.current.length < hardCap && bargeSpawnTimerRef.current <= 0) {
       // Pick a random spawn point on ocean edge
       const spawnPoint = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
       

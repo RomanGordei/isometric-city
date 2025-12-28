@@ -39,6 +39,17 @@ export const PEDESTRIAN_SPAWN_BATCH_SIZE = 25;      // How many to try spawning 
 export const PEDESTRIAN_SPAWN_INTERVAL = 0.03;      // Seconds between spawn batches
 export const PEDESTRIAN_UPDATE_SKIP_DISTANCE = 30;  // Skip detailed updates for pedestrians this far from view
 
+// Mobile-specific entity limits (big-city perf)
+export const CAR_ROAD_TILE_DENSITY_MOBILE = 0.15;
+export const CAR_MAX_COUNT_MOBILE = 60;
+export const CAR_SPAWN_INTERVAL_MIN_MOBILE = 0.8;
+export const CAR_SPAWN_INTERVAL_MAX_MOBILE = 1.2;
+
+export const PEDESTRIAN_MAX_COUNT_MOBILE = 80;
+export const PEDESTRIAN_ROAD_TILE_DENSITY_MOBILE = 0.5;
+export const PEDESTRIAN_SPAWN_BATCH_SIZE_MOBILE = 12;
+export const PEDESTRIAN_SPAWN_INTERVAL_MOBILE = 0.08;
+
 // Zoom limits for camera
 export const ZOOM_MIN = 0.3;                      // Minimum zoom level (most zoomed out - for large maps/multiple cities)
 export const ZOOM_MAX = 5;                       // Maximum zoom level (most zoomed in)
@@ -131,6 +142,7 @@ export const SEAPLANE_MIN_POPULATION = 3000; // Minimum population for seaplanes
 export const SEAPLANE_MIN_BAY_SIZE = 12; // Minimum water tiles for a bay to support seaplanes
 export const SEAPLANE_COLORS = ['#ffffff', '#1e40af', '#dc2626', '#f97316', '#059669']; // Seaplane liveries
 export const MAX_SEAPLANES = 25; // Maximum seaplanes in the city
+export const MAX_SEAPLANES_MOBILE = 5; // Mobile cap for performance
 export const SEAPLANE_SPAWN_INTERVAL_MIN = 4; // Minimum seconds between spawns
 export const SEAPLANE_SPAWN_INTERVAL_MAX = 10; // Maximum seconds between spawns
 export const SEAPLANE_TAXI_TIME_MIN = 4; // Minimum seconds taxiing on water before takeoff
@@ -164,6 +176,8 @@ export const BOATS_PER_DOCK = 1.5; // Number of boats per marina/pier
 export const MAX_BOATS = 12; // Maximum total boats in the city
 export const WAKE_MAX_AGE = 2.0; // seconds - how long wake particles last
 export const WAKE_SPAWN_INTERVAL = 0.03; // seconds between wake particles
+export const BOATS_PER_DOCK_MOBILE = 0.8; // Lower density on mobile
+export const MAX_BOATS_MOBILE = 4; // Mobile cap for performance
 
 // Barge system constants (ocean cargo ships)
 export const BARGE_COLORS = ['#2c3e50', '#34495e', '#7f8c8d', '#c0392b', '#27ae60', '#2980b9']; // Industrial ship colors
@@ -171,6 +185,7 @@ export const BARGE_MIN_ZOOM = 0.25; // Minimum zoom level to show barges (slight
 export const BARGE_SPEED_MIN = 8; // Minimum speed (pixels/second) - slower than boats
 export const BARGE_SPEED_MAX = 12; // Maximum speed (pixels/second)
 export const MAX_BARGES = 4; // Maximum barges in the city at once
+export const MAX_BARGES_MOBILE = 2; // Mobile cap for performance
 export const BARGE_SPAWN_INTERVAL_MIN = 8; // Minimum seconds between barge spawns
 export const BARGE_SPAWN_INTERVAL_MAX = 20; // Maximum seconds between barge spawns
 export const BARGE_DOCK_TIME_MIN = 8; // Minimum seconds docked at marina

@@ -776,8 +776,10 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       return;
     }
 
-    // Calculate max trains based on rail network size
-    const maxTrains = Math.min(MAX_TRAINS, Math.ceil(railTileCount / TRAINS_PER_RAIL_TILES));
+    // Calculate max trains based on rail network size (cap aggressively on mobile)
+    const hardCap = isMobile ? 8 : MAX_TRAINS;
+    const trainsPerRailTiles = isMobile ? Math.max(12, TRAINS_PER_RAIL_TILES) : TRAINS_PER_RAIL_TILES;
+    const maxTrains = Math.min(hardCap, Math.ceil(railTileCount / trainsPerRailTiles));
     
     // Speed multiplier based on game speed
     const speedMultiplier = currentSpeed === 1 ? 1 : currentSpeed === 2 ? 2 : 3;
@@ -789,7 +791,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       if (newTrain) {
         trainsRef.current.push(newTrain);
       }
-      trainSpawnTimerRef.current = TRAIN_SPAWN_INTERVAL;
+      trainSpawnTimerRef.current = isMobile ? TRAIN_SPAWN_INTERVAL * 2 : TRAIN_SPAWN_INTERVAL;
     }
 
     // Update existing trains (pass all trains for collision detection)
@@ -2372,8 +2374,13 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       const delta = Math.min((time - lastTime) / 1000, 0.3);
       lastTime = time;
       lastRenderTime = time;
-      
-      if (delta > 0) {
+
+      // PERF: Skip ALL entity updates + drawing during mobile pan/zoom for better responsiveness
+      const skipAnimatedElements = isMobile && (isPanningRef.current || isPinchZoomingRef.current);
+      // PERF: Skip small elements (boats, helis, smog) on desktop when panning while very zoomed out
+      const skipSmallElements = !isMobile && isPanningRef.current && zoomRef.current < SKIP_SMALL_ELEMENTS_ZOOM_THRESHOLD;
+
+      if (delta > 0 && !skipAnimatedElements) {
         updateCars(delta);
         spawnCrimeIncidents(delta); // Spawn new crime incidents
         updateCrimeIncidents(delta); // Update/decay crime incidents
@@ -2423,10 +2430,6 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
           }
         }
       }
-      // PERF: Skip drawing animated elements during mobile panning/zooming for better performance
-      const skipAnimatedElements = isMobile && (isPanningRef.current || isPinchZoomingRef.current);
-      // PERF: Skip small elements (boats, helis, smog) on desktop when panning while very zoomed out
-      const skipSmallElements = !isMobile && isPanningRef.current && zoomRef.current < SKIP_SMALL_ELEMENTS_ZOOM_THRESHOLD;
       
       if (skipAnimatedElements) {
         // Clear the canvases but don't draw anything - hides all animated elements while panning/zooming
