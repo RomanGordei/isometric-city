@@ -174,6 +174,14 @@ export function RiseCanvas({
         ctx.lineWidth = 2;
         ctx.stroke();
       }
+      // health bar
+      const hpPct = Math.max(0, Math.min(1, u.hp / u.maxHp));
+      const barW = 20;
+      const barH = 3;
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(sx - barW / 2, sy - 16, barW, barH);
+      ctx.fillStyle = hpPct > 0.6 ? '#22c55e' : hpPct > 0.3 ? '#eab308' : '#ef4444';
+      ctx.fillRect(sx - barW / 2, sy - 16, barW * hpPct, barH);
     }
 
     // Drag selection

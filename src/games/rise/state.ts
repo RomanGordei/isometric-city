@@ -70,6 +70,38 @@ function findPath(state: RiseGameState, start: GridPosition, target: GridPositio
   return null;
 }
 
+function generateOffsets(count: number): GridPosition[] {
+  const offsets: GridPosition[] = [];
+  const rings = Math.ceil(Math.sqrt(count));
+  let placed = 0;
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [1, 1],
+    [1, -1],
+    [-1, 1],
+    [-1, -1],
+  ];
+  let radius = 0;
+  while (placed < count) {
+    if (radius === 0) {
+      offsets.push({ x: 0, y: 0 });
+      placed++;
+      radius++;
+      continue;
+    }
+    for (const [dx, dy] of dirs) {
+      if (placed >= count) break;
+      offsets.push({ x: dx * radius, y: dy * radius });
+      placed++;
+    }
+    radius++;
+  }
+  return offsets.slice(0, count);
+}
+
 export function createEmptyGrid(size: number): RiseTile[][] {
   const tiles: RiseTile[][] = [];
   for (let y = 0; y < size; y++) {
@@ -489,14 +521,26 @@ export function tickState(state: RiseGameState, deltaSeconds: number): RiseGameS
 
 export function issueOrder(state: RiseGameState, unitIds: string[], order: UnitOrder): RiseGameState {
   const ids = new Set(unitIds);
+  const formationOffsets =
+    order.kind === 'move' || order.kind === 'gather' || order.kind === 'attack'
+      ? generateOffsets(unitIds.length)
+      : [];
+
+  let idx = 0;
   const units = state.units.map(u => {
     if (!ids.has(u.id)) return u;
     let nextOrder = order;
-    // compute path for move/gather/attack
+    // compute path for move/gather/attack with formation offset
     if (order.kind === 'move' || order.kind === 'gather' || order.kind === 'attack') {
-      const path = findPath(state, { x: Math.round(u.position.x), y: Math.round(u.position.y) }, order.target, u.ownerId);
+      const offset = formationOffsets[idx] ?? { x: 0, y: 0 };
+      idx++;
+      const targetWithOffset = { x: order.target.x + offset.x, y: order.target.y + offset.y };
+      let path = findPath(state, { x: Math.round(u.position.x), y: Math.round(u.position.y) }, targetWithOffset, u.ownerId);
+      if (!path || path.length === 0) {
+        path = findPath(state, { x: Math.round(u.position.x), y: Math.round(u.position.y) }, order.target, u.ownerId);
+      }
       if (path && path.length > 0) {
-        nextOrder = { ...order, path };
+        nextOrder = { ...order, target: targetWithOffset, path };
       }
     }
     return { ...u, order: nextOrder, pathIndex: 0 };
