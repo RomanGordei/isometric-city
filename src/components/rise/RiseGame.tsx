@@ -104,6 +104,7 @@ export default function RiseGame() {
           >
             Age Up
           </button>
+          <div className="text-[11px] text-slate-400">{ageUpInfo.reason}</div>
           <div className="flex items-center gap-1 bg-slate-900/80 border border-slate-800 rounded-lg px-2 py-1">
             {([0, 1, 2, 3] as const).map(s => (
               <button
