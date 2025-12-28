@@ -30,6 +30,7 @@
   "0cc2c983267b6a33": "Uferpromenade",
   "0df552c71ceffdea": "Outdoor-Basketballplatz",
   "11e592ce36623118": "Rathaus",
+  "12c2876faceeb023": "Stadt verbunden!",
   "13b2402c6c023ebc": "Zur Startseite",
   "13fcc02124829d6c": "Raum konnte nicht erstellt werden",
   "146b7a76457cbdc5": "Co-op-Stadt erstellen",
@@ -283,6 +284,7 @@
   },
   "97513d561bf53e55": "U-Bahn-Station",
   "97c7b3a9fd235ee5": "Bevölkerung",
+  "97da417ea1696c8f": "Handelsroute mit {cityName} eingerichtet. +${tradeBonus} Bonus und +${tradeIncome}/Monat Einkommen.",
   "9963ed45f2043cb8": "Gewächshausgarten",
   "9bd3d3242f1ed87e": "Kein Strom",
   "9c47942e96f87eff": "Zum Hauptmenü",
@@ -342,6 +344,7 @@
   "b821113430f5f0af": "Gleis",
   "b8ffa77d868a668b": "Stadtname",
   "bad59346a21883a3": "Flughafen",
+  "bb36c0d997deedbb": "Stadt entdeckt!",
   "bc1312ca9875c6db": "Anderem Raum beitreten",
   "bc57a3573b2d731a": "Stadtberater",
   "bcfcdb828fb6febe": "Industrie",
@@ -393,6 +396,7 @@
   "de19414adf212a36": "ABCDE",
   "ded883367c8ddcb0": "Sprite-Testansicht öffnen",
   "e0a1cc92bd08aa24": "Strom",
+  "e0a3df021e5a3bfb": "Deine Straße hat die {direction}-Grenze erreicht! Du kannst dich jetzt mit {cityName} verbinden.",
   "e0fa959d80ac0d81": "Auswählen",
   "e1e699a197e3581d": {
     "c": [

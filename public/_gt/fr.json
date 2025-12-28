@@ -30,6 +30,7 @@
   "0cc2c983267b6a33": "Bord de l’eau",
   "0df552c71ceffdea": "Terrain de basket extérieur",
   "11e592ce36623118": "Hôtel de ville",
+  "12c2876faceeb023": "Ville connectée&nbsp;!",
   "13b2402c6c023ebc": "Aller à la page d'accueil",
   "13fcc02124829d6c": "Impossible de créer la salle",
   "146b7a76457cbdc5": "Créer une ville coopérative",
@@ -283,6 +284,7 @@
   },
   "97513d561bf53e55": "Station de métro",
   "97c7b3a9fd235ee5": "Population",
+  "97da417ea1696c8f": "Route commerciale établie avec {cityName}. Bonus de +${tradeBonus} et revenu de +${tradeIncome}/mois.",
   "9963ed45f2043cb8": "Jardin sous serre",
   "9bd3d3242f1ed87e": "Pas d'électricité",
   "9c47942e96f87eff": "Retour au menu principal",
@@ -342,6 +344,7 @@
   "b821113430f5f0af": "Voie ferrée",
   "b8ffa77d868a668b": "Nom de la ville",
   "bad59346a21883a3": "Aéroport",
+  "bb36c0d997deedbb": "Ville découverte !",
   "bc1312ca9875c6db": "Rejoindre une autre salle",
   "bc57a3573b2d731a": "Conseillers de la ville",
   "bcfcdb828fb6febe": "Industriel",
@@ -393,6 +396,7 @@
   "de19414adf212a36": "ABCDE",
   "ded883367c8ddcb0": "Ouvrir la vue de test des sprites",
   "e0a1cc92bd08aa24": "Électricité",
+  "e0a3df021e5a3bfb": "Votre Route a atteint la frontière {direction}&#160;! Vous pouvez maintenant vous connecter à {cityName}.",
   "e0fa959d80ac0d81": "Sélectionner",
   "e1e699a197e3581d": {
     "c": [

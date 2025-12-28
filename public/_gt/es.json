@@ -30,6 +30,7 @@
   "0cc2c983267b6a33": "Ribera",
   "0df552c71ceffdea": "Cancha de baloncesto al aire libre",
   "11e592ce36623118": "Ayuntamiento",
+  "12c2876faceeb023": "¡Ciudad conectada!",
   "13b2402c6c023ebc": "Ir a la página principal",
   "13fcc02124829d6c": "No se pudo crear la sala",
   "146b7a76457cbdc5": "Crear ciudad cooperativa",
@@ -283,6 +284,7 @@
   },
   "97513d561bf53e55": "Estación de metro",
   "97c7b3a9fd235ee5": "Población",
+  "97da417ea1696c8f": "Ruta comercial establecida con {cityName}. +${tradeBonus} de bonificación y +${tradeIncome}/mes de ingresos.",
   "9963ed45f2043cb8": "Jardín de invernadero",
   "9bd3d3242f1ed87e": "Sin energía",
   "9c47942e96f87eff": "Salir al menú principal",
@@ -342,6 +344,7 @@
   "b821113430f5f0af": "Ferrocarril",
   "b8ffa77d868a668b": "Nombre de la ciudad",
   "bad59346a21883a3": "Aeropuerto",
+  "bb36c0d997deedbb": "¡Ciudad descubierta!",
   "bc1312ca9875c6db": "Unirse a otra sala",
   "bc57a3573b2d731a": "Asesores de la ciudad",
   "bcfcdb828fb6febe": "Industrial",
@@ -393,6 +396,7 @@
   "de19414adf212a36": "ABCDE",
   "ded883367c8ddcb0": "Abrir vista de prueba de sprites",
   "e0a1cc92bd08aa24": "Energía",
+  "e0a3df021e5a3bfb": "¡Tu carretera ha llegado a la frontera {direction}! Ya puedes conectarte con {cityName}.",
   "e0fa959d80ac0d81": "Seleccionar",
   "e1e699a197e3581d": {
     "c": [

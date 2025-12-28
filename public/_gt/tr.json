@@ -30,6 +30,7 @@
   "0cc2c983267b6a33": "Sahil Şeridi",
   "0df552c71ceffdea": "Açık hava basketbol sahası",
   "11e592ce36623118": "Belediye Binası",
+  "12c2876faceeb023": "Şehir bağlandı!",
   "13b2402c6c023ebc": "Ana Sayfaya Git",
   "13fcc02124829d6c": "Oda oluşturulamadı",
   "146b7a76457cbdc5": "Co-op Şehri Oluştur",
@@ -282,6 +283,7 @@
   },
   "97513d561bf53e55": "Metro İstasyonu",
   "97c7b3a9fd235ee5": "Nüfus",
+  "97da417ea1696c8f": "{cityName} ile ticaret yolu kuruldu. +${tradeBonus} bonus ve +${tradeIncome}/ay gelir.",
   "9963ed45f2043cb8": "Sera Bahçesi",
   "9bd3d3242f1ed87e": "Elektrik yok",
   "9c47942e96f87eff": "Ana Menüye Dön",
@@ -341,6 +343,7 @@
   "b821113430f5f0af": "Demiryolu",
   "b8ffa77d868a668b": "Şehir Adı",
   "bad59346a21883a3": "Havalimanı",
+  "bb36c0d997deedbb": "Şehir Keşfedildi!",
   "bc1312ca9875c6db": "Farklı Odaya Katıl",
   "bc57a3573b2d731a": "Şehir Danışmanları",
   "bcfcdb828fb6febe": "Sanayi",
@@ -392,6 +395,7 @@
   "de19414adf212a36": "ABCDE",
   "ded883367c8ddcb0": "Sprite Test Görünümünü Aç",
   "e0a1cc92bd08aa24": "Elektrik",
+  "e0a3df021e5a3bfb": "Yolun {direction} sınırına ulaştı! Artık {cityName} ile bağlantı kurabilirsin.",
   "e0fa959d80ac0d81": "Seç",
   "e1e699a197e3581d": {
     "c": [
