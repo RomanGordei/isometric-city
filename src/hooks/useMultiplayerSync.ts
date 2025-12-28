@@ -49,6 +49,14 @@ function updateSavedCitiesIndex(state: GameState, roomCode: string): void {
   }
 }
 
+function isProbablyMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.innerWidth < 768 ||
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  );
+}
+
 /**
  * Hook to sync game actions with multiplayer.
  * 
@@ -93,7 +101,7 @@ export function useMultiplayerSync() {
       initialStateLoadedRef.current = true;
       lastInitialStateRef.current = stateKey;
     }
-  }, [multiplayer?.initialState, game]);
+  }, [multiplayer, multiplayer?.initialState, game]);
 
   // Apply a remote action to the local game state
   const applyRemoteAction = useCallback((action: GameAction) => {
@@ -265,22 +273,52 @@ export function useMultiplayerSync() {
   // Also updates the local saved cities index so the city appears on the homepage
   const lastUpdateRef = useRef<number>(0);
   const lastIndexUpdateRef = useRef<number>(0);
+  const lastSentTickRef = useRef<number>(-1);
   useEffect(() => {
     if (!multiplayer || multiplayer.connectionState !== 'connected') return;
-    
-    const now = Date.now();
-    if (now - lastUpdateRef.current < 2000) return; // Throttle to 2 second intervals
-    lastUpdateRef.current = now;
-    
-    // Update the game state - provider will save to Supabase database (throttled)
-    multiplayer.updateGameState(game.state);
-    
-    // Also update the local saved cities index (less frequently - every 10 seconds)
-    if (multiplayer.roomCode && now - lastIndexUpdateRef.current > 10000) {
-      lastIndexUpdateRef.current = now;
-      updateSavedCitiesIndex(game.state, multiplayer.roomCode);
-    }
-  }, [multiplayer, game.state]);
+
+    const mobile = isProbablyMobileDevice();
+
+    const computeTargetIntervalMs = (): number => {
+      const state = game.latestStateRef.current;
+      // Larger grids => bigger state => less frequent persistence.
+      // Keep desktop fairly responsive; be conservative on mobile.
+      const base = mobile ? 8000 : 4000;
+      const size = state?.gridSize ?? 50;
+      // Every +40 tiles adds another 4s (capped).
+      const sizeSteps = Math.min(3, Math.max(0, Math.floor((size - 80) / 40)));
+      return base + sizeSteps * 4000; // 4s..20s
+    };
+
+    const tick = () => {
+      const state = game.latestStateRef.current;
+      if (!state) return;
+
+      const now = Date.now();
+      const targetInterval = computeTargetIntervalMs();
+
+      // Avoid re-sending the exact same tick (e.g., paused game) unless interval elapsed.
+      const tickChanged = state.tick !== lastSentTickRef.current;
+      if (!tickChanged && now - lastUpdateRef.current < targetInterval) return;
+      if (now - lastUpdateRef.current < targetInterval) return;
+
+      lastUpdateRef.current = now;
+      lastSentTickRef.current = state.tick;
+
+      multiplayer.updateGameState(state);
+
+      // Also update the local saved cities index (less frequently - every 15 seconds)
+      if (multiplayer.roomCode && now - lastIndexUpdateRef.current > 15000) {
+        lastIndexUpdateRef.current = now;
+        updateSavedCitiesIndex(state, multiplayer.roomCode);
+      }
+    };
+
+    // Poll on a short interval so we can adapt to grid growth + speed changes without rerender coupling.
+    const id = setInterval(tick, 1000);
+    tick();
+    return () => clearInterval(id);
+  }, [multiplayer, multiplayer?.connectionState, multiplayer?.roomCode, game.latestStateRef]);
 
   // Broadcast a local action to peers
   const broadcastAction = useCallback((action: GameActionInput) => {

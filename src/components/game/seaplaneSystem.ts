@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/immutability */
+// PERF: This file intentionally mutates objects stored in refs to avoid per-frame allocations.
 import { useCallback } from 'react';
 import { Seaplane, WorldRenderState, TILE_WIDTH, TILE_HEIGHT, WakeParticle } from './types';
 import {

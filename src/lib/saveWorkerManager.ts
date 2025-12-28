@@ -2,11 +2,15 @@
 // Manages a Web Worker for off-main-thread serialization, compression, and decompression
 // Uses Next.js built-in worker bundling (bundles lz-string with the worker)
 
-import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
+import {
+  compressToUTF16,
+  decompressFromUTF16,
+  compressToEncodedURIComponent,
+  decompressFromEncodedURIComponent,
+} from 'lz-string';
 
 type PendingRequest = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  resolve: (value: any) => void;
+  resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   timeoutId: ReturnType<typeof setTimeout>;
 };
@@ -42,6 +46,10 @@ function initWorker(): boolean {
       } else if (type === 'serialized-compressed') {
         pending.resolve(compressed);
       } else if (type === 'decompressed-parsed') {
+        pending.resolve(state);
+      } else if (type === 'serialized-compressed-encoded') {
+        pending.resolve(compressed);
+      } else if (type === 'decompressed-parsed-encoded') {
         pending.resolve(state);
       }
     };
@@ -95,7 +103,8 @@ export async function serializeAndCompressAsync(state: unknown): Promise<string>
       }
     }, 15000); // 15 second timeout for larger states
     
-    pendingRequests.set(id, { resolve, reject, timeoutId });
+    const resolveUnknown = resolve as (value: unknown) => void;
+    pendingRequests.set(id, { resolve: resolveUnknown, reject, timeoutId });
     
     try {
       worker!.postMessage({ type: 'serialize-compress', id, state });
@@ -161,7 +170,8 @@ export async function decompressAndParseAsync<T = unknown>(compressed: string): 
       }
     }, 15000);
     
-    pendingRequests.set(id, { resolve, reject, timeoutId });
+    const resolveUnknown = resolve as (value: unknown) => void;
+    pendingRequests.set(id, { resolve: resolveUnknown, reject, timeoutId });
     
     try {
       worker!.postMessage({ type: 'decompress-parse', id, compressed });
@@ -177,6 +187,136 @@ export async function decompressAndParseAsync<T = unknown>(compressed: string): 
             resolve(null);
             return;
           }
+        }
+        resolve(JSON.parse(jsonString) as T);
+      } catch {
+        resolve(null);
+      }
+    }
+  });
+}
+
+/**
+ * Serialize and compress a game state as an URL-safe string (EncodedURIComponent)
+ * Useful for Supabase DB persistence and broadcasting large snapshots.
+ * Both JSON.stringify and compression happen in the worker when available.
+ */
+export async function serializeAndCompressEncodedAsync(state: unknown): Promise<string> {
+  if (typeof window === 'undefined') {
+    // Server-side should never attempt to use workers; fall back safely.
+    return compressToEncodedURIComponent(JSON.stringify(state));
+  }
+
+  if (!worker && !initWorker()) {
+    return compressToEncodedURIComponent(JSON.stringify(state));
+  }
+
+  const id = ++requestId;
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      const pending = pendingRequests.get(id);
+      if (pending) {
+        pendingRequests.delete(id);
+        console.warn('Save worker timeout (encoded), falling back to main thread');
+        try {
+          resolve(compressToEncodedURIComponent(JSON.stringify(state)));
+        } catch (error) {
+          reject(error);
+        }
+      }
+    }, 15000);
+
+    const resolveUnknown = resolve as (value: unknown) => void;
+    pendingRequests.set(id, { resolve: resolveUnknown, reject, timeoutId });
+
+    try {
+      worker!.postMessage({ type: 'serialize-compress-encoded', id, state });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      pendingRequests.delete(id);
+      try {
+        resolve(compressToEncodedURIComponent(JSON.stringify(state)));
+      } catch (fallbackError) {
+        reject(fallbackError);
+      }
+    }
+  });
+}
+
+/**
+ * Decompress and parse an URL-safe (EncodedURIComponent) compressed string.
+ * Uses the worker when available, falls back to main thread otherwise.
+ */
+export async function decompressEncodedAndParseAsync<T = unknown>(compressed: string): Promise<T | null> {
+  if (typeof window === 'undefined') {
+    try {
+      const jsonString = decompressFromEncodedURIComponent(compressed);
+      if (!jsonString || !jsonString.startsWith('{')) {
+        if (compressed.startsWith('{')) return JSON.parse(compressed) as T;
+        return null;
+      }
+      return JSON.parse(jsonString) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!worker && !initWorker()) {
+    try {
+      const jsonString = decompressFromEncodedURIComponent(compressed);
+      if (!jsonString || !jsonString.startsWith('{')) {
+        if (compressed.startsWith('{')) return JSON.parse(compressed) as T;
+        return null;
+      }
+      return JSON.parse(jsonString) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  const id = ++requestId;
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      const pending = pendingRequests.get(id);
+      if (pending) {
+        pendingRequests.delete(id);
+        console.warn('Save worker timeout (encoded), falling back to main thread');
+        try {
+          const jsonString = decompressFromEncodedURIComponent(compressed);
+          if (!jsonString || !jsonString.startsWith('{')) {
+            if (compressed.startsWith('{')) {
+              resolve(JSON.parse(compressed) as T);
+            } else {
+              resolve(null);
+            }
+            return;
+          }
+          resolve(JSON.parse(jsonString) as T);
+        } catch {
+          resolve(null);
+        }
+      }
+    }, 15000);
+
+    const resolveUnknown = resolve as (value: unknown) => void;
+    pendingRequests.set(id, { resolve: resolveUnknown, reject, timeoutId });
+
+    try {
+      worker!.postMessage({ type: 'decompress-parse-encoded', id, compressed });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      pendingRequests.delete(id);
+      try {
+        const jsonString = decompressFromEncodedURIComponent(compressed);
+        if (!jsonString || !jsonString.startsWith('{')) {
+          if (compressed.startsWith('{')) {
+            resolve(JSON.parse(compressed) as T);
+          } else {
+            resolve(null);
+          }
+          return;
         }
         resolve(JSON.parse(jsonString) as T);
       } catch {

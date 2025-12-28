@@ -2,15 +2,24 @@
 // Handles expensive JSON serialization and LZ-string compression off the main thread
 // This file is bundled separately by Next.js/Webpack
 
-import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
+import {
+  compressToUTF16,
+  decompressFromUTF16,
+  compressToEncodedURIComponent,
+  decompressFromEncodedURIComponent,
+} from 'lz-string';
 
 export type SaveWorkerMessage = 
   | { type: 'serialize-compress'; id: number; state: unknown }
-  | { type: 'decompress-parse'; id: number; compressed: string };
+  | { type: 'decompress-parse'; id: number; compressed: string }
+  | { type: 'serialize-compress-encoded'; id: number; state: unknown }
+  | { type: 'decompress-parse-encoded'; id: number; compressed: string };
 
 export type SaveWorkerResponse = 
   | { type: 'serialized-compressed'; id: number; compressed: string; error?: string }
-  | { type: 'decompressed-parsed'; id: number; state: unknown; error?: string };
+  | { type: 'decompressed-parsed'; id: number; state: unknown; error?: string }
+  | { type: 'serialized-compressed-encoded'; id: number; compressed: string; error?: string }
+  | { type: 'decompressed-parsed-encoded'; id: number; state: unknown; error?: string };
 
 // Worker message handler
 self.onmessage = (event: MessageEvent<SaveWorkerMessage>) => {
@@ -65,6 +74,61 @@ self.onmessage = (event: MessageEvent<SaveWorkerMessage>) => {
     } catch (error) {
       self.postMessage({
         type: 'decompressed-parsed',
+        id,
+        state: null,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  // Serialize game state to JSON and compress (URL-safe / Supabase-safe)
+  if (type === 'serialize-compress-encoded') {
+    try {
+      const { state } = event.data as { type: 'serialize-compress-encoded'; id: number; state: unknown };
+      const serialized = JSON.stringify(state);
+      const compressed = compressToEncodedURIComponent(serialized);
+
+      self.postMessage({
+        type: 'serialized-compressed-encoded',
+        id,
+        compressed,
+      });
+    } catch (error) {
+      self.postMessage({
+        type: 'serialized-compressed-encoded',
+        id,
+        compressed: '',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  // Decompress and parse JSON back to game state (URL-safe / Supabase-safe)
+  if (type === 'decompress-parse-encoded') {
+    try {
+      const { compressed } = event.data as { type: 'decompress-parse-encoded'; id: number; compressed: string };
+
+      // Try to decompress (might be legacy uncompressed format)
+      let jsonString = decompressFromEncodedURIComponent(compressed);
+      if (!jsonString || !jsonString.startsWith('{')) {
+        // Legacy format - already JSON
+        if (compressed.startsWith('{')) {
+          jsonString = compressed;
+        } else {
+          throw new Error('Invalid compressed data');
+        }
+      }
+
+      const state = JSON.parse(jsonString);
+
+      self.postMessage({
+        type: 'decompressed-parsed-encoded',
+        id,
+        state,
+      });
+    } catch (error) {
+      self.postMessage({
+        type: 'decompressed-parsed-encoded',
         id,
         state: null,
         error: error instanceof Error ? error.message : 'Unknown error',

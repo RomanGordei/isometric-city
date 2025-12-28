@@ -127,6 +127,16 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
   // This avoids waiting for React state sync which is throttled for performance
   const m = useMessages();
   const gt = useGT();
+
+  // PERF: Cap DPR on mobile / huge cities to reduce fill-rate across multiple layered canvases.
+  const getEffectiveDpr = useCallback(() => {
+    if (typeof window === 'undefined') return 1;
+    const raw = window.devicePixelRatio || 1;
+    const isLargeCity = gridSize >= 110;
+    const cap = isMobile ? (isLargeCity ? 1 : 1.5) : 2;
+    return Math.min(raw, cap);
+  }, [isMobile, gridSize]);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hoverCanvasRef = useRef<HTMLCanvasElement>(null); // PERF: Separate canvas for hover/selection highlights
   const carsCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -671,7 +681,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
   const drawAirplanes = useCallback((ctx: CanvasRenderingContext2D) => {
     const { offset: currentOffset, zoom: currentZoom, grid: currentGrid, gridSize: currentGridSize } = worldStateRef.current;
     const canvas = ctx.canvas;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = getEffectiveDpr();
     
     // Early exit if no airplanes
     if (!currentGrid || currentGridSize <= 0 || airplanesRef.current.length === 0) {
@@ -695,13 +705,13 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     drawAirplanesUtil(ctx, airplanesRef.current, viewBounds, visualHour, navLightFlashTimerRef.current, isMobile);
     
     ctx.restore();
-  }, [visualHour, isMobile]);
+  }, [getEffectiveDpr, visualHour, isMobile]);
 
   // Draw helicopters with rotor wash (uses extracted utility)
   const drawHelicopters = useCallback((ctx: CanvasRenderingContext2D) => {
     const { offset: currentOffset, zoom: currentZoom, grid: currentGrid, gridSize: currentGridSize } = worldStateRef.current;
     const canvas = ctx.canvas;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = getEffectiveDpr();
     
     // Early exit if no helicopters
     if (!currentGrid || currentGridSize <= 0 || helicoptersRef.current.length === 0) {
@@ -725,13 +735,13 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     drawHelicoptersUtil(ctx, helicoptersRef.current, viewBounds, visualHour, navLightFlashTimerRef.current, isMobile, currentZoom);
     
     ctx.restore();
-  }, [visualHour, isMobile]);
+  }, [getEffectiveDpr, visualHour, isMobile]);
 
   // Draw seaplanes with wakes and contrails (uses extracted utility)
   const drawSeaplanes = useCallback((ctx: CanvasRenderingContext2D) => {
     const { offset: currentOffset, zoom: currentZoom, grid: currentGrid, gridSize: currentGridSize } = worldStateRef.current;
     const canvas = ctx.canvas;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = getEffectiveDpr();
 
     // Early exit if no seaplanes
     if (!currentGrid || currentGridSize <= 0 || seaplanesRef.current.length === 0) {
@@ -755,7 +765,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     drawSeaplanesUtil(ctx, seaplanesRef.current, viewBounds, visualHour, navLightFlashTimerRef.current, isMobile);
 
     ctx.restore();
-  }, [visualHour, isMobile]);
+  }, [getEffectiveDpr, visualHour, isMobile]);
 
   // Boats are now handled by useBoatSystem hook (see above)
 
@@ -889,7 +899,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current && canvasRef.current) {
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = getEffectiveDpr();
         const rect = containerRef.current.getBoundingClientRect();
         
         // Set display size
@@ -926,7 +936,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     updateSize();
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
-  }, []);
+  }, [getEffectiveDpr]);
   
   // Main render function - PERF: Uses requestAnimationFrame throttling to batch multiple state updates
   useEffect(() => {
@@ -957,7 +967,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       }
       lastMainRenderTimeRef.current = now;
       
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = getEffectiveDpr();
     
       // Disable image smoothing for crisp pixel art
       ctx.imageSmoothingEnabled = false;
@@ -2127,7 +2137,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       }
     };
   // PERF: hoveredTile and selectedTile removed from deps - now rendered on separate hover canvas layer
-  }, [grid, gridSize, offset, zoom, overlayMode, imagesLoaded, imageLoadVersion, canvasSize, dragStartTile, dragEndTile, state.services, currentSpritePack, waterBodies, getTileMetadata, showsDragGrid, isMobile]);
+  }, [grid, gridSize, offset, zoom, overlayMode, imagesLoaded, imageLoadVersion, canvasSize, dragStartTile, dragEndTile, state.services, currentSpritePack, waterBodies, getTileMetadata, showsDragGrid, isMobile, getEffectiveDpr]);
   
   // PERF: Lightweight hover/selection overlay - renders ONLY tile highlights
   // This runs frequently (on mouse move) but is extremely fast since it only draws simple shapes
@@ -2138,7 +2148,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = getEffectiveDpr();
     
     // Clear the hover canvas
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2334,7 +2344,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     }
     
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-  }, [hoveredTile, selectedTile, selectedTool, offset, zoom, gridSize, grid, isDragging, dragStartTile, dragEndTile]);
+  }, [hoveredTile, selectedTile, selectedTool, offset, zoom, gridSize, grid, isDragging, dragStartTile, dragEndTile, getEffectiveDpr]);
   
   // Animate decorative car traffic AND emergency vehicles on top of the base canvas
   useEffect(() => {
@@ -2357,15 +2367,19 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     let lastTime = performance.now();
     let lastRenderTime = 0;
     
-    // Target 30fps on mobile (33ms per frame), 60fps on desktop (16ms per frame)
-    const targetFrameTime = isMobile ? 33 : 16;
+    // Target 30fps on mobile (33ms), but drop to ~20fps on huge cities to keep input responsive.
+    const getTargetFrameTime = () => {
+      if (!isMobile) return 16; // ~60fps
+      const size = worldStateRef.current.gridSize;
+      return size >= 110 ? 50 : 33; // ~20fps vs ~30fps
+    };
     
     const render = (time: number) => {
       animationFrameId = requestAnimationFrame(render);
       
       // Frame rate limiting for mobile - skip frames to maintain target FPS
       const timeSinceLastRender = time - lastRenderTime;
-      if (isMobile && timeSinceLastRender < targetFrameTime) {
+      if (isMobile && timeSinceLastRender < getTargetFrameTime()) {
         return; // Skip this frame on mobile to reduce CPU load
       }
       
@@ -2373,20 +2387,28 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
       lastTime = time;
       lastRenderTime = time;
       
+      const lowPerfMode = isMobile && worldStateRef.current.gridSize >= 110;
+
       if (delta > 0) {
         updateCars(delta);
         spawnCrimeIncidents(delta); // Spawn new crime incidents
         updateCrimeIncidents(delta); // Update/decay crime incidents
         updateEmergencyVehicles(delta); // Update emergency vehicles!
-        updatePedestrians(delta); // Update pedestrians (zoom-gated)
+        if (!lowPerfMode) {
+          updatePedestrians(delta); // Update pedestrians (zoom-gated)
+        }
         updateAirplanes(delta); // Update airplanes (airport required)
         updateHelicopters(delta); // Update helicopters (hospital/airport required)
-        updateSeaplanes(delta); // Update seaplanes (bay/large water required)
-        updateBoats(delta); // Update boats (marina/pier required)
-        updateBarges(delta); // Update ocean barges (ocean marinas required)
+        if (!lowPerfMode) {
+          updateSeaplanes(delta); // Update seaplanes (bay/large water required)
+          updateBoats(delta); // Update boats (marina/pier required)
+          updateBarges(delta); // Update ocean barges (ocean marinas required)
+        }
         updateTrains(delta); // Update trains on rail network
-        updateFireworks(delta, visualHour); // Update fireworks (nighttime only)
-        updateSmog(delta); // Update factory smog particles
+        if (!lowPerfMode) {
+          updateFireworks(delta, visualHour); // Update fireworks (nighttime only)
+          updateSmog(delta); // Update factory smog particles
+        }
         navLightFlashTimerRef.current += delta * 3; // Update nav light flash timer
         trafficLightTimerRef.current += delta; // Update traffic light cycle timer
         crossingFlashTimerRef.current += delta; // Update crossing flash timer

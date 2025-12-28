@@ -33,8 +33,8 @@
 //   EXECUTE FUNCTION update_updated_at();
 
 import { createClient } from '@supabase/supabase-js';
-import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
 import { GameState } from '@/types/game';
+import { decompressEncodedAndParseAsync, serializeAndCompressEncodedAsync } from '@/lib/saveWorkerManager';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -59,7 +59,7 @@ export async function createGameRoom(
   gameState: GameState
 ): Promise<boolean> {
   try {
-    const compressed = compressToEncodedURIComponent(JSON.stringify(gameState));
+    const compressed = await serializeAndCompressEncodedAsync(gameState);
     
     const { error } = await supabase
       .from('game_rooms')
@@ -100,13 +100,11 @@ export async function loadGameRoom(
       return null;
     }
 
-    const decompressed = decompressFromEncodedURIComponent(data.game_state);
-    if (!decompressed) {
-      console.error('[Database] Failed to decompress state');
+    const gameState = await decompressEncodedAndParseAsync<GameState>(data.game_state);
+    if (!gameState) {
+      console.error('[Database] Failed to decompress/parse state');
       return null;
     }
-
-    const gameState = JSON.parse(decompressed) as GameState;
     return { gameState, cityName: data.city_name };
   } catch (e) {
     console.error('[Database] Error loading room:', e);
@@ -122,7 +120,7 @@ export async function updateGameRoom(
   gameState: GameState
 ): Promise<boolean> {
   try {
-    const compressed = compressToEncodedURIComponent(JSON.stringify(gameState));
+    const compressed = await serializeAndCompressEncodedAsync(gameState);
     
     const { error } = await supabase
       .from('game_rooms')

@@ -17,6 +17,7 @@ import {
 } from './database';
 import { GameState } from '@/types/game';
 import { msg } from 'gt-next';
+import { decompressEncodedAndParseAsync, serializeAndCompressEncodedAsync } from '@/lib/saveWorkerManager';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -149,17 +150,37 @@ export class MultiplayerProvider {
             // This ensures they get the latest state (database might be stale)
             if (this.gameState) {
               setTimeout(() => {
-                if (!this.destroyed && this.gameState) {
-                  this.channel.send({
-                    type: 'broadcast',
-                    event: 'state-sync',
-                    payload: { 
-                      state: this.gameState, 
-                      to: key, 
-                      from: this.peerId 
-                    },
-                  });
-                }
+                (async () => {
+                  if (this.destroyed || !this.gameState) return;
+                  try {
+                    // PERF: Send compressed snapshot to avoid huge realtime payloads
+                    const compressed = await serializeAndCompressEncodedAsync(this.gameState);
+                    if (this.destroyed) return;
+                    this.channel.send({
+                      type: 'broadcast',
+                      event: 'state-sync',
+                      payload: {
+                        compressed,
+                        to: key,
+                        from: this.peerId,
+                      },
+                    });
+                  } catch (e) {
+                    console.warn('[Multiplayer] Failed to compress state for sync:', e);
+                    // Fallback: best-effort send raw state (may be large, but keeps backwards compatibility)
+                    if (!this.destroyed && this.gameState) {
+                      this.channel.send({
+                        type: 'broadcast',
+                        event: 'state-sync',
+                        payload: {
+                          state: this.gameState,
+                          to: key,
+                          from: this.peerId,
+                        },
+                      });
+                    }
+                  }
+                })();
               }, Math.random() * 200); // Stagger to avoid multiple simultaneous sends
             }
           }
@@ -187,17 +208,37 @@ export class MultiplayerProvider {
       })
       // Broadcast: state sync from existing players (for new joiners)
       .on('broadcast', { event: 'state-sync' }, ({ payload }) => {
-        const { state, to, from } = payload as { state: GameState; to: string; from: string };
+        const { to, from, compressed, state } = payload as { to: string; from: string; compressed?: string; state?: GameState };
         // Only process if:
         // 1. It's meant for us
         // 2. We're NOT the creator (creators have the canonical state, should never be overwritten)
         // 3. We haven't already received initial state (prevent multiple overwrites)
         // 4. It's not from ourselves (extra safety)
         // 5. State is valid
-        if (to === this.peerId && !this.isCreator && !this.hasReceivedInitialState && from !== this.peerId && state && this.options.onStateReceived) {
+        if (to === this.peerId && !this.isCreator && !this.hasReceivedInitialState && from !== this.peerId && this.options.onStateReceived) {
+          // Mark as received to prevent multiple overwrites; we'll clear on failure.
           this.hasReceivedInitialState = true;
-          this.gameState = state;
-          this.options.onStateReceived(state);
+          if (compressed) {
+            (async () => {
+              try {
+                const parsed = await decompressEncodedAndParseAsync<GameState>(compressed);
+                if (!parsed || this.destroyed) {
+                  this.hasReceivedInitialState = false;
+                  return;
+                }
+                this.gameState = parsed;
+                this.options.onStateReceived?.(parsed);
+              } catch (e) {
+                console.warn('[Multiplayer] Failed to decompress state-sync payload:', e);
+                this.hasReceivedInitialState = false;
+              }
+            })();
+          } else if (state) {
+            this.gameState = state;
+            this.options.onStateReceived(state);
+          } else {
+            this.hasReceivedInitialState = false;
+          }
         }
       });
 

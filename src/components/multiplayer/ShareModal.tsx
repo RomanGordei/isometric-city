@@ -29,7 +29,8 @@ export function ShareModal({ open, onOpenChange }: ShareModalProps) {
   // IMPORTANT: Wait for isStateReady to ensure we have the loaded state, not the default empty state
   useEffect(() => {
     if (open && !roomCode && !isCreating && isStateReady) {
-      setIsCreating(true);
+      // Defer state update to avoid synchronous setState-in-effect lint + cascading renders
+      setTimeout(() => setIsCreating(true), 0);
       createRoom(state.cityName, state)
         .then((code) => {
           // Update URL to show room code
@@ -39,7 +40,7 @@ export function ShareModal({ open, onOpenChange }: ShareModalProps) {
           console.error('[ShareModal] Failed to create room:', err);
         })
         .finally(() => {
-          setIsCreating(false);
+          setTimeout(() => setIsCreating(false), 0);
         });
     }
   }, [open, roomCode, isCreating, isStateReady, createRoom, state]);
@@ -47,7 +48,7 @@ export function ShareModal({ open, onOpenChange }: ShareModalProps) {
   // Reset copied state when modal closes
   useEffect(() => {
     if (!open) {
-      setCopied(false);
+      setTimeout(() => setCopied(false), 0);
     }
   }, [open]);
 
