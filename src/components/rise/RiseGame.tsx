@@ -21,7 +21,7 @@ const SPEED_LABELS: Record<0 | 1 | 2 | 3, string> = {
 };
 
 export default function RiseGame() {
-  const { state, setSpeed, spawnCitizen, trainUnit, ageUp, setAIDifficulty, restart } = useRiseGame();
+  const { state, setSpeed, spawnCitizen, trainUnit, ageUp, setAIDifficulty, restart, selectUnits } = useRiseGame();
   const [activeBuild, setActiveBuild] = React.useState<string | null>(null);
   const [offset, setOffset] = React.useState<{ x: number; y: number }>({ x: 520, y: 120 });
   const player = state.players.find(p => p.id === state.localPlayerId);
@@ -31,6 +31,7 @@ export default function RiseGame() {
     return cfg?.label ?? player.age;
   }, [player]);
   const ai = state.players.find(p => p.id === 'ai');
+  const idleCycleRef = React.useRef(0);
 
   const canAfford = React.useCallback(
     (cost: Partial<ResourcePool>) => {
@@ -66,6 +67,16 @@ export default function RiseGame() {
       centerOnTile(city.tile.x, city.tile.y);
     }
   };
+
+  const selectNextIdleCitizen = React.useCallback(() => {
+    const idle = state.units.filter(
+      u => u.ownerId === state.localPlayerId && u.type === 'citizen' && u.order.kind === 'idle'
+    );
+    if (idle.length === 0) return;
+    idleCycleRef.current = (idleCycleRef.current + 1) % idle.length;
+    const pick = idle[idleCycleRef.current];
+    selectUnits([pick.id]);
+  }, [state.units, state.localPlayerId, selectUnits]);
 
   const viewport = React.useMemo(() => {
     const canvasW = 1400;
@@ -125,10 +136,11 @@ export default function RiseGame() {
       if (e.key.toLowerCase() === 'a') ageUp();
       if (e.key.toLowerCase() === 'b') setActiveBuild('barracks');
       if (e.key.toLowerCase() === 'f') setActiveBuild('farm');
+      if (e.key.toLowerCase() === 'i') selectNextIdleCitizen();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [setSpeed, restart, spawnCitizen, ageUp]);
+  }, [setSpeed, restart, spawnCitizen, ageUp, selectNextIdleCitizen]);
 
   if (!player) return null;
 
@@ -212,6 +224,19 @@ export default function RiseGame() {
               onClick={restart}
             >
               Restart
+            </button>
+          </div>
+          <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-lg px-2 py-1">
+            <div className="text-xs text-slate-400">Idle citizens:</div>
+            <div className="text-xs font-semibold text-slate-100">
+              {state.units.filter(u => u.ownerId === state.localPlayerId && u.type === 'citizen' && u.order.kind === 'idle').length}
+            </div>
+            <button
+              className="px-2 py-1 text-xs rounded-md bg-amber-500/80 hover:bg-amber-500 text-black font-semibold"
+              onClick={selectNextIdleCitizen}
+              title="Select next idle citizen (hotkey: I)"
+            >
+              Cycle (I)
             </button>
           </div>
         </div>
