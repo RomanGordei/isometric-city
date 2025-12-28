@@ -32,6 +32,7 @@ export default function RiseGame() {
   }, [player]);
   const ai = state.players.find(p => p.id === 'ai');
   const idleCycleRef = React.useRef(0);
+  const selectArmyRef = React.useRef(0);
 
   const canAfford = React.useCallback(
     (cost: Partial<ResourcePool>) => {
@@ -76,6 +77,17 @@ export default function RiseGame() {
     idleCycleRef.current = (idleCycleRef.current + 1) % idle.length;
     const pick = idle[idleCycleRef.current];
     selectUnits([pick.id]);
+  }, [state.units, state.localPlayerId, selectUnits]);
+
+  const selectNextArmyGroup = React.useCallback(() => {
+    const army = state.units.filter(u => u.ownerId === state.localPlayerId && u.type !== 'citizen');
+    if (army.length === 0) return;
+    const chunkSize = 12;
+    const groupCount = Math.ceil(army.length / chunkSize);
+    selectArmyRef.current = (selectArmyRef.current + 1) % groupCount;
+    const start = selectArmyRef.current * chunkSize;
+    const group = army.slice(start, start + chunkSize);
+    selectUnits(group.map(u => u.id));
   }, [state.units, state.localPlayerId, selectUnits]);
 
   const viewport = React.useMemo(() => {
@@ -137,6 +149,7 @@ export default function RiseGame() {
       if (e.key.toLowerCase() === 'b') setActiveBuild('barracks');
       if (e.key.toLowerCase() === 'f') setActiveBuild('farm');
       if (e.key.toLowerCase() === 'i') selectNextIdleCitizen();
+      if (e.key.toLowerCase() === 'm') selectNextArmyGroup();
       if (e.key === 'Escape') {
         setActiveBuild(null);
         selectUnits([]);
@@ -144,7 +157,7 @@ export default function RiseGame() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [setSpeed, restart, spawnCitizen, ageUp, selectNextIdleCitizen, selectUnits]);
+  }, [setSpeed, restart, spawnCitizen, ageUp, selectNextIdleCitizen, selectNextArmyGroup, selectUnits]);
 
   if (!player) return null;
 
@@ -251,6 +264,13 @@ export default function RiseGame() {
               title="Select next idle citizen (hotkey: I)"
             >
               Cycle (I)
+            </button>
+            <button
+              className="px-2 py-1 text-xs rounded-md bg-indigo-500/80 hover:bg-indigo-500 text-black font-semibold"
+              onClick={selectNextArmyGroup}
+              title="Select next army group (hotkey: M)"
+            >
+              Army (M)
             </button>
           </div>
         </div>
