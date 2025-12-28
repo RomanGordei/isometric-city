@@ -471,15 +471,15 @@ export default function HomePage() {
   if (isMobile) {
     return (
       <MultiplayerContextProvider>
-        <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-4 safe-area-top safe-area-bottom overflow-y-auto">
+        <main className="min-h-[100svh] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-start px-4 pt-[calc(env(safe-area-inset-top,0px)+16px)] pb-[calc(env(safe-area-inset-bottom,0px)+16px)] overflow-y-auto">
           {/* Title */}
-          <h1 className="text-5xl sm:text-6xl font-light tracking-wider text-white/90 mb-6">
+          <h1 className="text-4xl sm:text-5xl leading-none font-light tracking-wider text-white/90 mb-4">
             IsoCity
           </h1>
           
           {/* Sprite Gallery - keep visible even when saves exist */}
-          <div className="mb-6">
-            <SpriteGallery count={9} cols={3} cellSize={72} />
+          <div className="mb-5">
+            <SpriteGallery count={9} cols={3} cellSize={64} />
           </div>
           
           {/* Buttons */}
