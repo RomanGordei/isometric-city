@@ -164,17 +164,17 @@ export function RoNBuildingPanel({ onClose }: RoNBuildingPanelProps) {
           </>
         )}
         
-        {/* Workers Assigned */}
-        {allWorkersHere.length > 0 && (
+        {/* Workers Assigned - show for economic buildings with maxWorkers */}
+        {buildingStats?.maxWorkers !== undefined && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Workers</span>
             <span>
-              {workingWorkers.length > 0 && (
-                <span className="text-green-500">{workingWorkers.length} working</span>
-              )}
-              {workingWorkers.length > 0 && travelingWorkers.length > 0 && ', '}
+              <span className={allWorkersHere.length >= buildingStats.maxWorkers ? 'text-amber-500' : 'text-green-500'}>
+                {workingWorkers.length}
+              </span>
+              <span className="text-muted-foreground">/{buildingStats.maxWorkers}</span>
               {travelingWorkers.length > 0 && (
-                <span className="text-amber-500">{travelingWorkers.length} en route</span>
+                <span className="text-amber-500 ml-1">(+{travelingWorkers.length} en route)</span>
               )}
             </span>
           </div>

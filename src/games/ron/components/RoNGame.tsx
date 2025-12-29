@@ -126,37 +126,42 @@ function GameContent({ onExit }: { onExit?: () => void }) {
           </div>
           
           {/* Center section: Population and resources like IsoCity */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-0.5">
             {currentPlayer && (
               <>
-                <StatBadge 
-                  value={`${currentPlayer.population}/${currentPlayer.populationCap}`} 
-                  label="Population" 
+                <StatBadge
+                  value={`${currentPlayer.population}/${currentPlayer.populationCap}`}
+                  label="Pop"
                 />
-                <StatBadge 
-                  value={Math.floor(currentPlayer.resources.food).toString()} 
+                <StatBadge
+                  value={Math.floor(currentPlayer.resources.food).toString()}
                   label="Food"
                   variant={currentPlayer.resources.food < 50 ? 'warning' : 'default'}
                 />
-                <StatBadge 
-                  value={Math.floor(currentPlayer.resources.wood).toString()} 
+                <StatBadge
+                  value={Math.floor(currentPlayer.resources.wood).toString()}
                   label="Wood"
                   variant={currentPlayer.resources.wood < 50 ? 'warning' : 'default'}
                 />
-                <StatBadge 
-                  value={Math.floor(currentPlayer.resources.metal).toString()} 
+                <StatBadge
+                  value={Math.floor(currentPlayer.resources.metal).toString()}
                   label="Metal"
                   variant={currentPlayer.resources.metal < 50 ? 'warning' : 'default'}
                 />
-                <StatBadge 
-                  value={Math.floor(currentPlayer.resources.gold).toString()} 
+                <StatBadge
+                  value={Math.floor(currentPlayer.resources.gold).toString()}
                   label="Gold"
                   variant={currentPlayer.resources.gold < 50 ? 'warning' : 'default'}
                 />
-                <StatBadge 
-                  value={Math.floor(currentPlayer.resources.knowledge).toString()} 
-                  label="Knowledge"
+                <StatBadge
+                  value={Math.floor(currentPlayer.resources.knowledge).toString()}
+                  label="Know"
                   variant={currentPlayer.resources.knowledge < 50 ? 'warning' : 'default'}
+                />
+                <StatBadge
+                  value={Math.floor(currentPlayer.resources.oil).toString()}
+                  label="Oil"
+                  variant={currentPlayer.resources.oil < 20 ? 'warning' : 'default'}
                 />
               </>
             )}

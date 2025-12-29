@@ -2,6 +2,7 @@
  * Rise of Nations - Sidebar Component
  * 
  * Displays resources, age, and building/unit controls.
+ * Organized with simple category headers like IsoCity.
  */
 'use client';
 
@@ -9,7 +10,7 @@ import React, { useMemo, useState } from 'react';
 import { useRoN } from '../context/RoNContext';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AGE_INFO, AGE_ORDER, Age } from '../types/ages';
+import { AGE_INFO, AGE_ORDER } from '../types/ages';
 import { RESOURCE_INFO, ResourceType } from '../types/resources';
 import { BUILDING_STATS, RoNBuildingType } from '../types/buildings';
 import { UNIT_STATS, UnitType } from '../types/units';
@@ -17,12 +18,74 @@ import { RoNTool, RON_TOOL_INFO } from '../types/game';
 import { SettingsIcon } from '@/components/ui/Icons';
 import { RoNSettingsPanel } from './RoNSettingsPanel';
 
+// Building group definitions
+interface BuildingGroup {
+  key: string;
+  label: string;
+  buildings: Array<{ tool: RoNTool; type: RoNBuildingType }>;
+}
+
+const BUILDING_GROUPS: BuildingGroup[] = [
+  {
+    key: 'economy',
+    label: 'ECONOMY',
+    buildings: [
+      { tool: 'build_city_center', type: 'city_center' },
+      { tool: 'build_farm', type: 'farm' },
+      { tool: 'build_woodcutters_camp', type: 'woodcutters_camp' },
+      { tool: 'build_granary', type: 'granary' },
+      { tool: 'build_lumber_mill', type: 'lumber_mill' },
+      { tool: 'build_mine', type: 'mine' },
+      { tool: 'build_smelter', type: 'smelter' },
+      { tool: 'build_market', type: 'market' },
+    ],
+  },
+  {
+    key: 'knowledge',
+    label: 'KNOWLEDGE',
+    buildings: [
+      { tool: 'build_library', type: 'library' },
+      { tool: 'build_university', type: 'university' },
+    ],
+  },
+  {
+    key: 'military',
+    label: 'MILITARY',
+    buildings: [
+      { tool: 'build_barracks', type: 'barracks' },
+      { tool: 'build_stable', type: 'stable' },
+      { tool: 'build_siege_factory', type: 'siege_factory' },
+      { tool: 'build_dock', type: 'dock' },
+      { tool: 'build_factory', type: 'factory' },
+      { tool: 'build_auto_plant', type: 'auto_plant' },
+      { tool: 'build_airbase', type: 'airbase' },
+    ],
+  },
+  {
+    key: 'defense',
+    label: 'DEFENSE',
+    buildings: [
+      { tool: 'build_tower', type: 'tower' },
+      { tool: 'build_fort', type: 'fort' },
+      { tool: 'build_bunker', type: 'bunker' },
+    ],
+  },
+  {
+    key: 'infrastructure',
+    label: 'INFRASTRUCTURE',
+    buildings: [
+      { tool: 'build_road', type: 'road' },
+      { tool: 'build_oil_well', type: 'oil_well' },
+      { tool: 'build_refinery', type: 'refinery' },
+    ],
+  },
+];
+
 export function RoNSidebar() {
   const { 
     state, 
     selectedBuildingPos,  // Now from separate state
     setTool, 
-    setActivePanel,
     canAdvanceAge, 
     advanceAge,
     getCurrentPlayer,
@@ -36,61 +99,6 @@ export function RoNSidebar() {
   
   const ageInfo = AGE_INFO[currentPlayer.age];
   const ageIndex = AGE_ORDER.indexOf(currentPlayer.age);
-  
-  // Available buildings based on age
-  const availableBuildings = useMemo(() => {
-    const buildings: Array<{ tool: RoNTool; type: RoNBuildingType; name: string }> = [];
-    
-    const buildingTools: Array<{ tool: RoNTool; type: RoNBuildingType }> = [
-      { tool: 'build_city_center', type: 'city_center' },
-      { tool: 'build_farm', type: 'farm' },
-      { tool: 'build_woodcutters_camp', type: 'woodcutters_camp' },
-      { tool: 'build_granary', type: 'granary' },
-      { tool: 'build_lumber_mill', type: 'lumber_mill' },
-      { tool: 'build_mine', type: 'mine' },
-      { tool: 'build_smelter', type: 'smelter' },
-      { tool: 'build_market', type: 'market' },
-      { tool: 'build_library', type: 'library' },
-      { tool: 'build_university', type: 'university' },
-      { tool: 'build_barracks', type: 'barracks' },
-      { tool: 'build_stable', type: 'stable' },
-      { tool: 'build_siege_factory', type: 'siege_factory' },
-      { tool: 'build_dock', type: 'dock' },
-      { tool: 'build_tower', type: 'tower' },
-      { tool: 'build_fort', type: 'fort' },
-      { tool: 'build_road', type: 'road' },
-    ];
-    
-    // Add age-specific buildings
-    if (ageIndex >= AGE_ORDER.indexOf('industrial')) {
-      buildingTools.push(
-        { tool: 'build_oil_well', type: 'oil_well' },
-        { tool: 'build_refinery', type: 'refinery' },
-        { tool: 'build_factory', type: 'factory' },
-        { tool: 'build_auto_plant', type: 'auto_plant' },
-      );
-    }
-    
-    if (ageIndex >= AGE_ORDER.indexOf('modern')) {
-      buildingTools.push(
-        { tool: 'build_airbase', type: 'airbase' },
-        { tool: 'build_bunker', type: 'bunker' },
-      );
-    }
-    
-    for (const { tool, type } of buildingTools) {
-      const stats = BUILDING_STATS[type];
-      if (!stats) continue;
-      
-      const requiredAgeIndex = AGE_ORDER.indexOf(stats.minAge);
-      if (ageIndex >= requiredAgeIndex) {
-        const info = RON_TOOL_INFO[tool];
-        buildings.push({ tool, type, name: info?.name || type });
-      }
-    }
-    
-    return buildings;
-  }, [ageIndex]);
   
   // Selected building info (uses separate state that simulation can't overwrite)
   const selectedBuilding = selectedBuildingPos 
@@ -247,37 +255,64 @@ export function RoNSidebar() {
           </div>
         )}
         
-        {/* Buildings */}
-        <div className="px-4 py-2">
-          <div className="text-xs text-slate-400 uppercase font-bold mb-2">Buildings</div>
-          <div className="flex flex-col gap-1">
-            {availableBuildings.map(({ tool, type, name }) => {
-              const stats = BUILDING_STATS[type];
-              const canAfford = Object.entries(stats.cost).every(
-                ([resource, amount]) => 
-                  !amount || currentPlayer.resources[resource as ResourceType] >= amount
-              );
-              
-              return (
-                <Button
-                  key={tool}
-                  size="sm"
-                  variant={state.selectedTool === tool ? 'default' : 'ghost'}
-                  disabled={!canAfford}
-                  onClick={() => setTool(tool)}
-                  className="justify-between"
-                >
-                  <span>{name}</span>
-                  <span className="text-xs opacity-60">
-                    {Object.entries(stats.cost)
-                      .filter(([_, v]) => v)
-                      .map(([k, v]) => `${v}${RESOURCE_INFO[k as ResourceType].icon}`)
-                      .join(' ')}
-                  </span>
-                </Button>
-              );
-            })}
+        {/* Building Groups */}
+        <div className="px-2 py-2">
+          {/* Buildings header */}
+          <div className="px-2 py-2 text-[10px] font-bold tracking-widest text-slate-500">
+            BUILDINGS
           </div>
+          
+          {BUILDING_GROUPS.map(group => {
+            // Filter buildings by age
+            const availableBuildings = group.buildings.filter(({ type }) => {
+              const stats = BUILDING_STATS[type];
+              if (!stats) return false;
+              const requiredAgeIndex = AGE_ORDER.indexOf(stats.minAge);
+              return ageIndex >= requiredAgeIndex;
+            });
+
+            if (availableBuildings.length === 0) return null;
+
+            return (
+              <div key={group.key} className="mb-2">
+                {/* Category header */}
+                <div className="px-2 py-1 text-[10px] font-bold tracking-widest text-slate-400">
+                  {group.label}
+                </div>
+                
+                {/* Building buttons */}
+                <div className="flex flex-col gap-0.5">
+                  {availableBuildings.map(({ tool, type }) => {
+                    const stats = BUILDING_STATS[type];
+                    const info = RON_TOOL_INFO[tool];
+                    const canAfford = Object.entries(stats.cost).every(
+                      ([resource, amount]) => 
+                        !amount || currentPlayer.resources[resource as ResourceType] >= amount
+                    );
+                    
+                    return (
+                      <Button
+                        key={tool}
+                        size="sm"
+                        variant={state.selectedTool === tool ? 'default' : 'ghost'}
+                        disabled={!canAfford}
+                        onClick={() => setTool(tool)}
+                        className="justify-between h-7 text-xs"
+                      >
+                        <span>{info?.name || type}</span>
+                        <span className="text-[10px] opacity-60">
+                          {Object.entries(stats.cost)
+                            .filter(([, v]) => v)
+                            .map(([k, v]) => `${v}${RESOURCE_INFO[k as ResourceType].icon}`)
+                            .join(' ')}
+                        </span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </ScrollArea>
       

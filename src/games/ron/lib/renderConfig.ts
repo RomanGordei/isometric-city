@@ -116,46 +116,52 @@ export const SPRITE_ORDER = [
 ] as const;
 
 // Mapping from RoN building types to sprite sheet positions (row, col)
-// Based on the 5x6 grid layout
+// Based on the 5x6 grid layout - Classical Age reference:
+// Row 0: Palace, Temple, Baths, Courtyard, Villa
+// Row 1: Fountain Park, Garden, Stadium, Market, Large Temple  
+// Row 2: Colosseum, Tower, Pool, Colosseum, Lighthouse
+// Row 3: Villa, Aqueduct, Market/Shop, Small House, Cart/Stable
+// Row 4: Warehouse, Arch, Quarry, Kilns/Smelter, Dock/Crane
+// Row 5: Farm/Barn, Arch, Temple(City Center), Small Temple, Amphitheater
 export const BUILDING_SPRITE_MAP: Partial<Record<RoNBuildingType, { row: number; col: number }>> = {
-  // City buildings - City center is at row 5 (0-indexed: 5), col 3 (0-indexed: 2)
+  // City buildings - City center is the temple at row 5, col 2
   city_center: { row: 5, col: 2 },
-  small_city: { row: 5, col: 2 },    // Same sprite, different upgrade level
+  small_city: { row: 5, col: 2 },
   large_city: { row: 5, col: 2 },
   major_city: { row: 5, col: 2 },
-  
+
   // Economic buildings
-  farm: { row: 0, col: 2 },          // Use industrial slot for farms
-  woodcutters_camp: { row: 3, col: 0 }, // Tree slot
-  granary: { row: 4, col: 1 },       // Warehouse slot
-  lumber_mill: { row: 4, col: 2 },   // Factory slot
-  mine: { row: 4, col: 3 },          // Factory slot
-  smelter: { row: 4, col: 4 },       // Large factory slot
-  market: { row: 0, col: 1 },        // Commercial slot
-  oil_well: { row: 2, col: 2 },      // Power plant (industrial)
-  refinery: { row: 4, col: 4 },      // Large factory
-  
-  // Knowledge buildings  
-  library: { row: 1, col: 4 },       // School slot
-  university: { row: 2, col: 0 },    // University slot
-  temple: { row: 1, col: 0 },        // Park slot (religious)
-  senate: { row: 5, col: 2 },        // City hall style
-  
+  farm: { row: 5, col: 0 },          // Farm with barn and cart
+  woodcutters_camp: { row: 3, col: 4 }, // Cart/stable area
+  granary: { row: 4, col: 0 },       // Warehouse
+  lumber_mill: { row: 4, col: 2 },   // Quarry/construction
+  mine: { row: 4, col: 2 },          // Quarry/ruins
+  smelter: { row: 4, col: 3 },       // Kilns
+  market: { row: 1, col: 3 },        // Market stalls
+  oil_well: { row: 4, col: 3 },      // Industrial kilns (industrial era)
+  refinery: { row: 4, col: 3 },      // Industrial kilns
+
+  // Knowledge buildings
+  library: { row: 0, col: 1 },       // Temple with columns
+  university: { row: 2, col: 0 },    // Colosseum (large institution)
+  temple: { row: 5, col: 3 },        // Small temple
+  senate: { row: 0, col: 0 },        // Large palace
+
   // Military buildings
-  barracks: { row: 0, col: 2 },      // Industrial style building
-  stable: { row: 0, col: 2 },        // Industrial style
-  siege_factory: { row: 4, col: 3 }, // Factory style
-  dock: { row: 5, col: 0 },          // Airport slot (near water)
-  auto_plant: { row: 4, col: 4 },    // Large factory
-  factory: { row: 4, col: 3 },       // Medium factory
-  airbase: { row: 5, col: 0 },       // Airport slot
-  
+  barracks: { row: 2, col: 0 },      // Colosseum (training arena)
+  stable: { row: 3, col: 4 },        // Cart/stable building
+  siege_factory: { row: 4, col: 2 }, // Quarry/construction
+  dock: { row: 4, col: 4 },          // Dock with crane (uses IsoCity marina sprite)
+  auto_plant: { row: 4, col: 3 },    // Industrial
+  factory: { row: 4, col: 3 },       // Industrial kilns
+  airbase: { row: 5, col: 0 },       // Airport with runway and plane
+
   // Defensive buildings
-  tower: { row: 1, col: 3 },         // Police station style (tall)
-  stockade: { row: 3, col: 0 },      // Tree/nature area
-  fort: { row: 2, col: 3 },          // Stadium style (fortress-like)
+  tower: { row: 2, col: 1 },         // Tower
+  stockade: { row: 3, col: 0 },      // Villa (small fort)
+  fort: { row: 2, col: 3 },          // Colosseum (fortification)
   fortress: { row: 2, col: 3 },
-  castle: { row: 2, col: 3 },
+  castle: { row: 0, col: 0 },        // Large palace
   bunker: { row: 4, col: 1 },        // Warehouse style
   
   // Roads and terrain

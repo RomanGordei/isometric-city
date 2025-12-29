@@ -215,11 +215,11 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     gatherBonus: { metal: 0.3 },
     maxWorkers: 8,
   },
-  market: { 
-    cost: { wood: 100, gold: 50 }, 
-    maxHealth: 600, 
-    buildTime: 60, 
-    minAge: 'classical', 
+  market: {
+    cost: { wood: 120 },  // No gold cost - market is how you GET gold
+    maxHealth: 600,
+    buildTime: 60,
+    minAge: 'classical',
     size: { width: 2, height: 2 },
     maxWorkers: 5,
   },
@@ -249,15 +249,17 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
   },
   
   // Knowledge buildings
-  library: { 
-    cost: { wood: 100, gold: 80 }, 
-    maxHealth: 700, 
-    buildTime: 80, 
-    minAge: 'classical', 
+  library: {
+    cost: { wood: 100, gold: 80 },
+    maxHealth: 700,
+    buildTime: 80,
+    minAge: 'classical',
     size: { width: 2, height: 2 },
+    maxWorkers: 3,
   },
-  university: { 
-    cost: { wood: 200, gold: 200, knowledge: 50 }, 
+  university: {
+    cost: { wood: 200, gold: 200, knowledge: 50 },
+    maxWorkers: 5,
     maxHealth: 1000, 
     buildTime: 120, 
     minAge: 'medieval', 
@@ -483,11 +485,11 @@ export const UNIT_PRODUCTION_BUILDINGS: Partial<Record<RoNBuildingType, string[]
   small_city: ['citizen'],
   large_city: ['citizen'],
   major_city: ['citizen'],
-  barracks: ['militia', 'light_infantry', 'heavy_infantry', 'arquebusier', 'rifleman', 'machine_gunner'],
-  stable: ['light_cavalry', 'heavy_cavalry', 'cataphract', 'knight', 'cuirassier', 'tank'],
+  barracks: ['militia', 'hoplite', 'legionary', 'pikeman', 'swordsman', 'rifleman', 'machine_gunner'],
+  stable: ['light_cavalry', 'heavy_cavalry', 'cataphract', 'knight', 'cuirassier', 'armored_car', 'light_tank'],
   siege_factory: ['catapult', 'trebuchet', 'cannon', 'howitzer'],
-  dock: ['fishing_boat', 'transport', 'galley', 'frigate', 'battleship', 'carrier'],
-  auto_plant: ['tank', 'armored_car'],
+  dock: ['fishing_boat', 'galley', 'trireme', 'frigate', 'battleship', 'destroyer'],
+  auto_plant: ['light_tank', 'main_battle_tank', 'armored_car'],
   factory: ['militia', 'machine_gunner'],
   airbase: ['fighter', 'bomber'],
 };
@@ -495,5 +497,6 @@ export const UNIT_PRODUCTION_BUILDINGS: Partial<Record<RoNBuildingType, string[]
 // Economic buildings that need workers
 export const ECONOMIC_BUILDINGS: RoNBuildingType[] = [
   'farm', 'woodcutters_camp', 'mine', 'lumber_mill', 'smelter',
-  'market', 'oil_well', 'oil_platform', 'refinery'
+  'market', 'oil_well', 'oil_platform', 'refinery',
+  'library', 'university'  // Knowledge production
 ];

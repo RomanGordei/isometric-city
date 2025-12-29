@@ -13,6 +13,7 @@ import { Age, AGE_ORDER, AGE_REQUIREMENTS, AGE_POPULATION_BONUS } from '../types
 import { Resources, ResourceType, BASE_GATHER_RATES } from '../types/resources';
 import { RoNBuilding, RoNBuildingType, BUILDING_STATS, ECONOMIC_BUILDINGS, UNIT_PRODUCTION_BUILDINGS } from '../types/buildings';
 import { Unit, UnitType, UnitTask, UNIT_STATS } from '../types/units';
+import { runAdvancedAI } from './ai';
 
 // Simulation constants
 const CONSTRUCTION_SPEED = 2; // Progress per tick
@@ -139,31 +140,89 @@ export function getCityCenterRadius(): number {
 
 /**
  * Check if a tile is passable for unit movement
+ * @param isNaval - if true, unit can only move on water; if false, unit can only move on land
  */
-function isTilePassable(grid: RoNTile[][], gridX: number, gridY: number, gridSize: number): boolean {
+/**
+ * Check if a tile is occupied by a multi-tile building
+ * Buildings are only stored on the origin tile, so we need to search backward
+ */
+function isTileOccupiedByBuilding(grid: RoNTile[][], gridX: number, gridY: number, gridSize: number): { occupied: boolean; buildingType: string | null } {
+  // Check if this tile itself has a building
+  const tile = grid[gridY]?.[gridX];
+  if (tile?.building) {
+    return { occupied: true, buildingType: tile.building.type };
+  }
+
+  // Search backwards to find if this tile is part of a larger building
+  const maxSize = 4; // Maximum building size to check
+  for (let dy = 0; dy < maxSize; dy++) {
+    for (let dx = 0; dx < maxSize; dx++) {
+      if (dx === 0 && dy === 0) continue; // Already checked this tile
+      
+      const originX = gridX - dx;
+      const originY = gridY - dy;
+
+      if (originX < 0 || originY < 0 || originX >= gridSize || originY >= gridSize) continue;
+
+      const originTile = grid[originY]?.[originX];
+      if (!originTile?.building) continue;
+
+      const buildingType = originTile.building.type as RoNBuildingType;
+      const stats = BUILDING_STATS[buildingType];
+      if (!stats?.size) continue;
+
+      const { width, height } = stats.size;
+
+      // Check if the target position falls within this building's footprint
+      if (gridX >= originX && gridX < originX + width &&
+          gridY >= originY && gridY < originY + height) {
+        return { occupied: true, buildingType };
+      }
+    }
+  }
+
+  return { occupied: false, buildingType: null };
+}
+
+function isTilePassable(grid: RoNTile[][], gridX: number, gridY: number, gridSize: number, isNaval: boolean = false): boolean {
   if (gridX < 0 || gridX >= gridSize || gridY < 0 || gridY >= gridSize) return false;
-  
+
   const tile = grid[gridY]?.[gridX];
   if (!tile) return false;
+
+  // Check if tile is occupied by a building (including multi-tile buildings)
+  const buildingCheck = isTileOccupiedByBuilding(grid, gridX, gridY, gridSize);
   
-  // Water is impassable
+  if (isNaval) {
+    // Naval units can ONLY move on water
+    if (tile.terrain !== 'water') return false;
+    // Buildings on water block naval movement (except docks)
+    if (buildingCheck.occupied && buildingCheck.buildingType !== 'dock') return false;
+    return true;
+  }
+
+  // Land units - water is impassable
   if (tile.terrain === 'water') return false;
-  
+
   // Forest (trees) is impassable
   if (tile.forestDensity > 0) return false;
-  
+
   // Metal deposits (mines) are impassable
   if (tile.hasMetalDeposit) return false;
-  
+
   // Oil deposits are impassable
   if (tile.hasOilDeposit) return false;
-  
+
+  // Buildings are impassable (except roads which can be walked on)
+  if (buildingCheck.occupied && buildingCheck.buildingType !== 'road') return false;
+
   return true;
 }
 
 /**
  * Simple A* pathfinding to find a path avoiding obstacles
  * Returns the next step position or null if no path exists
+ * @param isNaval - if true, unit can only move on water; if false, unit can only move on land
  */
 function findNextStep(
   grid: RoNTile[][],
@@ -171,27 +230,28 @@ function findNextStep(
   startX: number,
   startY: number,
   targetX: number,
-  targetY: number
+  targetY: number,
+  isNaval: boolean = false
 ): { x: number; y: number } | null {
   // If we're already very close, just return target
   const directDist = Math.sqrt((targetX - startX) ** 2 + (targetY - startY) ** 2);
   if (directDist < 0.5) return { x: targetX, y: targetY };
-  
+
   // Check if direct path is clear (simple raycast)
   const steps = Math.ceil(directDist / 0.5);
   let directPathClear = true;
-  
+
   for (let i = 1; i <= steps; i++) {
     const t = i / steps;
     const checkX = Math.floor(startX + (targetX - startX) * t);
     const checkY = Math.floor(startY + (targetY - startY) * t);
-    
-    if (!isTilePassable(grid, checkX, checkY, gridSize)) {
+
+    if (!isTilePassable(grid, checkX, checkY, gridSize, isNaval)) {
       directPathClear = false;
       break;
     }
   }
-  
+
   // If direct path is clear, move directly
   if (directPathClear) {
     const dx = targetX - startX;
@@ -266,7 +326,7 @@ function findNextStep(
       
       // Check if this tile is passable (or is the target tile - we can move toward it)
       const isTarget = nx === targetTileX && ny === targetTileY;
-      if (!isTarget && !isTilePassable(grid, nx, ny, gridSize)) continue;
+      if (!isTarget && !isTilePassable(grid, nx, ny, gridSize, isNaval)) continue;
       
       visited.add(key);
       queue.push({
@@ -298,8 +358,8 @@ export function simulateRoNTick(state: RoNGameState): RoNGameState {
   // Update units (movement, gathering, combat)
   newState = updateUnits(newState);
   
-  // Run AI for AI players
-  newState = runAI(newState);
+  // Run AI for AI players (using advanced utility-based AI)
+  newState = runAdvancedAI(newState);
   
   // Check win/lose conditions
   newState = checkVictoryConditions(newState);
@@ -372,6 +432,19 @@ function updatePlayers(state: RoNGameState): RoNGameState {
           case 'library':
           case 'university':
             rates.knowledge += workers * RESOURCE_GATHER_RATE * 0.5;
+            break;
+          // City centers provide passive gold income (taxation)
+          case 'city_center':
+            rates.gold += 0.3; // Passive gold from taxes
+            break;
+          case 'small_city':
+            rates.gold += 0.5;
+            break;
+          case 'large_city':
+            rates.gold += 0.8;
+            break;
+          case 'major_city':
+            rates.gold += 1.2;
             break;
         }
       });
@@ -587,6 +660,7 @@ function countWorkersAtBuilding(
 
 /**
  * Find nearby economic buildings that a citizen can work at
+ * Prioritizes buildings with fewer workers, then by distance
  */
 function findNearbyEconomicBuilding(
   unit: Unit,
@@ -597,34 +671,43 @@ function findNearbyEconomicBuilding(
 ): { x: number; y: number; type: RoNBuildingType; task: UnitTask } | null {
   const unitX = Math.floor(unit.x);
   const unitY = Math.floor(unit.y);
-  
-  let nearestBuilding: { x: number; y: number; type: RoNBuildingType; task: UnitTask; dist: number } | null = null;
-  
+
+  // Collect all valid buildings with their worker counts
+  const candidates: { 
+    x: number; 
+    y: number; 
+    type: RoNBuildingType; 
+    task: UnitTask; 
+    dist: number;
+    currentWorkers: number;
+    maxWorkers: number;
+  }[] = [];
+
   // Search in a square around the unit
   for (let dy = -radius; dy <= radius; dy++) {
     for (let dx = -radius; dx <= radius; dx++) {
       const gx = unitX + dx;
       const gy = unitY + dy;
-      
+
       if (gx < 0 || gx >= gridSize || gy < 0 || gy >= gridSize) continue;
-      
+
       const tile = grid[gy]?.[gx];
       if (!tile?.building) continue;
       if (tile.building.constructionProgress < 100) continue;
       if (tile.ownerId !== unit.ownerId) continue; // Only own buildings
-      
+
       // Check if this is an economic building
       if (!ECONOMIC_BUILDINGS.includes(tile.building.type)) continue;
-      
+
       // Check worker capacity
       const buildingStats = BUILDING_STATS[tile.building.type as RoNBuildingType];
       const maxWorkers = buildingStats?.maxWorkers ?? 999;
       const currentWorkers = countWorkersAtBuilding(allUnits, gx, gy, unit.ownerId);
       if (currentWorkers >= maxWorkers) continue; // Building is full
-      
+
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > radius) continue; // Circular radius check
-      
+
       // Determine the task for this building type
       let task: UnitTask = 'idle';
       switch (tile.building.type) {
@@ -648,17 +731,46 @@ function findNearbyEconomicBuilding(
         case 'refinery':
           task = 'gather_oil';
           break;
+        case 'library':
+        case 'university':
+          task = 'gather_knowledge';
+          break;
         default:
           continue; // Not a gatherable building
       }
-      
-      if (!nearestBuilding || dist < nearestBuilding.dist) {
-        nearestBuilding = { x: gx, y: gy, type: tile.building.type, task, dist };
-      }
+
+      candidates.push({ 
+        x: gx, 
+        y: gy, 
+        type: tile.building.type, 
+        task, 
+        dist,
+        currentWorkers,
+        maxWorkers
+      });
     }
   }
-  
-  return nearestBuilding ? { x: nearestBuilding.x, y: nearestBuilding.y, type: nearestBuilding.type, task: nearestBuilding.task } : null;
+
+  if (candidates.length === 0) return null;
+
+  // Sort candidates: prioritize buildings with fewer workers, then by distance
+  // Buildings with 0 workers get highest priority
+  candidates.sort((a, b) => {
+    // First priority: prefer buildings with 0 workers
+    if (a.currentWorkers === 0 && b.currentWorkers !== 0) return -1;
+    if (b.currentWorkers === 0 && a.currentWorkers !== 0) return 1;
+    
+    // Second priority: prefer buildings with fewer workers (as % of capacity)
+    const aFillRatio = a.currentWorkers / a.maxWorkers;
+    const bFillRatio = b.currentWorkers / b.maxWorkers;
+    if (aFillRatio !== bFillRatio) return aFillRatio - bFillRatio;
+    
+    // Third priority: prefer closer buildings
+    return a.dist - b.dist;
+  });
+
+  const best = candidates[0];
+  return { x: best.x, y: best.y, type: best.type, task: best.task };
 }
 
 /**
@@ -667,8 +779,10 @@ function findNearbyEconomicBuilding(
 function updateUnits(state: RoNGameState): RoNGameState {
   const newUnits: Unit[] = [];
   let newGrid = state.grid;
-  
-  for (const unit of state.units) {
+  const originalUnits = state.units;
+
+  for (let unitIndex = 0; unitIndex < originalUnits.length; unitIndex++) {
+    const unit = originalUnits[unitIndex];
     let updatedUnit = { ...unit };
     
     // Reset isAttacking flag each tick - will be set true if attack occurs
@@ -687,13 +801,16 @@ function updateUnits(state: RoNGameState): RoNGameState {
         // Check if idle long enough to auto-assign work
         const idleDuration = state.tick - updatedUnit.idleSince;
         if (idleDuration >= IDLE_AUTO_WORK_THRESHOLD) {
-          // Find nearby economic building to work at (pass all units for capacity check)
+          // Find nearby economic building to work at
+          // Pass newUnits (already processed this tick) + remaining original units for accurate capacity check
+          // This ensures that if unit A was just assigned to a building, unit B will see that assignment
+          const allCurrentUnits = [...newUnits, ...originalUnits.slice(unitIndex)];
           const nearbyWork = findNearbyEconomicBuilding(
             updatedUnit,
             state.grid,
             state.gridSize,
             AUTO_WORK_SEARCH_RADIUS,
-            state.units
+            allCurrentUnits
           );
           
           if (nearbyWork) {
@@ -754,18 +871,24 @@ function updateUnits(state: RoNGameState): RoNGameState {
           const unitIndex = state.units.findIndex(u => u.id === unit.id);
           
           if (updatedUnit.task === 'gather_food') {
-            // Farm workers should be ON the farm tile
-            // Spread within the farm bounds (add small random offset within tile)
-            const farmOffsetX = (Math.random() - 0.5) * 0.6;
-            const farmOffsetY = (Math.random() - 0.5) * 0.6;
-            updatedUnit.x = targetPos.x + 0.5 + farmOffsetX;
-            updatedUnit.y = targetPos.y + 0.5 + farmOffsetY;
+            // Farm workers should be ON or around the farm tile
+            // Broader spread so workers visibly work the surrounding area
+            const angle = Math.random() * Math.PI * 2;
+            const spreadDist = 0.3 + Math.random() * 1.2; // 0.3 to 1.5 tiles from center
+            updatedUnit.x = targetPos.x + 0.5 + Math.cos(angle) * spreadDist;
+            updatedUnit.y = targetPos.y + 0.5 + Math.sin(angle) * spreadDist;
           } else if (updatedUnit.task === 'gather_wood' || updatedUnit.task === 'gather_metal') {
-            // Lumber/mine workers can be nearby (spread around the building)
-            const angle = (unitIndex * 1.2) + Math.random() * 0.5;
-            const spreadDist = 0.8 + Math.random() * 0.4;
+            // Lumber/mine workers spread broadly around resources
+            const angle = (unitIndex * 1.2) + Math.random() * 1.5;
+            const spreadDist = 1.0 + Math.random() * 1.5; // 1.0 to 2.5 tiles from center
             updatedUnit.x = targetPos.x + Math.cos(angle) * spreadDist;
             updatedUnit.y = targetPos.y + Math.sin(angle) * spreadDist;
+          } else if (updatedUnit.task === 'gather_knowledge' || updatedUnit.task === 'gather_gold' || updatedUnit.task === 'gather_oil') {
+            // Library/market/oil workers spread around the building
+            const angle = Math.random() * Math.PI * 2;
+            const spreadDist = 0.4 + Math.random() * 1.0; // 0.4 to 1.4 tiles from center
+            updatedUnit.x = targetPos.x + 0.5 + Math.cos(angle) * spreadDist;
+            updatedUnit.y = targetPos.y + 0.5 + Math.sin(angle) * spreadDist;
           } else if (updatedUnit.task === 'attack') {
             // Attack - spread around the target
             const angle = (unitIndex * 1.2) + Math.random() * 0.5;
@@ -773,9 +896,11 @@ function updateUnits(state: RoNGameState): RoNGameState {
             updatedUnit.x = targetPos.x + Math.cos(angle) * spreadDist;
             updatedUnit.y = targetPos.y + Math.sin(angle) * spreadDist;
           } else {
-            // Other gather tasks (gold, oil, knowledge) - position on building
-            updatedUnit.x = targetPos.x + 0.5 + (Math.random() - 0.5) * 0.4;
-            updatedUnit.y = targetPos.y + 0.5 + (Math.random() - 0.5) * 0.4;
+            // Other tasks - broader positioning around target
+            const angle = Math.random() * Math.PI * 2;
+            const spreadDist = 0.3 + Math.random() * 0.8;
+            updatedUnit.x = targetPos.x + 0.5 + Math.cos(angle) * spreadDist;
+            updatedUnit.y = targetPos.y + 0.5 + Math.sin(angle) * spreadDist;
           }
         } else {
           updatedUnit.x = updatedUnit.targetX;
@@ -786,13 +911,18 @@ function updateUnits(state: RoNGameState): RoNGameState {
         updatedUnit.targetY = undefined;
       } else {
         // Use pathfinding to avoid obstacles
+        // Check if unit is naval (can only move on water)
+        const unitStats = UNIT_STATS[updatedUnit.type];
+        const isNavalUnit = unitStats?.isNaval === true;
+        
         const nextStep = findNextStep(
           state.grid,
           state.gridSize,
           updatedUnit.x,
           updatedUnit.y,
           updatedUnit.targetX,
-          updatedUnit.targetY
+          updatedUnit.targetY,
+          isNavalUnit
         );
         
         if (nextStep) {
@@ -1045,7 +1175,10 @@ function aiPlaceBuilding(state: RoNGameState, player: RoNPlayer, buildingType: R
     }
   }
   
-  // Find a suitable location near existing buildings
+  // Pre-compute city centers for territory checks
+  const cityCenters = extractCityCenters(state.grid, state.gridSize);
+  
+  // Find a suitable location WITHIN player's territory
   let bestPos: { x: number; y: number } | null = null;
   
   for (let y = 0; y < state.gridSize; y++) {
@@ -1055,37 +1188,32 @@ function aiPlaceBuilding(state: RoNGameState, player: RoNPlayer, buildingType: R
       // Check if location is valid
       if (tile.building || tile.terrain === 'water') continue;
       
-      // Check if near owned territory
-      let nearOwned = false;
-      for (let dy = -3; dy <= 3; dy++) {
-        for (let dx = -3; dx <= 3; dx++) {
+      // Check if tile is within player's territory (not just "near" owned tiles)
+      const territoryOwner = getTerritoryOwner(state.grid, state.gridSize, x, y, cityCenters);
+      if (territoryOwner !== player.id) continue;
+      
+      // Check building size fits and all tiles are in territory
+      let fits = true;
+      for (let dy = 0; dy < stats.size.height; dy++) {
+        for (let dx = 0; dx < stats.size.width; dx++) {
           const checkTile = state.grid[y + dy]?.[x + dx];
-          if (checkTile?.ownerId === player.id) {
-            nearOwned = true;
+          if (!checkTile || checkTile.building || checkTile.terrain === 'water') {
+            fits = false;
+            break;
+          }
+          // Also check that all tiles of multi-tile buildings are in territory
+          const tileOwner = getTerritoryOwner(state.grid, state.gridSize, x + dx, y + dy, cityCenters);
+          if (tileOwner !== player.id) {
+            fits = false;
             break;
           }
         }
-        if (nearOwned) break;
+        if (!fits) break;
       }
       
-      if (nearOwned) {
-        // Check building size fits
-        let fits = true;
-        for (let dy = 0; dy < stats.size.height; dy++) {
-          for (let dx = 0; dx < stats.size.width; dx++) {
-            const checkTile = state.grid[y + dy]?.[x + dx];
-            if (!checkTile || checkTile.building || checkTile.terrain === 'water') {
-              fits = false;
-              break;
-            }
-          }
-          if (!fits) break;
-        }
-        
-        if (fits) {
-          bestPos = { x, y };
-          break;
-        }
+      if (fits) {
+        bestPos = { x, y };
+        break;
       }
     }
     if (bestPos) break;
@@ -1264,7 +1392,7 @@ function aiAssignIdleWorkers(state: RoNGameState, player: RoNPlayer): RoNGameSta
     case 'oil_well':
     case 'refinery': taskType = 'gather_oil'; break;
     case 'library':
-    case 'university': taskType = 'gather_gold'; break; // Knowledge gathering
+    case 'university': taskType = 'gather_knowledge'; break;
   }
   
   const newUnits = state.units.map(u => {

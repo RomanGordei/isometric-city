@@ -78,6 +78,59 @@ export function RoNMiniMap({ onNavigate, viewport }: RoNMiniMapProps) {
       });
     });
     
+    // Draw territory border lines where ownership changes
+    for (let y = 0; y < state.gridSize; y++) {
+      for (let x = 0; x < state.gridSize; x++) {
+        const tile = state.grid[y]?.[x];
+        if (!tile?.ownerId) continue;
+        
+        const owner = tile.ownerId;
+        const playerIndex = state.players.findIndex(p => p.id === owner);
+        const borderColor = PLAYER_COLORS[playerIndex] || '#ffffff';
+        
+        ctx.strokeStyle = borderColor + 'DD'; // 87% opacity
+        ctx.lineWidth = 1.5;
+        
+        const px = x * scale;
+        const py = y * scale;
+        
+        // Check each neighbor and draw border if ownership differs
+        // Right neighbor
+        const rightTile = state.grid[y]?.[x + 1];
+        if (!rightTile?.ownerId || rightTile.ownerId !== owner) {
+          ctx.beginPath();
+          ctx.moveTo(px + scale, py);
+          ctx.lineTo(px + scale, py + scale);
+          ctx.stroke();
+        }
+        
+        // Bottom neighbor
+        const bottomTile = state.grid[y + 1]?.[x];
+        if (!bottomTile?.ownerId || bottomTile.ownerId !== owner) {
+          ctx.beginPath();
+          ctx.moveTo(px, py + scale);
+          ctx.lineTo(px + scale, py + scale);
+          ctx.stroke();
+        }
+        
+        // Left neighbor (only if at edge)
+        if (x === 0 || !state.grid[y]?.[x - 1]?.ownerId || state.grid[y][x - 1].ownerId !== owner) {
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(px, py + scale);
+          ctx.stroke();
+        }
+        
+        // Top neighbor (only if at edge)
+        if (y === 0 || !state.grid[y - 1]?.[x]?.ownerId || state.grid[y - 1][x].ownerId !== owner) {
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(px + scale, py);
+          ctx.stroke();
+        }
+      }
+    }
+    
     // Draw units
     state.units.forEach(unit => {
       const playerIndex = state.players.findIndex(p => p.id === unit.ownerId);

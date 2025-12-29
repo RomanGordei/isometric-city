@@ -13,6 +13,7 @@ import { BUILDING_STATS } from '../types/buildings';
 import { AGE_ORDER } from '../types/ages';
 import { RoNBuildingType } from '../types/buildings';
 import { RON_TOOL_INFO } from '../types/game';
+import { UNIT_STATS } from '../types/units';
 
 // Import shared IsoCity rendering utilities
 import {
@@ -235,17 +236,25 @@ function isBuildingPlacementValid(
     }
   }
   
-  // Woodcutter's camp and lumber mill must be adjacent to forest
+  // Check that we're not placing on forest or metal tiles (they're impassable terrain)
+  const targetTile = grid[gridY]?.[gridX];
+  if (targetTile) {
+    if (targetTile.forestDensity > 0) return false;  // Can't build on forest
+    if (targetTile.hasMetalDeposit) return false;    // Can't build on metal deposit
+    if (targetTile.hasOilDeposit) return false;      // Can't build on oil deposit
+  }
+
+  // Woodcutter's camp and lumber mill must be adjacent to forest (but not on it)
   if (buildingType === 'woodcutters_camp' || buildingType === 'lumber_mill') {
     return isAdjacentToForest(gridX, gridY, grid, gridSize);
   }
 
-  // Mine must be adjacent to metal deposit (mountain)
+  // Mine must be adjacent to metal deposit (but not on it)
   if (buildingType === 'mine') {
     return isAdjacentToMetal(gridX, gridY, grid, gridSize);
   }
 
-  // Oil well and oil platform must be adjacent to oil deposit
+  // Oil well and oil platform must be adjacent to oil deposit (but not on it)
   if (buildingType === 'oil_well' || buildingType === 'oil_platform') {
     return isAdjacentToOil(gridX, gridY, grid, gridSize);
   }
@@ -366,33 +375,30 @@ function drawRoNRoad(
   const ageIndex = AGE_ORDER_LOCAL.indexOf(age);
 
   let roadColor: string;
-  let borderColor: string;
   let showCenterLine = false;
 
   if (ageIndex <= 0) {
     // Classical - dirt road
     roadColor = '#9B8365';
-    borderColor = '#7A6550';
   } else if (ageIndex <= 1) {
     // Medieval - cobblestone
     roadColor = '#7A7A7A';
-    borderColor = '#5A5A5A';
   } else if (ageIndex <= 2) {
     // Enlightenment - improved cobblestone
     roadColor = '#686868';
-    borderColor = '#484848';
   } else {
     // Industrial/Modern - asphalt with markings
     roadColor = '#4A4A4A';
-    borderColor = '#3A3A3A';
     showCenterLine = true;
   }
 
-  // Road width ratio (like IsoCity)
+  // Road width - matches IsoCity's laneWidthRatio
   const roadW = w * 0.14;
+  
+  // Edge stop distance (how far road extends toward edge) - matches IsoCity
   const edgeStop = 0.98;
 
-  // Calculate edge midpoints (like IsoCity)
+  // Edge midpoints - EXACTLY like IsoCity (using proportions, not corner averaging)
   const northEdgeX = x + w * 0.25;
   const northEdgeY = y + h * 0.25;
   const eastEdgeX = x + w * 0.75;
@@ -402,7 +408,7 @@ function drawRoNRoad(
   const westEdgeX = x + w * 0.25;
   const westEdgeY = y + h * 0.75;
 
-  // Direction vectors
+  // Direction vectors (from center to edge midpoint)
   const northDx = (northEdgeX - cx) / Math.hypot(northEdgeX - cx, northEdgeY - cy);
   const northDy = (northEdgeY - cy) / Math.hypot(northEdgeX - cx, northEdgeY - cy);
   const eastDx = (eastEdgeX - cx) / Math.hypot(eastEdgeX - cx, eastEdgeY - cy);
@@ -414,7 +420,7 @@ function drawRoNRoad(
 
   const getPerp = (dx: number, dy: number) => ({ nx: -dy, ny: dx });
 
-  // Draw road surface (like IsoCity)
+  // Draw road surface
   ctx.fillStyle = roadColor;
 
   // Draw road segments for each direction
@@ -474,19 +480,17 @@ function drawRoNRoad(
     ctx.fill();
   }
 
-  // Center intersection diamond
-  const centerSize = roadW * 1.4;
+  // Center intersection diamond - use isometric proportions (2:1 width:height ratio)
+  // This ensures the intersection aligns with the isometric grid
+  const centerW = roadW * 1.4;  // Half-width of intersection
+  const centerH = roadW * 0.7;  // Half-height (half of width for isometric)
   ctx.beginPath();
-  ctx.moveTo(cx, cy - centerSize);
-  ctx.lineTo(cx + centerSize, cy);
-  ctx.lineTo(cx, cy + centerSize);
-  ctx.lineTo(cx - centerSize, cy);
+  ctx.moveTo(cx, cy - centerH);        // Top
+  ctx.lineTo(cx + centerW, cy);        // Right
+  ctx.lineTo(cx, cy + centerH);        // Bottom
+  ctx.lineTo(cx - centerW, cy);        // Left
   ctx.closePath();
   ctx.fill();
-
-  // Add subtle border/shadow
-  ctx.strokeStyle = borderColor;
-  ctx.lineWidth = 0.5;
 
   // Draw center line for modern roads (industrial+)
   if (showCenterLine) {
@@ -727,8 +731,38 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
             moveSelectedUnits(gridX, gridY);
           }
         } else {
-          // No building - just move
-          moveSelectedUnits(gridX, gridY);
+          // No building - check terrain for naval units
+          const tile = gameState.grid[gridY]?.[gridX];
+          
+          // Get selected units and check if any are naval
+          const selectedUnits = gameState.units.filter(u => u.isSelected);
+          const hasNavalUnits = selectedUnits.some(u => UNIT_STATS[u.type]?.isNaval);
+          const hasLandUnits = selectedUnits.some(u => !UNIT_STATS[u.type]?.isNaval);
+          
+          // If we have naval units, target must be water
+          // If we have land units, target must be land
+          const isWaterTile = tile?.terrain === 'water';
+          
+          if (hasNavalUnits && !hasLandUnits) {
+            // Only naval units selected - must click on water
+            if (isWaterTile) {
+              moveSelectedUnits(gridX, gridY);
+            }
+            // Clicking on land with naval units - do nothing (invalid move)
+          } else if (hasLandUnits && !hasNavalUnits) {
+            // Only land units selected - must click on land
+            if (!isWaterTile) {
+              moveSelectedUnits(gridX, gridY);
+            }
+            // Clicking on water with land units - do nothing (invalid move)
+          } else if (hasNavalUnits && hasLandUnits) {
+            // Mixed selection - move to appropriate terrain
+            // Naval units will only move if target is water, land units if target is land
+            moveSelectedUnits(gridX, gridY);
+          } else {
+            // No units or other case - just move
+            moveSelectedUnits(gridX, gridY);
+          }
         }
       }
       return;
@@ -1101,7 +1135,7 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
           const isSelected = gameState.selectedBuildingPos?.x === x && 
                             gameState.selectedBuildingPos?.y === y;
           
-          // Check if this tile is part of a dock (skip green base - water drawn in building pass)
+          // Check if this tile is part of a dock (draw water instead of green base)
           const isPartOfDock = hasDock(gameState.grid, x, y, gameState.gridSize);
           
           // Draw terrain
@@ -1115,8 +1149,15 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
             };
             drawWaterTile(ctx, screenX, screenY, x, y, adjacentWater);
           } else if (isPartOfDock) {
-            // Skip green base for dock tiles - water will be drawn in building pass
-            // Do nothing here
+            // Draw water tile for dock footprint (like IsoCity marina)
+            // Check adjacent water for proper blending
+            const adjacentWater = {
+              north: x > 0 && (gameState.grid[y]?.[x - 1]?.terrain === 'water' || hasDock(gameState.grid, x - 1, y, gameState.gridSize)),
+              east: y > 0 && (gameState.grid[y - 1]?.[x]?.terrain === 'water' || hasDock(gameState.grid, x, y - 1, gameState.gridSize)),
+              south: x < gameState.gridSize - 1 && (gameState.grid[y]?.[x + 1]?.terrain === 'water' || hasDock(gameState.grid, x + 1, y, gameState.gridSize)),
+              west: y < gameState.gridSize - 1 && (gameState.grid[y + 1]?.[x]?.terrain === 'water' || hasDock(gameState.grid, x, y + 1, gameState.gridSize)),
+            };
+            drawWaterTile(ctx, screenX, screenY, x, y, adjacentWater);
           } else {
             // Determine zone color based on ownership/deposits
             let zoneType: 'none' | 'residential' | 'commercial' | 'industrial' = 'none';
@@ -1285,19 +1326,85 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
                 ctx.arc(bx - bSize * 0.25, by - bSize * 0.25, bSize * 0.35, 0, Math.PI * 2);
                 ctx.fill();
               }
-            } else if (tile.hasOilDeposit && AGE_ORDER.indexOf(playerAge) >= AGE_ORDER.indexOf('industrial')) {
-              // Dark tint for oil (only visible in industrial+)
-              ctx.fillStyle = '#1f2937';
-              ctx.beginPath();
-              ctx.moveTo(screenX + TILE_WIDTH / 2, screenY);
-              ctx.lineTo(screenX + TILE_WIDTH, screenY + TILE_HEIGHT / 2);
-              ctx.lineTo(screenX + TILE_WIDTH / 2, screenY + TILE_HEIGHT);
-              ctx.lineTo(screenX, screenY + TILE_HEIGHT / 2);
-              ctx.closePath();
-              ctx.fill();
-              ctx.strokeStyle = '#111827';
-              ctx.lineWidth = 0.5;
-              ctx.stroke();
+            } else if (tile.hasOilDeposit) {
+              // Draw grass base first
+              drawGroundTile(ctx, screenX, screenY, 'none', currentZoom, false);
+              
+              // Only show oil in industrial+ ages
+              const isIndustrial = AGE_ORDER.indexOf(playerAge) >= AGE_ORDER.indexOf('industrial');
+              if (isIndustrial) {
+                // Deterministic seed for this tile
+                const seed = x * 31 + y * 17;
+                
+                // Generate 4-6 overlapping oil splotches of similar sizes
+                const numSplotches = 4 + (seed % 3); // 4, 5, or 6 splotches
+                
+                // Splotch configurations (deterministic based on seed)
+                const splotches: Array<{ dx: number; dy: number; w: number; h: number; angle: number }> = [];
+                for (let i = 0; i < numSplotches; i++) {
+                  const splotchSeed = seed * 7 + i * 13;
+                  // Random size for each - all similar range (0.08 to 0.14)
+                  const baseSize = 0.08 + (splotchSeed % 60) / 1000; // 0.08 to 0.14
+                  splotches.push({
+                    // Position offset from center (spread more across tile)
+                    dx: ((splotchSeed % 70) - 35) / 100 * TILE_WIDTH * 0.55,
+                    dy: ((splotchSeed * 3 % 50) - 25) / 100 * TILE_HEIGHT * 0.55,
+                    // All splotches similar size with random variation
+                    w: TILE_WIDTH * baseSize,
+                    h: TILE_HEIGHT * (baseSize * 0.8 + (splotchSeed * 2 % 30) / 1000),
+                    // More rotation for variety
+                    angle: ((splotchSeed * 5) % 90 - 45) * Math.PI / 180,
+                  });
+                }
+                
+                const cx = screenX + TILE_WIDTH / 2;
+                const cy = screenY + TILE_HEIGHT / 2;
+                
+                // Draw splotches in random order (no size sorting - they're all similar)
+                for (let i = 0; i < splotches.length; i++) {
+                  const s = splotches[i];
+                  const px = cx + s.dx;
+                  const py = cy + s.dy;
+                  
+                  // Dark oil base - slight variation in darkness
+                  const darkness = 8 + (i * 2 % 6);
+                  ctx.fillStyle = `rgb(${darkness}, ${darkness}, ${darkness + 4})`;
+                  ctx.beginPath();
+                  ctx.ellipse(px, py, s.w, s.h, s.angle, 0, Math.PI * 2);
+                  ctx.fill();
+                  
+                  // Subtle glossy highlight on each splotch
+                  ctx.fillStyle = 'rgba(50, 50, 70, 0.25)';
+                  ctx.beginPath();
+                  ctx.ellipse(
+                    px - s.w * 0.2, 
+                    py - s.h * 0.2, 
+                    s.w * 0.5, 
+                    s.h * 0.4, 
+                    s.angle, 
+                    0, 
+                    Math.PI * 2
+                  );
+                  ctx.fill();
+                }
+                
+                // Add tiny white highlights on a couple of splotches
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                for (let i = 0; i < Math.min(2, splotches.length); i++) {
+                  const s = splotches[i];
+                  ctx.beginPath();
+                  ctx.ellipse(
+                    cx + s.dx - s.w * 0.25,
+                    cy + s.dy - s.h * 0.25,
+                    s.w * 0.25,
+                    s.h * 0.2,
+                    s.angle,
+                    0,
+                    Math.PI * 2
+                  );
+                  ctx.fill();
+                }
+              }
             } else if (tile.forestDensity > 0) {
               // Draw base grass tile for forest
               drawGroundTile(ctx, screenX, screenY, 'none', currentZoom, false);
@@ -1359,13 +1466,13 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
                   );
                 }
               }
-            } else {
-              // Regular grass tile
+            } else if (tile.building?.type !== 'road') {
+              // Regular grass tile (skip roads - they're drawn in second pass without base)
               drawGroundTile(ctx, screenX, screenY, zoneType, currentZoom, false);
             }
             
-            // Ownership tint overlay
-            if (tile.ownerId) {
+            // Ownership tint overlay (skip for roads)
+            if (tile.ownerId && tile.building?.type !== 'road') {
               const playerIndex = gameState.players.findIndex(p => p.id === tile.ownerId);
               if (playerIndex >= 0) {
                 ctx.fillStyle = PLAYER_COLORS[playerIndex] + '33';
@@ -1511,8 +1618,8 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
           // West neighbor (x, y+1)
           const westOwner = getTileOwner(x, y + 1);
           
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = `${baseColor}80`;
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = `${baseColor}CC`;
           
           // Draw border line on edges where territory changes
           // North edge (top-left edge of diamond)
@@ -1578,6 +1685,7 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
           const buildingType = tile.building.type as RoNBuildingType;
           
           // Special handling for dock - use IsoCity marina sprite from parks sheet (2x2)
+          // Water is already drawn in terrain pass for dock tiles
           if (buildingType === 'dock') {
             const parksSprite = getCachedImage(ISOCITY_PARKS_PATH, true);
             if (parksSprite) {
@@ -1595,38 +1703,6 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
               // Get building size (2x2)
               const buildingStats = BUILDING_STATS[buildingType];
               const buildingSize = buildingStats?.size || { width: 2, height: 2 };
-
-              // Draw water tiles underneath the dock (for each tile in footprint)
-              const waterTexture = getCachedImage(WATER_ASSET_PATH);
-              if (waterTexture) {
-                const imgW = waterTexture.naturalWidth || waterTexture.width;
-                const imgH = waterTexture.naturalHeight || waterTexture.height;
-                const cropScale = 0.35;
-                const cropW = imgW * cropScale;
-                const cropH = imgH * cropScale;
-                const aspectRatio = cropH / cropW;
-                const destWidth = TILE_WIDTH * 1.15;
-                const destHeight = destWidth * aspectRatio;
-
-                for (let dx = 0; dx < buildingSize.width; dx++) {
-                  for (let dy = 0; dy < buildingSize.height; dy++) {
-                    const tileScreenPos = gridToScreen(x + dx, y + dy, 0, 0);
-                    const tileCenterX = tileScreenPos.screenX + TILE_WIDTH / 2;
-                    const tileCenterY = tileScreenPos.screenY + TILE_HEIGHT / 2;
-
-                    ctx.globalAlpha = 0.9;
-                    ctx.drawImage(
-                      waterTexture,
-                      0, 0, cropW, cropH,
-                      Math.round(tileCenterX - destWidth / 2),
-                      Math.round(tileCenterY - destHeight / 2),
-                      Math.round(destWidth),
-                      Math.round(destHeight)
-                    );
-                  }
-                }
-                ctx.globalAlpha = 1;
-              }
 
               // Calculate draw position for 2x2 building (like IsoCity)
               const frontmostOffsetX = buildingSize.width - 1;
@@ -1678,27 +1754,12 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
               const drawX = screenX + TILE_WIDTH / 2 - destWidth / 2;
               const drawY = screenY + TILE_HEIGHT - destHeight + buildingOffset;
               
-              // Use construction sprite for farm under construction
-              const isUnderConstruction = tile.building.constructionProgress < 100;
-              const constructionSprite = getCachedImage(ISOCITY_CONSTRUCTION_PATH, true);
-              
-              if (isUnderConstruction && constructionSprite) {
-                const constrCols = 5;
-                const constrRows = 6;
-                const constrTileWidth = constructionSprite.width / constrCols;
-                const constrTileHeight = constructionSprite.height / constrRows;
-                ctx.drawImage(
-                  constructionSprite,
-                  0, 0, constrTileWidth, constrTileHeight,
-                  drawX, drawY, destWidth, destHeight
-                );
-              } else {
-                ctx.drawImage(
-                  farmSprite,
-                  sx, sy, farmTileWidth, farmTileHeight,
-                  drawX, drawY, destWidth, destHeight
-                );
-              }
+              // Farms are instant - no construction phase, always show farm sprite
+              ctx.drawImage(
+                farmSprite,
+                sx, sy, farmTileWidth, farmTileHeight,
+                drawX, drawY, destWidth, destHeight
+              );
             }
             continue; // Skip regular sprite drawing for farm
           }

@@ -938,7 +938,7 @@ export interface Unit {
   carriedUnits?: string[];
 }
 
-export type UnitTask = 
+export type UnitTask =
   | 'idle'
   | 'move'
   | 'gather_food'
@@ -946,6 +946,7 @@ export type UnitTask =
   | 'gather_metal'
   | 'gather_gold'
   | 'gather_oil'
+  | 'gather_knowledge'
   | 'build'
   | 'repair'
   | 'attack'

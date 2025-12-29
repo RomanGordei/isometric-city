@@ -41,6 +41,7 @@ export interface RoNTile {
   hasOilDeposit: boolean;       // Oil can be extracted here (industrial+)
   hasMetalDeposit: boolean;     // Metal can be mined here
   forestDensity: number;        // 0-100, how much wood is here
+  hasFishingSpot: boolean;      // Fish can be caught here (water only)
 }
 
 export interface RoNGameState {
@@ -219,11 +220,11 @@ export function createInitialRoNGameState(
     grid.push(row);
   }
   
-  // Generate 4-7 lakes using flood-fill growth (more water on map)
-  const numLakes = 4 + Math.floor(Math.random() * 4);
+  // Generate 8-14 lakes using flood-fill growth (lots of water for RoN style maps)
+  const numLakes = 8 + Math.floor(Math.random() * 7);
   const lakeCenters: { x: number; y: number }[] = [];
-  const minDistFromEdge = Math.floor(gridSize * 0.12);
-  const minDistBetweenLakes = Math.floor(gridSize * 0.18);
+  const minDistFromEdge = Math.floor(gridSize * 0.08);
+  const minDistBetweenLakes = Math.floor(gridSize * 0.12);
   
   // Find lake centers
   for (let i = 0; i < numLakes; i++) {
@@ -254,7 +255,7 @@ export function createInitialRoNGameState(
   const directions = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
   
   for (const center of lakeCenters) {
-    const targetSize = 20 + Math.floor(Math.random() * 40); // 20-60 tiles per lake (larger lakes)
+    const targetSize = 30 + Math.floor(Math.random() * 50); // 30-80 tiles per lake (larger lakes)
     const lakeTiles: { x: number; y: number }[] = [{ x: center.x, y: center.y }];
     const candidates: { x: number; y: number; dist: number }[] = [];
     
@@ -305,13 +306,142 @@ export function createInitialRoNGameState(
       grid[tile.y][tile.x].terrain = 'water';
     }
   }
+
+  // Generate rivers/streams (winding water paths across the map)
+  const numRivers = 4 + Math.floor(Math.random() * 4); // 4-7 rivers
   
-  // Add forests in clumps (not scattered random tiles) - more forests for RoN
-  const numForests = 8 + Math.floor(Math.random() * 6); // 8-14 forest clumps
+  for (let r = 0; r < numRivers; r++) {
+    // Rivers can start from edge or from a lake
+    const startFromLake = lakeCenters.length > 0 && Math.random() < 0.4;
+    let startX: number, startY: number;
+    let direction: number; // 0-7 for 8 directions
+    
+    if (startFromLake) {
+      // Start from near a lake
+      const lake = lakeCenters[Math.floor(Math.random() * lakeCenters.length)];
+      const angle = Math.random() * Math.PI * 2;
+      startX = Math.floor(lake.x + Math.cos(angle) * 8);
+      startY = Math.floor(lake.y + Math.sin(angle) * 8);
+      direction = Math.floor(Math.random() * 8);
+    } else {
+      // Start from edge
+      const edge = Math.floor(Math.random() * 4);
+      switch (edge) {
+        case 0: // Top edge, flow down
+          startX = minDistFromEdge + Math.floor(Math.random() * (gridSize - 2 * minDistFromEdge));
+          startY = minDistFromEdge;
+          direction = 5 + Math.floor(Math.random() * 3) - 1; // SE, S, SW
+          break;
+        case 1: // Bottom edge, flow up
+          startX = minDistFromEdge + Math.floor(Math.random() * (gridSize - 2 * minDistFromEdge));
+          startY = gridSize - minDistFromEdge - 1;
+          direction = 1 + Math.floor(Math.random() * 3) - 1; // NE, N, NW
+          break;
+        case 2: // Left edge, flow right
+          startX = minDistFromEdge;
+          startY = minDistFromEdge + Math.floor(Math.random() * (gridSize - 2 * minDistFromEdge));
+          direction = 2 + Math.floor(Math.random() * 3) - 1; // E variants
+          break;
+        default: // Right edge, flow left
+          startX = gridSize - minDistFromEdge - 1;
+          startY = minDistFromEdge + Math.floor(Math.random() * (gridSize - 2 * minDistFromEdge));
+          direction = 6 + Math.floor(Math.random() * 3) - 1; // W variants
+      }
+    }
+    
+    // Clamp start position
+    startX = Math.max(minDistFromEdge, Math.min(gridSize - minDistFromEdge - 1, startX));
+    startY = Math.max(minDistFromEdge, Math.min(gridSize - minDistFromEdge - 1, startY));
+    
+    // River length (20-50 tiles)
+    const riverLength = 20 + Math.floor(Math.random() * 31);
+    const riverWidth = 1 + Math.floor(Math.random() * 2); // 1-2 tiles wide
+    
+    // Direction vectors (8 directions)
+    const dirVectors = [
+      { dx: 0, dy: -1 },  // 0: N
+      { dx: 1, dy: -1 },  // 1: NE
+      { dx: 1, dy: 0 },   // 2: E
+      { dx: 1, dy: 1 },   // 3: SE
+      { dx: 0, dy: 1 },   // 4: S
+      { dx: -1, dy: 1 },  // 5: SW
+      { dx: -1, dy: 0 },  // 6: W
+      { dx: -1, dy: -1 }, // 7: NW
+    ];
+    
+    let x = startX;
+    let y = startY;
+    
+    for (let step = 0; step < riverLength; step++) {
+      // Mark current tile and width as water
+      for (let w = 0; w < riverWidth; w++) {
+        // Perpendicular offset for river width
+        const perpDir = (direction + 2) % 8;
+        const perpVec = dirVectors[perpDir];
+        const wx = x + perpVec.dx * w;
+        const wy = y + perpVec.dy * w;
+        
+        if (wx >= 0 && wx < gridSize && wy >= 0 && wy < gridSize) {
+          grid[wy][wx].terrain = 'water';
+          grid[wy][wx].forestDensity = 0;
+          grid[wy][wx].hasMetalDeposit = false;
+          grid[wy][wx].hasOilDeposit = false;
+        }
+      }
+      
+      // Move in current direction
+      const vec = dirVectors[direction];
+      x += vec.dx;
+      y += vec.dy;
+      
+      // Check bounds
+      if (x < minDistFromEdge || x >= gridSize - minDistFromEdge ||
+          y < minDistFromEdge || y >= gridSize - minDistFromEdge) {
+        break;
+      }
+      
+      // Randomly meander (change direction slightly)
+      if (Math.random() < 0.3) {
+        // Turn left or right by 1 step
+        direction = (direction + (Math.random() < 0.5 ? 1 : 7)) % 8;
+      }
+      
+      // Occasionally widen at bends
+      if (Math.random() < 0.1 && riverWidth < 3) {
+        // Add a pool/widening
+        for (let poolDx = -1; poolDx <= 1; poolDx++) {
+          for (let poolDy = -1; poolDy <= 1; poolDy++) {
+            const px = x + poolDx;
+            const py = y + poolDy;
+            if (px >= 0 && px < gridSize && py >= 0 && py < gridSize && Math.random() < 0.6) {
+              grid[py][px].terrain = 'water';
+              grid[py][px].forestDensity = 0;
+            }
+          }
+        }
+      }
+      
+      // Stop if we hit an existing lake
+      if (grid[y]?.[x]?.terrain === 'water') {
+        // Continue a bit into the lake for natural connection
+        for (let extra = 0; extra < 3; extra++) {
+          x += vec.dx;
+          y += vec.dy;
+          if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
+            grid[y][x].terrain = 'water';
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  // Add forests in clumps (not scattered random tiles) - lots of forests for RoN style maps
+  const numForests = 18 + Math.floor(Math.random() * 10); // 18-28 forest clumps
   for (let i = 0; i < numForests; i++) {
-    const fx = Math.floor(gridSize * 0.08) + Math.floor(Math.random() * (gridSize * 0.84));
-    const fy = Math.floor(gridSize * 0.08) + Math.floor(Math.random() * (gridSize * 0.84));
-    const forestSize = 10 + Math.floor(Math.random() * 15); // 10-25 tiles per forest
+    const fx = Math.floor(gridSize * 0.05) + Math.floor(Math.random() * (gridSize * 0.90));
+    const fy = Math.floor(gridSize * 0.05) + Math.floor(Math.random() * (gridSize * 0.90));
+    const forestSize = 15 + Math.floor(Math.random() * 25); // 15-40 tiles per forest
     
     // Grow forest clump
     const forestTiles: { x: number; y: number }[] = [{ x: fx, y: fy }];
@@ -331,8 +461,8 @@ export function createInitialRoNGameState(
     }
   }
   
-  // Generate 5-8 metal deposit clusters (mountain ranges) - larger like forests
-  const numMetalClusters = 5 + Math.floor(Math.random() * 4);
+  // Generate 10-16 metal deposit clusters (mountain ranges) - lots of mountains for RoN style maps
+  const numMetalClusters = 10 + Math.floor(Math.random() * 7);
   for (let c = 0; c < numMetalClusters; c++) {
     // Find a valid starting point for metal cluster
     let attempts = 0;
@@ -355,9 +485,9 @@ export function createInitialRoNGameState(
     
     if (startX === -1) continue;
     
-    // Grow the metal cluster (6-12 tiles) - larger mountain ranges
+    // Grow the metal cluster (8-20 tiles) - larger mountain ranges
     const clusterTiles: { x: number; y: number }[] = [{ x: startX, y: startY }];
-    const clusterSize = 6 + Math.floor(Math.random() * 7);
+    const clusterSize = 8 + Math.floor(Math.random() * 13);
     
     for (let i = 1; i < clusterSize; i++) {
       if (clusterTiles.length === 0) break;
@@ -433,22 +563,45 @@ export function createInitialRoNGameState(
       };
       grid[pos.y][pos.x].ownerId = player.id;
       
-      // Place a starting farm near city center
-      const farmX = pos.x + 2;
-      const farmY = pos.y;
-      if (farmX < gridSize && farmY < gridSize) {
-        grid[farmY][farmX].building = {
-          type: 'farm',
-          level: 1,
-          ownerId: player.id,
-          health: 500,
-          maxHealth: 500,
-          constructionProgress: 100,
-          queuedUnits: [],
-          productionProgress: 0,
-          garrisonedUnits: [],
-        };
-        grid[farmY][farmX].ownerId = player.id;
+      // Place a starting farm near city center - find valid grass tile
+      // Try several offsets to find a valid location
+      const farmOffsets = [
+        { dx: 4, dy: 0 },
+        { dx: 4, dy: 1 },
+        { dx: 4, dy: -1 },
+        { dx: 3, dy: 2 },
+        { dx: 3, dy: -2 },
+        { dx: 0, dy: 4 },
+        { dx: 1, dy: 4 },
+        { dx: -1, dy: 4 },
+      ];
+      
+      for (const offset of farmOffsets) {
+        const farmX = pos.x + offset.dx;
+        const farmY = pos.y + offset.dy;
+        
+        // Check bounds and valid terrain (grass, no water, no forest, no metal, no existing building)
+        if (farmX >= 0 && farmX < gridSize && farmY >= 0 && farmY < gridSize) {
+          const farmTile = grid[farmY][farmX];
+          if (farmTile.terrain === 'grass' && 
+              !farmTile.building && 
+              farmTile.forestDensity === 0 && 
+              !farmTile.hasMetalDeposit) {
+            grid[farmY][farmX].building = {
+              type: 'farm',
+              level: 1,
+              ownerId: player.id,
+              health: 500,
+              maxHealth: 500,
+              constructionProgress: 100,
+              queuedUnits: [],
+              productionProgress: 0,
+              garrisonedUnits: [],
+            };
+            grid[farmY][farmX].ownerId = player.id;
+            break; // Found valid spot, stop searching
+          }
+        }
       }
 
       // Give starting citizens

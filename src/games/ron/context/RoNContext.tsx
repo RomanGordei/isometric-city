@@ -324,27 +324,37 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
     setState(prev => {
       const currentPlayer = prev.players.find(p => p.id === prev.currentPlayerId);
       if (!currentPlayer) return prev;
-      
+
       // Use min/max but add generous buffer for fractional unit positions
       // Units can be at positions like (9.5, 11) so we need extra buffer
       const minX = Math.min(start.x, end.x) - 1;
       const maxX = Math.max(start.x, end.x) + 1;
       const minY = Math.min(start.y, end.y) - 1;
       const maxY = Math.max(start.y, end.y) + 1;
-      
-      const selectedIds: string[] = [];
-      const updatedUnits = prev.units.map(u => {
+
+      // First pass: find all units in area owned by player
+      const unitsInArea = prev.units.filter(u => {
         const inArea = u.x >= minX && u.x <= maxX && u.y >= minY && u.y <= maxY;
         const isOwned = u.ownerId === currentPlayer.id;
-        const isSelected = inArea && isOwned;
-        
-        if (isSelected) {
-          selectedIds.push(u.id);
-        }
-        
-        return { ...u, isSelected };
+        return inArea && isOwned;
       });
-      
+
+      // Check if any military units are in the selection
+      const militaryUnitsInArea = unitsInArea.filter(u => {
+        const stats = UNIT_STATS[u.type];
+        return stats?.category !== 'civilian';
+      });
+
+      // If there are military units, only select military; otherwise select all
+      const unitsToSelect = militaryUnitsInArea.length > 0 ? militaryUnitsInArea : unitsInArea;
+      const selectedIds = unitsToSelect.map(u => u.id);
+      const selectedIdSet = new Set(selectedIds);
+
+      const updatedUnits = prev.units.map(u => ({
+        ...u,
+        isSelected: selectedIdSet.has(u.id),
+      }));
+
       return {
         ...prev,
         units: updatedUnits,
@@ -359,18 +369,32 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
   // Unit movement - offset units in a formation so they don't stack
   const moveSelectedUnits = useCallback((x: number, y: number) => {
     setState(prev => {
-      // Get all selected units
-      const selectedUnits = prev.units.filter(u => u.isSelected);
-      const numSelected = selectedUnits.length;
+      // Check target terrain
+      const targetTile = prev.grid[Math.floor(y)]?.[Math.floor(x)];
+      const isWaterTarget = targetTile?.terrain === 'water';
       
+      // Get all selected units that can move to this terrain
+      const selectedUnits = prev.units.filter(u => {
+        if (!u.isSelected) return false;
+        const unitStats = UNIT_STATS[u.type];
+        const isNaval = unitStats?.isNaval === true;
+        // Naval units can only move to water, land units can only move to land
+        if (isNaval && !isWaterTarget) return false;
+        if (!isNaval && isWaterTarget) return false;
+        return true;
+      });
+      const numSelected = selectedUnits.length;
+      const selectedIds = new Set(selectedUnits.map(u => u.id));
+
       let unitIndex = 0;
       const updatedUnits = prev.units.map(u => {
-        if (!u.isSelected) return u;
+        // Only move units that passed the terrain check
+        if (!selectedIds.has(u.id)) return u;
 
         // Calculate offset for formation (spiral pattern around target)
         let offsetX = 0;
         let offsetY = 0;
-        
+
         if (numSelected > 1) {
           // Spread units in a rough grid/circle formation
           const spreadRadius = 0.6; // How far apart units spread
@@ -386,7 +410,7 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
             offsetY = Math.sin(angle) * spreadRadius * ring;
           }
         }
-        
+
         unitIndex++;
 
         return {
@@ -570,6 +594,11 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
       if (!tile) return prev;
       if (tile.terrain === 'water') return prev;
       
+      // Can't build on forest, metal deposits, or oil deposits (they're resources/impassable terrain)
+      if (tile.forestDensity > 0) return prev;
+      if (tile.hasMetalDeposit) return prev;
+      if (tile.hasOilDeposit) return prev;
+
       // Roads have special placement rules - can only go on empty terrain
       if (buildingType === 'road') {
         if (tile.building && 
@@ -605,15 +634,15 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
       }
       
       // Create building
-      // Docks are instant placement (no construction), other buildings start at 0
-      const isInstantBuilding = buildingType === 'dock';
+      // Docks and farms are instant placement (no construction), other buildings start at 0
+      const isInstantBuilding = buildingType === 'dock' || buildingType === 'farm';
       const newBuilding: RoNBuilding = {
         type: buildingType,
         level: 1,
         ownerId: currentPlayer.id,
         health: stats.maxHealth,
         maxHealth: stats.maxHealth,
-        constructionProgress: isInstantBuilding ? 100 : 0, // Docks are instant, others need to be built
+        constructionProgress: isInstantBuilding ? 100 : 0, // Docks/farms are instant, others need to be built
         queuedUnits: [],
         productionProgress: 0,
         garrisonedUnits: [],
