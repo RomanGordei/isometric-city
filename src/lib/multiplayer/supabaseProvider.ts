@@ -50,6 +50,7 @@ export class MultiplayerProvider {
   private gameState: GameState | null = null;
   private destroyed = false;
   private hasReceivedInitialState = false; // Prevent multiple state-sync overwrites
+  private dbSaveDisabledReason: null | 'too_large' = null;
   
   // State save throttling
   private lastStateSave = 0;
@@ -91,12 +92,18 @@ export class MultiplayerProvider {
     if (this.isCreator && this.gameState) {
       // Creator has the canonical state - mark as already received
       this.hasReceivedInitialState = true;
-      const success = await createGameRoom(
+      const result = await createGameRoom(
         this.roomCode,
         this.options.cityName,
         this.gameState
       );
-      if (!success) {
+      if (!result.ok) {
+        if (result.error === 'too_large') {
+          this.dbSaveDisabledReason = 'too_large';
+          const message = msg('City too large to save (max 20MB).');
+          this.options.onError?.(message);
+          throw new Error(message);
+        }
         this.options.onError?.(msg('Failed to create room in database'));
         throw new Error(msg('Failed to create room in database'));
       }
@@ -237,6 +244,7 @@ export class MultiplayerProvider {
    */
   updateGameState(state: GameState): void {
     this.gameState = state;
+    if (this.dbSaveDisabledReason) return;
     
     const now = Date.now();
     const timeSinceLastSave = now - this.lastStateSave;
@@ -260,11 +268,27 @@ export class MultiplayerProvider {
     }
   }
 
-  private saveStateToDatabase(state: GameState): void {
+  private async saveStateToDatabase(state: GameState): Promise<void> {
+    if (this.dbSaveDisabledReason) return;
     this.lastStateSave = Date.now();
-    updateGameRoom(this.roomCode, state).catch((e) => {
+    try {
+      const result = await updateGameRoom(this.roomCode, state);
+      if (!result.ok) {
+        if (result.error === 'too_large') {
+          this.dbSaveDisabledReason = 'too_large';
+          this.pendingStateSave = null;
+          if (this.saveTimeout) {
+            clearTimeout(this.saveTimeout);
+            this.saveTimeout = null;
+          }
+          this.options.onError?.(msg('City too large to save (max 20MB).'));
+          return;
+        }
+        console.error('[Multiplayer] Failed to save state to database:', result);
+      }
+    } catch (e) {
       console.error('[Multiplayer] Failed to save state to database:', e);
-    });
+    }
   }
 
   private updateConnectionStatus(): void {
