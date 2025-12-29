@@ -1,0 +1,962 @@
+[
+  {
+    "building": "city_center",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/city_center_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "small_city",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/small_city_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "large_city",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/large_city_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "major_city",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/major_city_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "farm",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/farm_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "woodcutters_camp",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/woodcutters_camp_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "granary",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/granary_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "lumber_mill",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/lumber_mill_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "mine",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/mine_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "smelter",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/smelter_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "market",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/market_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "oil_well",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/oil_well_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "refinery",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/refinery_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "library",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/library_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "university",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/university_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "temple",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/temple_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "senate",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/senate_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "barracks",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/barracks_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "stable",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/stable_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "siege_factory",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/siege_factory_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "dock",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/dock_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "auto_plant",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/auto_plant_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "factory",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/factory_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "airbase",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/airbase_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "tower",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/tower_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "fort",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/fort_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "castle",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/castle_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "stockade",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/stockade_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "fortress",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/fortress_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "bunker",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/bunker_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "amphitheater",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/amphitheater_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "road",
+    "age": "classical",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/road_classical.png",
+    "status": "ok"
+  },
+  {
+    "building": "city_center",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/city_center_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "small_city",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/small_city_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "large_city",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/large_city_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "major_city",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/major_city_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "farm",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/farm_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "woodcutters_camp",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/woodcutters_camp_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "granary",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/granary_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "lumber_mill",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/lumber_mill_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "mine",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/mine_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "smelter",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/smelter_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "market",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/market_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "oil_well",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/oil_well_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "refinery",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/refinery_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "library",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/library_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "university",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/university_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "temple",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/temple_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "senate",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/senate_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "barracks",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/barracks_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "stable",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/stable_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "siege_factory",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/siege_factory_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "dock",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/dock_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "auto_plant",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/auto_plant_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "factory",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/factory_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "airbase",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/airbase_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "tower",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/tower_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "fort",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/fort_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "castle",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/castle_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "stockade",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/stockade_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "fortress",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/fortress_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "bunker",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/bunker_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "amphitheater",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/amphitheater_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "road",
+    "age": "medieval",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/road_medieval.png",
+    "status": "ok"
+  },
+  {
+    "building": "city_center",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/city_center_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "small_city",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/small_city_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "large_city",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/large_city_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "major_city",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/major_city_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "farm",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/farm_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "woodcutters_camp",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/woodcutters_camp_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "granary",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/granary_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "lumber_mill",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/lumber_mill_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "mine",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/mine_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "smelter",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/smelter_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "market",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/market_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "oil_well",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/oil_well_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "refinery",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/refinery_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "library",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/library_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "university",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/university_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "temple",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/temple_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "senate",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/senate_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "barracks",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/barracks_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "stable",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/stable_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "siege_factory",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/siege_factory_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "dock",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/dock_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "auto_plant",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/auto_plant_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "factory",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/factory_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "airbase",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/airbase_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "tower",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/tower_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "fort",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/fort_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "castle",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/castle_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "stockade",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/stockade_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "fortress",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/fortress_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "bunker",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/bunker_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "amphitheater",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/amphitheater_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "road",
+    "age": "enlightenment",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/road_enlightenment.png",
+    "status": "ok"
+  },
+  {
+    "building": "city_center",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/city_center_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "small_city",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/small_city_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "large_city",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/large_city_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "major_city",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/major_city_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "farm",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/farm_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "woodcutters_camp",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/woodcutters_camp_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "granary",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/granary_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "lumber_mill",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/lumber_mill_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "mine",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/mine_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "smelter",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/smelter_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "market",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/market_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "oil_well",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/oil_well_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "refinery",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/refinery_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "library",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/library_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "university",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/university_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "temple",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/temple_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "senate",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/senate_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "barracks",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/barracks_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "stable",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/stable_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "siege_factory",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/siege_factory_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "dock",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/dock_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "auto_plant",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/auto_plant_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "factory",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/factory_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "airbase",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/airbase_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "tower",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/tower_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "fort",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/fort_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "castle",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/castle_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "stockade",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/stockade_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "fortress",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/fortress_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "bunker",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/bunker_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "amphitheater",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/amphitheater_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "road",
+    "age": "industrial",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/road_industrial.png",
+    "status": "ok"
+  },
+  {
+    "building": "city_center",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/city_center_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "small_city",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/small_city_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "large_city",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/large_city_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "major_city",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/major_city_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "farm",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/farm_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "woodcutters_camp",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/woodcutters_camp_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "granary",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/granary_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "lumber_mill",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/lumber_mill_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "mine",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/mine_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "smelter",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/smelter_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "market",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/market_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "oil_well",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/oil_well_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "refinery",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/refinery_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "library",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/library_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "university",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/university_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "temple",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/temple_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "senate",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/senate_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "barracks",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/barracks_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "stable",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/stable_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "siege_factory",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/siege_factory_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "dock",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/dock_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "auto_plant",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/auto_plant_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "factory",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/factory_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "airbase",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/airbase_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "tower",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/tower_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "fort",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/fort_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "castle",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/castle_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "stockade",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/stockade_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "fortress",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/fortress_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "bunker",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/bunker_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "amphitheater",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/amphitheater_modern.png",
+    "status": "ok"
+  },
+  {
+    "building": "road",
+    "age": "modern",
+    "path": "/Users/andrewmilich/Documents/GitHub/isometric-city/scripts/sprite-output/road_modern.png",
+    "status": "ok"
+  }
+]

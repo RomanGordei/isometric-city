@@ -1723,53 +1723,91 @@ function drawBattleship(ctx: CanvasRenderingContext2D, cx: number, cy: number, c
 }
 
 function drawDestroyer(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: string, dark: string, s: number, bob: number): void {
-  const w = 20 * s, h = 7 * s;
-  // Fast wake (V-shaped)
-  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  const w = 24 * s, h = 9 * s; // Larger size (was 20x7)
+  
+  // Fast wake (V-shaped, more prominent)
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.beginPath();
-  ctx.moveTo(cx - w * 0.5, cy + bob + 3);
-  ctx.lineTo(cx + w * 0.1, cy + bob + 1);
-  ctx.lineTo(cx - w * 0.5, cy + bob + 5);
+  ctx.moveTo(cx - w * 0.55, cy + bob + 4);
+  ctx.lineTo(cx + w * 0.15, cy + bob + 1);
+  ctx.lineTo(cx - w * 0.55, cy + bob + 7);
   ctx.closePath();
   ctx.fill();
-  // Sleek hull
-  ctx.fillStyle = '#6b7280';
+  
+  // Hull shadow/depth
+  ctx.fillStyle = '#3a4555';
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.42, cy + bob + h * 0.2);
+  ctx.lineTo(cx + w * 0.52, cy + bob - h * 0.05);
+  ctx.lineTo(cx + w * 0.48, cy + bob - h * 0.35);
+  ctx.lineTo(cx - w * 0.38, cy + bob - h * 0.35);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Main hull - sleek destroyer shape with player color accent
+  ctx.fillStyle = '#5a6270';
   ctx.beginPath();
   ctx.moveTo(cx - w * 0.4, cy + bob + h * 0.15);
   ctx.lineTo(cx + w * 0.5, cy + bob - h * 0.1);
-  ctx.lineTo(cx + w * 0.45, cy + bob - h * 0.4);
-  ctx.lineTo(cx - w * 0.35, cy + bob - h * 0.4);
+  ctx.lineTo(cx + w * 0.46, cy + bob - h * 0.4);
+  ctx.lineTo(cx - w * 0.36, cy + bob - h * 0.4);
   ctx.closePath();
   ctx.fill();
-  // Small superstructure
+  
+  // Deck stripe with player color
+  ctx.fillStyle = color;
+  ctx.fillRect(cx - w * 0.32, cy + bob - h * 0.42, w * 0.64, h * 0.06);
+  
+  // Superstructure
+  ctx.fillStyle = '#6b7585';
+  ctx.fillRect(cx - w * 0.12, cy + bob - h * 0.68, w * 0.24, h * 0.3);
+  
+  // Bridge
   ctx.fillStyle = '#7c8594';
-  ctx.fillRect(cx - w * 0.1, cy + bob - h * 0.65, w * 0.2, h * 0.28);
-  // Gun turret forward
+  ctx.fillRect(cx - w * 0.06, cy + bob - h * 0.82, w * 0.12, h * 0.18);
+  
+  // Forward gun turret
   ctx.fillStyle = dark;
   ctx.beginPath();
-  ctx.arc(cx + w * 0.25, cy + bob - h * 0.45, w * 0.06, 0, Math.PI * 2);
+  ctx.arc(cx + w * 0.28, cy + bob - h * 0.48, w * 0.07, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#2a2a2a';
-  ctx.fillRect(cx + w * 0.28, cy + bob - h * 0.48, w * 0.12, h * 0.06);
-  // Torpedo tubes
+  ctx.fillRect(cx + w * 0.32, cy + bob - h * 0.52, w * 0.14, h * 0.07);
+  
+  // Rear gun turret
+  ctx.fillStyle = dark;
+  ctx.beginPath();
+  ctx.arc(cx - w * 0.24, cy + bob - h * 0.48, w * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(cx - w * 0.32, cy + bob - h * 0.51, w * 0.1, h * 0.06);
+  
+  // Torpedo tubes (visible on deck)
   ctx.fillStyle = '#4a4a4a';
-  ctx.fillRect(cx - w * 0.25, cy + bob - h * 0.5, w * 0.08, h * 0.1);
+  ctx.fillRect(cx + w * 0.02, cy + bob - h * 0.52, w * 0.1, h * 0.08);
+  
   // Radar mast
   ctx.strokeStyle = '#3a3a3a';
-  ctx.lineWidth = 1.5 * s;
+  ctx.lineWidth = 2 * s;
   ctx.beginPath();
-  ctx.moveTo(cx, cy + bob - h * 0.65);
-  ctx.lineTo(cx, cy + bob - h * 1.0);
+  ctx.moveTo(cx, cy + bob - h * 0.82);
+  ctx.lineTo(cx, cy + bob - h * 1.15);
   ctx.stroke();
+  
   // Radar dish
   ctx.fillStyle = '#5a5a5a';
-  ctx.fillRect(cx - w * 0.04, cy + bob - h * 1.0, w * 0.08, h * 0.08);
-  // Flag
+  ctx.fillRect(cx - w * 0.05, cy + bob - h * 1.18, w * 0.1, h * 0.1);
+  
+  // Smokestack
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(cx + w * 0.08, cy + bob - h * 0.92, w * 0.06, h * 0.28);
+  
+  // Flag with player color (more prominent)
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.moveTo(cx, cy + bob - h * 1.0);
-  ctx.lineTo(cx + w * 0.08, cy + bob - h * 0.9);
-  ctx.lineTo(cx, cy + bob - h * 0.8);
+  ctx.moveTo(cx, cy + bob - h * 1.15);
+  ctx.lineTo(cx + w * 0.12, cy + bob - h * 1.02);
+  ctx.lineTo(cx, cy + bob - h * 0.9);
   ctx.fill();
 }
 

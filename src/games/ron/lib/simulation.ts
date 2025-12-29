@@ -664,6 +664,8 @@ function updateBuildings(state: RoNGameState): RoNGameState {
 const AUTO_ATTACK_RANGE = 3;
 // Detection range for civilian flee behavior (in tiles)
 const CIVILIAN_FLEE_RANGE = 4;
+// Reaction delay before civilians start fleeing (in ticks) - takes time to notice danger
+const FLEE_REACTION_DELAY = 40;
 
 /**
  * Check if a unit is military (not civilian)
@@ -1032,44 +1034,59 @@ function updateUnits(state: RoNGameState): RoNGameState {
     }
     
     // Civilian fleeing: if a civilian sees nearby enemy military units, flee!
+    // But with a reaction delay - civilians don't instantly notice danger
     if (!isMilitaryUnit(updatedUnit)) {
       const nearbyEnemyMilitary = findNearbyEnemyMilitary(updatedUnit, state.units, CIVILIAN_FLEE_RANGE);
       
       if (nearbyEnemyMilitary.length > 0) {
-        // Calculate flee direction (away from the average position of enemies)
-        let avgEnemyX = 0;
-        let avgEnemyY = 0;
-        for (const enemy of nearbyEnemyMilitary) {
-          avgEnemyX += enemy.x;
-          avgEnemyY += enemy.y;
+        // Track when enemy was first spotted
+        if (updatedUnit.enemySpottedAt === undefined) {
+          updatedUnit.enemySpottedAt = state.tick;
         }
-        avgEnemyX /= nearbyEnemyMilitary.length;
-        avgEnemyY /= nearbyEnemyMilitary.length;
         
-        // Flee in the opposite direction
-        const fleeDistance = 8; // Flee 8 tiles away
-        const dx = updatedUnit.x - avgEnemyX;
-        const dy = updatedUnit.y - avgEnemyY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist > 0.1) {
-          // Normalize and scale
-          const fleeX = updatedUnit.x + (dx / dist) * fleeDistance;
-          const fleeY = updatedUnit.y + (dy / dist) * fleeDistance;
+        // Only flee after reaction delay has passed
+        const timeSinceSpotted = state.tick - updatedUnit.enemySpottedAt;
+        if (timeSinceSpotted >= FLEE_REACTION_DELAY) {
+          // Calculate flee direction (away from the average position of enemies)
+          let avgEnemyX = 0;
+          let avgEnemyY = 0;
+          for (const enemy of nearbyEnemyMilitary) {
+            avgEnemyX += enemy.x;
+            avgEnemyY += enemy.y;
+          }
+          avgEnemyX /= nearbyEnemyMilitary.length;
+          avgEnemyY /= nearbyEnemyMilitary.length;
           
-          // Clamp to grid bounds
-          const gridSize = state.grid.length;
-          updatedUnit.targetX = Math.max(1, Math.min(gridSize - 2, fleeX));
-          updatedUnit.targetY = Math.max(1, Math.min(gridSize - 2, fleeY));
-          updatedUnit.task = 'flee';
-          updatedUnit.taskTarget = undefined;
-          updatedUnit.isMoving = true;
-          updatedUnit.idleSince = undefined; // Reset idle timer while fleeing
+          // Flee in the opposite direction
+          const fleeDistance = 8; // Flee 8 tiles away
+          const dx = updatedUnit.x - avgEnemyX;
+          const dy = updatedUnit.y - avgEnemyY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist > 0.1) {
+            // Normalize and scale
+            const fleeX = updatedUnit.x + (dx / dist) * fleeDistance;
+            const fleeY = updatedUnit.y + (dy / dist) * fleeDistance;
+            
+            // Clamp to grid bounds
+            const gridSize = state.grid.length;
+            updatedUnit.targetX = Math.max(1, Math.min(gridSize - 2, fleeX));
+            updatedUnit.targetY = Math.max(1, Math.min(gridSize - 2, fleeY));
+            updatedUnit.task = 'flee';
+            updatedUnit.taskTarget = undefined;
+            updatedUnit.isMoving = true;
+            updatedUnit.idleSince = undefined; // Reset idle timer while fleeing
+          }
         }
-      } else if (updatedUnit.task === 'flee' && !updatedUnit.isMoving) {
-        // Stopped fleeing - go back to idle so auto-work can kick in
-        updatedUnit.task = 'idle';
-        updatedUnit.idleSince = state.tick;
+      } else {
+        // No enemies nearby - reset the spotted timer
+        updatedUnit.enemySpottedAt = undefined;
+        
+        if (updatedUnit.task === 'flee' && !updatedUnit.isMoving) {
+          // Stopped fleeing - go back to idle so auto-work can kick in
+          updatedUnit.task = 'idle';
+          updatedUnit.idleSince = state.tick;
+        }
       }
     }
     

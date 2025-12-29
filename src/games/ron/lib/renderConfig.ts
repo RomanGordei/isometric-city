@@ -116,53 +116,58 @@ export const SPRITE_ORDER = [
 ] as const;
 
 // Mapping from RoN building types to sprite sheet positions (row, col)
-// Based on the 5x6 grid layout - Classical Age reference:
-// Row 0: Palace, Temple, Baths, Courtyard, Villa
-// Row 1: Fountain Park, Garden, Stadium, Market, Large Temple  
-// Row 2: Colosseum, Tower, Pool, Colosseum, Lighthouse
-// Row 3: Villa, Aqueduct, Market/Shop, Small House, Cart/Stable
-// Row 4: Warehouse, Arch, Quarry, Kilns/Smelter, Dock/Crane
-// Row 5: Farm/Barn, Arch, Temple(City Center), Small Temple, Amphitheater
+// Based on the 5x6 grid layout - see SPRITE_AUDIT.md for details
+//
+// IMPORTANT: Some buildings use IsoCity sheets instead of age sheets:
+// - Farms use sprites_red_water_new_farm.png (has actual crop/barn sprites)
+// - Some modern buildings use dedicated IsoCity building sprites
+//
+// Age sheet layouts vary by era but generally:
+// Classical: temples, coliseums, markets, villas, docks
+// Medieval: castles, markets, harbors, churches
+// Industrial: factories, train stations, brick buildings
+// Modern: skyscrapers, airports, stadiums
 export const BUILDING_SPRITE_MAP: Partial<Record<RoNBuildingType, { row: number; col: number }>> = {
-  // City buildings - City center is the temple at row 5, col 2
+  // City buildings - Large temple/government at row 5, col 2
   city_center: { row: 5, col: 2 },
   small_city: { row: 5, col: 2 },
   large_city: { row: 5, col: 2 },
   major_city: { row: 5, col: 2 },
 
-  // Economic buildings
-  farm: { row: 5, col: 0 },          // Farm with barn and cart
+  // Economic buildings - NOTE: farm uses IsoCity farm sheet (see ISOCITY_FARM_POSITIONS)
+  farm: { row: -2, col: -2 },        // Special: uses IsoCity farm sheet
   woodcutters_camp: { row: 3, col: 4 }, // Cart/stable area
   granary: { row: 4, col: 0 },       // Warehouse
-  lumber_mill: { row: 4, col: 2 },   // Quarry/construction
+  lumber_mill: { row: 4, col: 1 },   // Industrial building
   mine: { row: 4, col: 2 },          // Quarry/ruins
-  smelter: { row: 4, col: 3 },       // Kilns
-  market: { row: 1, col: 3 },        // Market stalls
-  oil_well: { row: 4, col: 3 },      // Industrial kilns (industrial era)
-  refinery: { row: 4, col: 3 },      // Industrial kilns
+  smelter: { row: 4, col: 3 },       // Kilns/furnaces
+  market: { row: 3, col: 2 },        // FIXED: Market stalls (was temple at 1,3)
+  oil_well: { row: 2, col: 4 },      // FIXED: Oil derrick/tower (industrial age)
+  oil_platform: { row: 4, col: 4 },  // Dock area (offshore)
+  refinery: { row: 4, col: 3 },      // Industrial kilns/factory
 
   // Knowledge buildings
   library: { row: 0, col: 1 },       // Temple with columns
-  university: { row: 2, col: 0 },    // Colosseum (large institution)
+  university: { row: 1, col: 2 },    // Stadium/large institution
   temple: { row: 5, col: 3 },        // Small temple
   senate: { row: 0, col: 0 },        // Large palace
 
   // Military buildings
-  barracks: { row: 2, col: 0 },      // Colosseum (training arena)
+  barracks: { row: 3, col: 1 },      // FIXED: Villa/barracks building (not colosseum)
   stable: { row: 3, col: 4 },        // Cart/stable building
-  siege_factory: { row: 4, col: 2 }, // Quarry/construction
-  dock: { row: 4, col: 4 },          // Dock with crane (uses IsoCity marina sprite)
-  auto_plant: { row: 4, col: 3 },    // Industrial
-  factory: { row: 4, col: 3 },       // Industrial kilns
-  airbase: { row: 5, col: 0 },       // Airport with runway and plane
+  siege_factory: { row: 4, col: 1 }, // Industrial/workshop
+  dock: { row: 4, col: 4 },          // Dock with crane
+  auto_plant: { row: 4, col: 3 },    // Industrial factory
+  factory: { row: 4, col: 3 },       // Industrial kilns/factory
+  airbase: { row: -3, col: -3 },     // Special: uses IsoCity airport sprite
 
   // Defensive buildings
-  tower: { row: 2, col: 1 },         // Tower
+  tower: { row: 2, col: 1 },         // Tower/lighthouse
   stockade: { row: 3, col: 0 },      // Villa (small fort)
-  fort: { row: 2, col: 3 },          // Colosseum (fortification)
-  fortress: { row: 2, col: 3 },
+  fort: { row: 1, col: 3 },          // FIXED: Fortified building
+  fortress: { row: 0, col: 2 },      // Large fortification (aqueduct style)
   castle: { row: 0, col: 0 },        // Large palace
-  bunker: { row: 4, col: 1 },        // Warehouse style
+  bunker: { row: 4, col: 0 },        // Warehouse/bunker style
   
   // Roads and terrain
   road: { row: -1, col: -1 },        // Special handling
@@ -170,6 +175,24 @@ export const BUILDING_SPRITE_MAP: Partial<Record<RoNBuildingType, { row: number;
   water: { row: -1, col: -1 },
   empty: { row: -1, col: -1 },
 };
+
+// IsoCity Farm Sheet positions - for age-appropriate farm sprites
+// Sheet: /assets/sprites_red_water_new_farm.png (5x6 grid)
+export const ISOCITY_FARM_POSITIONS: Record<Age, { row: number; col: number }> = {
+  classical: { row: 0, col: 1 },    // Wheat field - simple ancient crop
+  medieval: { row: 1, col: 0 },     // Dairy barn with cows
+  enlightenment: { row: 2, col: 0 }, // Farmhouse with garden
+  industrial: { row: 2, col: 3 },   // Tractor shed - early mechanization
+  modern: { row: 5, col: 1 },       // Combine harvester - modern farming
+};
+
+// IsoCity sheet path for farms
+export const ISOCITY_FARM_SHEET = '/assets/sprites_red_water_new_farm.webp';
+export const ISOCITY_FARM_COLS = 5;
+export const ISOCITY_FARM_ROWS = 6;
+
+// IsoCity airport for airbase
+export const ISOCITY_AIRPORT_SHEET = '/assets/buildings/airport.webp';
 
 // Vertical offset adjustments per building type (multiplied by tile height)
 // 3x3 buildings need larger offsets (like IsoCity mall at -1.5)

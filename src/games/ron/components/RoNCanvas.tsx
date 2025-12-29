@@ -274,6 +274,7 @@ const ISOCITY_SPRITE_PATH = '/assets/sprites_red_water_new.png';
 const ISOCITY_PARKS_PATH = '/assets/sprites_red_water_new_parks.png';
 const ISOCITY_CONSTRUCTION_PATH = '/assets/sprites_red_water_new_construction.png';
 const ISOCITY_FARM_PATH = '/assets/sprites_red_water_new_farm.webp';
+const ISOCITY_AIRPORT_PATH = '/assets/buildings/airport.webp';
 
 // Farm sprite configuration - use first row of 5 crops randomly
 const FARM_SPRITE_COLS = 5;
@@ -615,7 +616,15 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
       } catch (error) {
         console.error('Failed to load IsoCity farm sprites:', error);
       }
-      
+
+      // Load IsoCity airport sprite
+      try {
+        await loadSpriteImage(ISOCITY_AIRPORT_PATH, true);
+        setImageLoadVersion(v => v + 1);
+      } catch (error) {
+        console.error('Failed to load IsoCity airport sprite:', error);
+      }
+
       // Load age sprite sheets
       const imagesToLoad = Object.values(AGE_SPRITE_PACKS).map(pack => pack.src);
       
@@ -1792,6 +1801,42 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
               );
             }
             continue; // Skip regular sprite drawing for farm
+          }
+          
+          // Special handling for airbase - use IsoCity airport sprite
+          if (buildingType === 'airbase') {
+            const airportSprite = getCachedImage(ISOCITY_AIRPORT_PATH, true);
+            if (airportSprite) {
+              // Get building size from BUILDING_STATS
+              const buildingStats = BUILDING_STATS[buildingType];
+              const buildingSize = buildingStats?.size || { width: 2, height: 2 };
+              
+              // Calculate draw position for multi-tile building
+              const frontmostOffsetX = buildingSize.width - 1;
+              const frontmostOffsetY = buildingSize.height - 1;
+              const screenOffsetX = (frontmostOffsetX - frontmostOffsetY) * (TILE_WIDTH / 2);
+              const screenOffsetY = (frontmostOffsetX + frontmostOffsetY) * (TILE_HEIGHT / 2);
+              const drawPosX = screenX + screenOffsetX;
+              const drawPosY = screenY + screenOffsetY;
+              
+              // Scale airport to fit
+              const scale = 1.2;
+              const destWidth = TILE_WIDTH * scale * buildingSize.width;
+              const destHeight = destWidth * (airportSprite.height / airportSprite.width);
+              
+              // Vertical offset
+              const buildingOffset = -0.6 * TILE_HEIGHT;
+              
+              const drawX = drawPosX + TILE_WIDTH / 2 - destWidth / 2;
+              const drawY = drawPosY + TILE_HEIGHT - destHeight + buildingOffset;
+              
+              ctx.drawImage(
+                airportSprite,
+                0, 0, airportSprite.width, airportSprite.height,
+                drawX, drawY, destWidth, destHeight
+              );
+            }
+            continue; // Skip regular sprite drawing for airbase
           }
           
           if (spriteSheet) {

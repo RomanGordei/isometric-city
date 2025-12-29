@@ -16,7 +16,13 @@ import {
   executeCreateUnit,
   executeSendUnits,
   executeAdvanceAge,
+  executeAssignIdleWorkers,
 } from '@/games/ron/lib/aiTools';
+import {
+  logGameState,
+  logAIAction,
+  logAITurnSummary,
+} from '@/games/ron/lib/debugLogger';
 
 /**
  * System prompt for the AI
@@ -32,43 +38,62 @@ Win the game by either:
 - You control units and buildings on an isometric tile-based map
 - Resources: Food, Wood, Metal, Gold, Knowledge, Oil
 - Ages: Classical → Medieval → Enlightenment → Industrial → Modern
-- Buildings produce resources (with workers assigned) and spawn units
+- Buildings produce resources ONLY when workers are assigned to them!
 - Units can gather resources, build, or fight
 
+## CRITICAL: Economy Management
+YOUR ECONOMY IS THE KEY TO VICTORY! Every turn, you MUST:
+
+1. **FIRST: Call assign_idle_workers** - This automatically assigns all idle/moving citizens to farms and other economic buildings. If resourceRates.food is 0, you have NO workers on farms!
+2. Check your resourceRates - if any are 0, you need more workers there
+3. Build more farms if food production is low
+4. Train more citizens to work (they cost 50 food, built at city_center)
+
+Resource gathering works like this:
+- Citizens sent to a FARM with "gather_food" task will produce food
+- Citizens sent to a WOODCUTTERS_CAMP with "gather_wood" task will produce wood
+- Each building has limited worker capacity (usually 3-5 workers)
+- The assign_idle_workers tool handles all this automatically!
+
 ## Strategy Priorities (in order)
-1. **Economy First**: Build farms and assign citizens to gather food
-2. **Expand Citizens**: Train more citizens (population is key)
-3. **Build Military Production**: Barracks for infantry, stables for cavalry
-4. **Train Army**: Build a military force before attacking
-5. **Scout Enemy**: Know where the enemy is
-6. **Attack Wisely**: Strike when you have advantage
+1. **ALWAYS call assign_idle_workers first** - Keep your economy running!
+2. **Check population cap** - If population = populationCap, you can't train more units
+3. **Train citizens** - More workers = more resources = bigger army
+4. **Build military** - Barracks for infantry, stables for cavalry
+5. **Scout and attack** - Find the enemy and destroy them
 
 ## Available Actions
-- refresh_game_state: Get current game state (call at start of each turn)
-- read_game_state: Read the detailed game state
+- **assign_idle_workers**: CALL THIS EVERY TURN! Auto-assigns idle citizens to economy
 - build_building: Construct buildings (farms, barracks, etc.)
-- create_unit: Queue units at production buildings
+- create_unit: Queue units at production buildings  
 - send_units: Move units, attack, or assign gathering tasks
 - send_message: Communicate with opponent (DO THIS FREQUENTLY!)
 - advance_age: Advance to next age when you have resources
-- wait_ticks: Wait for economy/production (use sparingly)
+- wait_ticks: Wait for economy/production (use sparingly, max 20 ticks)
 
-## Important Tips
-1. Citizens must be assigned to economic buildings to gather resources
-2. Only build within your territory (near city centers)
-3. Each building can only have a limited number of workers
-4. Military units auto-attack nearby enemies
-5. Buildings under construction need workers to finish faster
-6. ALWAYS check your resource levels before building or training
+## Debugging Your Economy
+Look at your myPlayer.resourceRates in the game state:
+- If food rate is 0, NO workers are on farms - use assign_idle_workers!
+- If wood rate is 0, NO workers are at woodcutters_camps
+- Having 33 farms means nothing if no workers are assigned!
+
+## Population Cap - CRITICAL!
+When population = populationCap, you CANNOT train more units! This blocks all growth!
+**FIX: Build a small_city** - costs 200 food, 150 wood, **100 metal**
+- If you have 0 metal: Build a MINE first! (costs 100 wood, 50 gold)
+- Use emptyTerritoryTiles from state to find valid build locations
+- Multiple small_cities = bigger army potential
+
+## Metal Production
+- Build a MINE anywhere in your territory (costs 80 wood, 50 gold)
+- Mines don't need to be on metal deposits - build on emptyTerritoryTiles!
+- After building, assign citizens with gather_metal (or assign_idle_workers)
+- Metal is CRITICAL for small_city and advanced units!
 
 ## Communication
-SEND MESSAGES FREQUENTLY to your opponent! Be creative:
-- Taunt them when you're winning
-- Bluff about your strength
-- React to their actions
-- Make the game fun and engaging
+SEND MESSAGES FREQUENTLY! Taunt, bluff, react. Make the game fun!
 
-Remember: You're playing against a skilled human. Play smart, be aggressive, and communicate!`;
+Remember: Economy FIRST, military SECOND. An army without resources is useless!`;
 
 interface AIRequestBody {
   gameState: RoNGameState;
@@ -152,6 +177,10 @@ function processToolCall(
       };
     }
 
+    case 'assign_idle_workers': {
+      return executeAssignIdleWorkers(gameState, aiPlayerId);
+    }
+
     default:
       return {
         newState: gameState,
@@ -208,24 +237,41 @@ export async function POST(request: NextRequest): Promise<NextResponse<AIRespons
     // Generate initial game state for context
     const condensedState = generateCondensedGameState(gameState, aiPlayerId);
     
-    // Build the prompt
+    // Log the state for debugging
+    logGameState(gameState.tick, condensedState, 'state');
+    
+    // Analyze state for recommendations
+    const population = condensedState.myPlayer.population;
+    const popCap = condensedState.myPlayer.populationCap;
+    const isAtPopCap = population >= popCap;
+    const foodRate = condensedState.myPlayer.resourceRates.food;
+    const metalRate = condensedState.myPlayer.resourceRates.metal;
+    const metal = condensedState.myPlayer.resources.metal;
+    const idleWorkers = condensedState.myUnits.filter(u => u.type === 'citizen' && (u.task === 'idle' || u.task === 'move')).length;
+    const hasMine = condensedState.myBuildings.some(b => b.type === 'mine');
+    
+    // Find empty tiles for building suggestions
+    const emptyTerritory = condensedState.emptyTerritoryTiles?.slice(0, 5) || [];
+    const metalDeposits = condensedState.resourceTiles.metalDeposits.slice(0, 3);
+    
+    // Build the prompt with analysis
     const userMessage = `Current game state (tick ${gameState.tick}):
 ${JSON.stringify(condensedState, null, 2)}
 
-It's your turn. Analyze the situation and take actions. Remember to:
-1. First review the game state above
-2. Make strategic decisions based on resources and enemy positions
-3. Execute multiple actions if beneficial (build, train, move units)
-4. Send a message to your opponent at least once every few turns
-5. Be aggressive and strategic - you're playing against a skilled human!
+## IMMEDIATE PRIORITIES:
+${isAtPopCap && metal < 100 && !hasMine ? `🚨 NO MINE! Build a MINE at one of these EMPTY tiles: ${emptyTerritory.slice(0, 3).map(t => `(${t.x},${t.y})`).join(', ')} (costs 80 wood, 50 gold)` : ''}
+${isAtPopCap && metal >= 100 ? `🚨 POP CAPPED (${population}/${popCap})! Build small_city NOW at: ${emptyTerritory.slice(0, 2).map(t => `(${t.x},${t.y})`).join(', ')}` : ''}
+${isAtPopCap && metal < 100 && hasMine ? `⚠️ MINE exists but metal=${metal}/100. Use assign_idle_workers to send workers!` : ''}
+${idleWorkers > 0 ? `⚠️ ${idleWorkers} IDLE! Call assign_idle_workers NOW!` : ''}
+${metalRate === 0 && hasMine ? '⚠️ MINE but no workers! Use assign_idle_workers!' : ''}
 
-Take action now.`;
+Take action! Use assign_idle_workers, build mine if no metal, taunt opponent!`;
 
     console.log('[Agentic AI] Calling OpenAI Responses API...');
     
     // Create the response using OpenAI Responses API
     let response = await client.responses.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-5-mini-2025-08-07',
       instructions: SYSTEM_PROMPT,
       input: userMessage,
       tools: AI_TOOLS,
@@ -240,6 +286,7 @@ Take action now.`;
     let iterations = 0;
     let thoughts = '';
     let aiRequestedWaitTicks = 0; // Track AI's wait_ticks request
+    const toolCallLog: Array<{ name: string; success: boolean }> = []; // For logging
 
     // Process tool calls in a loop
     while (response.output && iterations < maxIterations) {
@@ -299,6 +346,14 @@ Take action now.`;
         
         console.log(`[Agentic AI] Tool result: ${result.success ? '✓' : '✗'} ${result.message}`);
         
+        // Log for debugging
+        toolCallLog.push({ name: toolCall.name, success: result.success });
+        logAIAction(currentState.tick, {
+          toolName: toolCall.name,
+          args,
+          result: { success: result.success, message: result.message },
+        });
+        
         currentState = newState;
         
         toolResults.push({
@@ -309,7 +364,7 @@ Take action now.`;
 
       // Continue the conversation with tool results
       response = await client.responses.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini-2025-08-07',
         instructions: SYSTEM_PROMPT,
         previous_response_id: response.id,
         input: toolResults.map(r => ({
@@ -342,6 +397,15 @@ Take action now.`;
       iterations,
       messagesCount: messages.length,
       hasThoughts: !!thoughts.trim(),
+      waitTicks: aiRequestedWaitTicks,
+    });
+    
+    // Log turn summary for debugging
+    logAITurnSummary(gameState.tick, {
+      iterations,
+      toolCalls: toolCallLog,
+      messages,
+      thoughts: thoughts.trim(),
       waitTicks: aiRequestedWaitTicks,
     });
     

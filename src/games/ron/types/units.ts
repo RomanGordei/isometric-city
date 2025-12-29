@@ -936,6 +936,9 @@ export interface Unit {
   
   // Cargo (for transport units)
   carriedUnits?: string[];
+
+  // Flee reaction (tick when enemy was first spotted)
+  enemySpottedAt?: number;
 }
 
 export type UnitTask =

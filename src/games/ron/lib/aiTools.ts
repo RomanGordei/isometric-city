@@ -151,6 +151,18 @@ export const AI_TOOLS: OpenAI.Responses.Tool[] = [
   },
   {
     type: 'function',
+    name: 'assign_idle_workers',
+    description: 'Automatically assign all idle or moving citizens to the best available economic buildings. Prioritizes food production, then wood, then other resources. This is a CRITICAL tool - USE IT EVERY TURN to keep your economy running!',
+    strict: true,
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+      required: [] as string[],
+    },
+  },
+  {
+    type: 'function',
     name: 'wait_ticks',
     description: 'Wait for a specified number of game ticks before taking the next action. Use this to let the economy build up or wait for units to be produced.',
     strict: true,
@@ -248,6 +260,7 @@ export interface CondensedGameState {
     producedAt: string[];
   }>;
   territoryTiles: Array<{ x: number; y: number }>;
+  emptyTerritoryTiles: Array<{ x: number; y: number }>; // Empty tiles you can build on
   resourceTiles: {
     forests: Array<{ x: number; y: number; density: number }>;
     metalDeposits: Array<{ x: number; y: number }>;
@@ -400,11 +413,14 @@ export function generateCondensedGameState(
     mapSize: state.gridSize,
     availableBuildingTypes,
     availableUnitTypes,
-    territoryTiles: territoryTiles.slice(0, 100), // Limit to avoid huge payloads
+    territoryTiles: territoryTiles.slice(0, 30), // Limit to avoid huge payloads
+    emptyTerritoryTiles: territoryTiles
+      .filter(t => !state.grid[t.y]?.[t.x]?.building)
+      .slice(0, 15), // Empty tiles for building
     resourceTiles: {
-      forests: forests.slice(0, 50),
-      metalDeposits: metalDeposits.slice(0, 20),
-      oilDeposits: oilDeposits.slice(0, 20),
+      forests: forests.slice(0, 15),
+      metalDeposits: metalDeposits.slice(0, 10),
+      oilDeposits: oilDeposits.slice(0, 10),
     },
   };
 }
@@ -725,5 +741,184 @@ export function executeAdvanceAge(
   return {
     newState: { ...state, players: newPlayers },
     result: { success: true, message: `Advanced to ${nextAge} age!` },
+  };
+}
+
+/**
+ * Count workers at a specific building
+ */
+function countWorkersAtBuilding(units: Unit[], x: number, y: number, ownerId: string): number {
+  return units.filter(u => {
+    if (u.ownerId !== ownerId) return false;
+    if (u.type !== 'citizen') return false;
+    if (!u.taskTarget) return false;
+    // taskTarget can be string or {x, y} - only handle coordinates
+    if (typeof u.taskTarget === 'string') return false;
+    // Check if worker is targeting this building (within 1 tile)
+    const dx = Math.abs(u.taskTarget.x - x);
+    const dy = Math.abs(u.taskTarget.y - y);
+    return dx <= 1 && dy <= 1 && 
+      (u.task === 'gather_food' || u.task === 'gather_wood' || 
+       u.task === 'gather_metal' || u.task === 'gather_gold' ||
+       u.task === 'gather_knowledge' || u.task === 'gather_oil');
+  }).length;
+}
+
+/**
+ * Get the task type for an economic building
+ */
+function getTaskForBuilding(buildingType: RoNBuildingType): string | null {
+  switch (buildingType) {
+    case 'farm':
+    case 'granary':
+      return 'gather_food';
+    case 'woodcutters_camp':
+    case 'lumber_mill':
+      return 'gather_wood';
+    case 'mine':
+    case 'smelter':
+      return 'gather_metal';
+    case 'market':
+      return 'gather_gold';
+    case 'library':
+    case 'university':
+      return 'gather_knowledge';
+    case 'oil_well':
+    case 'refinery':
+      return 'gather_oil';
+    default:
+      return null;
+  }
+}
+
+/**
+ * Automatically assign idle/moving citizens to economic buildings
+ * This is a high-level tool that makes the AI more effective
+ */
+export function executeAssignIdleWorkers(
+  state: RoNGameState,
+  aiPlayerId: string
+): { newState: RoNGameState; result: ToolResult } {
+  const player = state.players.find(p => p.id === aiPlayerId);
+  if (!player) {
+    return { newState: state, result: { success: false, message: 'AI player not found' } };
+  }
+
+  // Find idle or moving citizens
+  const idleCitizens = state.units.filter(u => 
+    u.ownerId === aiPlayerId && 
+    u.type === 'citizen' && 
+    (u.task === 'idle' || u.task === 'move')
+  );
+
+  if (idleCitizens.length === 0) {
+    return { newState: state, result: { success: true, message: 'No idle workers to assign', data: { assigned: 0 } } };
+  }
+
+  // Find economic buildings with capacity
+  const economicBuildings: Array<{
+    type: RoNBuildingType;
+    x: number;
+    y: number;
+    task: string;
+    priority: number; // Higher = more important
+    currentWorkers: number;
+    maxWorkers: number;
+  }> = [];
+
+  // Resource priority: food > wood > metal > gold > knowledge > oil
+  const resourcePriority: Record<string, number> = {
+    'gather_food': 100,
+    'gather_wood': 80,
+    'gather_metal': 60,
+    'gather_gold': 40,
+    'gather_knowledge': 20,
+    'gather_oil': 10,
+  };
+
+  // Scan for economic buildings
+  for (let y = 0; y < state.gridSize; y++) {
+    for (let x = 0; x < state.gridSize; x++) {
+      const tile = state.grid[y]?.[x];
+      if (!tile?.building || tile.building.ownerId !== aiPlayerId) continue;
+      if (tile.building.constructionProgress < 100) continue;
+
+      const buildingType = tile.building.type as RoNBuildingType;
+      if (!ECONOMIC_BUILDINGS.includes(buildingType)) continue;
+
+      const task = getTaskForBuilding(buildingType);
+      if (!task) continue;
+
+      const stats = BUILDING_STATS[buildingType];
+      const maxWorkers = stats?.maxWorkers ?? 5;
+      const currentWorkers = countWorkersAtBuilding(state.units, x, y, aiPlayerId);
+
+      if (currentWorkers < maxWorkers) {
+        economicBuildings.push({
+          type: buildingType,
+          x,
+          y,
+          task,
+          priority: resourcePriority[task] || 0,
+          currentWorkers,
+          maxWorkers,
+        });
+      }
+    }
+  }
+
+  if (economicBuildings.length === 0) {
+    return { newState: state, result: { success: true, message: 'No economic buildings with capacity', data: { assigned: 0 } } };
+  }
+
+  // Sort buildings by priority (food first) and then by how empty they are
+  economicBuildings.sort((a, b) => {
+    const aPct = a.currentWorkers / a.maxWorkers;
+    const bPct = b.currentWorkers / b.maxWorkers;
+    // Prioritize by resource type first, then by emptiness
+    if (a.priority !== b.priority) return b.priority - a.priority;
+    return aPct - bPct;
+  });
+
+  // Assign workers
+  let assigned = 0;
+  const newUnits = [...state.units];
+  
+  for (const citizen of idleCitizens) {
+    // Find closest building with capacity, prioritizing food
+    let bestBuilding = economicBuildings.find(b => b.currentWorkers < b.maxWorkers);
+    
+    if (!bestBuilding) break;
+
+    // Update the unit
+    const unitIndex = newUnits.findIndex(u => u.id === citizen.id);
+    if (unitIndex >= 0) {
+      newUnits[unitIndex] = {
+        ...newUnits[unitIndex],
+        task: bestBuilding.task as Unit['task'],
+        taskTarget: { x: bestBuilding.x, y: bestBuilding.y },
+        targetX: bestBuilding.x + (Math.random() - 0.5) * 0.5,
+        targetY: bestBuilding.y + (Math.random() - 0.5) * 0.5,
+        isMoving: true,
+        idleSince: undefined,
+      };
+      bestBuilding.currentWorkers++;
+      assigned++;
+    }
+  }
+
+  const tasksSummary = economicBuildings
+    .filter(b => b.currentWorkers > 0)
+    .slice(0, 5)
+    .map(b => `${b.task.replace('gather_', '')}@${b.x},${b.y}`)
+    .join(', ');
+
+  return {
+    newState: { ...state, units: newUnits },
+    result: { 
+      success: true, 
+      message: `Assigned ${assigned} workers. Tasks: ${tasksSummary || 'none'}`,
+      data: { assigned, buildings: economicBuildings.length },
+    },
   };
 }
