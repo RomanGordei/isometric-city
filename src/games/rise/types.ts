@@ -140,4 +140,5 @@ export interface RiseGameState {
   localPlayerId: string;
   aiEnabled: boolean;
   gameStatus: 'playing' | 'won' | 'lost';
+  lastDamageAt?: { x: number; y: number; time: number };
 }

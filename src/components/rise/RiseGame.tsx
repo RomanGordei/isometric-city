@@ -104,6 +104,11 @@ export default function RiseGame() {
     selectUnits(group.map(u => u.id));
   }, [state.units, state.localPlayerId, selectUnits]);
 
+  const jumpToLastAttack = React.useCallback(() => {
+    if (!state.lastDamageAt) return;
+    centerOnTile(state.lastDamageAt.x, state.lastDamageAt.y);
+  }, [state.lastDamageAt, centerOnTile]);
+
   const viewport = React.useMemo(() => {
     const canvasW = 1400;
     const canvasH = 900;
@@ -278,6 +283,14 @@ export default function RiseGame() {
               <span className="px-2 py-1 text-xs rounded-md bg-rose-600/40 text-rose-100 border border-rose-500/50">
                 Under attack!
               </span>
+            )}
+            {state.lastDamageAt && (
+              <button
+                className="px-2 py-1 text-xs rounded-md bg-rose-700/50 hover:bg-rose-600/60 text-rose-100 border border-rose-500/60"
+                onClick={jumpToLastAttack}
+              >
+                Jump to alert
+              </button>
             )}
             <button
               className="px-2 py-1 text-xs rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200"

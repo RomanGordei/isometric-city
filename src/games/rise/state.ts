@@ -314,6 +314,7 @@ export function initializeRiseState(gridSize = 48): RiseGameState {
     localPlayerId: 'player',
     aiEnabled: true,
     gameStatus: 'playing',
+    lastDamageAt: undefined,
   };
 }
 
@@ -410,6 +411,8 @@ export function tickState(state: RiseGameState, deltaSeconds: number): RiseGameS
   if (state.speed === 0) return state;
   const speedMult = SPEED_MULTIPLIERS[state.speed];
   const scaledDelta = deltaSeconds * speedMult;
+  const localId = state.localPlayerId;
+  let underAttackAt = state.lastDamageAt;
 
   let updatedUnits: RiseUnit[] = [];
   const updatedPlayers = state.players.map(p => ({ ...p }));
@@ -524,9 +527,19 @@ export function tickState(state: RiseGameState, deltaSeconds: number): RiseGameS
         if (targetUnit && targetUnit.ownerId !== newUnit.ownerId) {
           targetUnit.hp -= dmg;
           newUnit.attack = { ...newUnit.attack, cooldownRemaining: newUnit.attack.cooldown };
+          if (targetUnit.ownerId === localId) {
+            underAttackAt = {
+              x: Math.round(targetUnit.position.x),
+              y: Math.round(targetUnit.position.y),
+              time: state.elapsedSeconds + scaledDelta,
+            };
+          }
         } else if (targetBuilding && targetBuilding.ownerId !== newUnit.ownerId) {
           targetBuilding.hp -= dmg;
           newUnit.attack = { ...newUnit.attack, cooldownRemaining: newUnit.attack.cooldown };
+          if (targetBuilding.ownerId === localId) {
+            underAttackAt = { x: targetBuilding.tile.x, y: targetBuilding.tile.y, time: state.elapsedSeconds + scaledDelta };
+          }
         }
       }
     }
@@ -574,6 +587,7 @@ export function tickState(state: RiseGameState, deltaSeconds: number): RiseGameS
       tiles: territory,
       tick: state.tick + 1,
       elapsedSeconds: state.elapsedSeconds + scaledDelta,
+      lastDamageAt: underAttackAt,
     };
   }
 
@@ -595,6 +609,7 @@ export function tickState(state: RiseGameState, deltaSeconds: number): RiseGameS
     tick: state.tick + 1,
     elapsedSeconds: state.elapsedSeconds + scaledDelta,
     gameStatus,
+    lastDamageAt: underAttackAt,
   };
 }
 
