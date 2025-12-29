@@ -173,6 +173,14 @@ export function useAgenticAI(
                     },
                   };
                 }
+              } else if (action.type === 'resource_update') {
+                const { playerId, resources } = action.data as {
+                  playerId: string; resources: RoNPlayer['resources'];
+                };
+                console.log(`[AI SYNC] Resource boost for ${playerId}: food=${resources.food}, wood=${resources.wood}, metal=${resources.metal}`);
+                newPlayers = newPlayers.map(p => 
+                  p.id === playerId ? { ...p, resources } : p
+                );
               }
             }
             

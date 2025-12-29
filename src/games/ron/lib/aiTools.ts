@@ -880,6 +880,7 @@ function getTaskForBuilding(buildingType: RoNBuildingType): string | null {
     case 'university':
       return 'gather_knowledge';
     case 'oil_well':
+    case 'oil_platform':
     case 'refinery':
       return 'gather_oil';
     default:
@@ -925,22 +926,43 @@ export function executeAssignIdleWorkers(
   );
   
   // Find farmers to reassign if we have unproductive resource buildings
+  console.log(`[assign_workers] Checking rebalance: idleCount=${idleCitizens.length}, hasWoodBuilding=${hasWoodBuilding}, woodRate=${woodRate}, hasMineBuilding=${hasMineBuilding}, metalRate=${metalRate}`);
   if (idleCitizens.length === 0 && ((hasWoodBuilding && woodRate === 0) || (hasMineBuilding && metalRate === 0))) {
-    // Find workers on farms
+    // Find ALL workers (any task) to potentially reassign
+    const allWorkers = state.units.filter(u =>
+      u.ownerId === aiPlayerId &&
+      u.type === 'citizen'
+    );
+    console.log(`[assign_workers] All workers: ${allWorkers.map(w => `${w.id.slice(-6)}:${w.task}`).join(', ')}`);
+
+    // Find workers on farms OR metal (any resource task) to potentially reassign to wood
     const farmWorkers = state.units.filter(u =>
       u.ownerId === aiPlayerId &&
       u.type === 'citizen' &&
       u.task === 'gather_food'
     );
-    
-    // Take farmers to reassign to wood/metal (keep at least 1 farmer for food)
-    if (farmWorkers.length >= 2) {
-      // Reassign half of farmers (at least 1) to fix 0 wood/metal rate
-      const numToReassign = Math.max(1, Math.floor(farmWorkers.length / 2));
-      const toReassign = farmWorkers.slice(0, numToReassign);
+    const metalWorkers = state.units.filter(u =>
+      u.ownerId === aiPlayerId &&
+      u.type === 'citizen' &&
+      u.task === 'gather_metal'
+    );
+
+    // Priority: take from metal first (we have 1500 metal), then food
+    let workersToReassign: typeof farmWorkers = [];
+    if (woodRate === 0 && metalWorkers.length >= 2) {
+      workersToReassign = metalWorkers.slice(0, Math.max(1, Math.floor(metalWorkers.length / 2)));
+      console.log(`[assign_workers] Rebalancing: moving ${workersToReassign.length} workers from METAL to wood`);
+    } else if (farmWorkers.length >= 1) {
+      const numToReassign = Math.max(1, Math.min(2, Math.floor(farmWorkers.length / 2)));
+      workersToReassign = farmWorkers.slice(0, numToReassign);
+      console.log(`[assign_workers] Rebalancing: moving ${workersToReassign.length} workers from food to wood/metal`);
+    }
+
+    if (workersToReassign.length > 0) {
       // Convert them to "idle" temporarily so they get assigned to wood/metal
-      idleCitizens = toReassign.map(u => ({ ...u, task: 'idle' as const, taskTarget: undefined }));
-      console.log(`[assign_workers] Rebalancing: moving ${numToReassign} workers from food to wood/metal`);
+      idleCitizens = workersToReassign.map(u => ({ ...u, task: 'idle' as const, taskTarget: undefined }));
+    } else {
+      console.log(`[assign_workers] No workers to rebalance (farmWorkers: ${farmWorkers.length}, metalWorkers: ${metalWorkers.length})`);
     }
   }
 

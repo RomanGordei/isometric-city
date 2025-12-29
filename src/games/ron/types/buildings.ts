@@ -497,7 +497,10 @@ export const UNIT_PRODUCTION_BUILDINGS: Partial<Record<RoNBuildingType, string[]
 
 // Economic buildings that need workers
 export const ECONOMIC_BUILDINGS: RoNBuildingType[] = [
-  'farm', 'woodcutters_camp', 'mine', 'lumber_mill', 'smelter',
-  'market', 'oil_well', 'oil_platform', 'refinery',
+  'farm', 'granary',  // Food production
+  'woodcutters_camp', 'lumber_mill',  // Wood production
+  'mine', 'smelter',  // Metal production
+  'market',  // Gold production
+  'oil_well', 'oil_platform', 'refinery',  // Oil production
   'library', 'university'  // Knowledge production
 ];

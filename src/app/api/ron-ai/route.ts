@@ -223,6 +223,38 @@ export async function POST(request: NextRequest): Promise<NextResponse<AIRespons
     console.log(`[AGENT] Starting turn at tick ${gameState.tick}`);
     console.log('='.repeat(60));
 
+    // Check for resource boost
+    const boostFile = '/tmp/ron-ai-debug/ai-boost.json';
+    try {
+      const fs = await import('fs');
+      if (fs.existsSync(boostFile)) {
+        const boostData = JSON.parse(fs.readFileSync(boostFile, 'utf-8'));
+        if (!boostData.applied) {
+          const aiPlayer = currentState.players.find((p: { id: string }) => p.id === aiPlayerId);
+          if (aiPlayer) {
+            aiPlayer.resources.food += boostData.boost.food || 0;
+            aiPlayer.resources.wood += boostData.boost.wood || 0;
+            aiPlayer.resources.metal += boostData.boost.metal || 0;
+            aiPlayer.resources.gold += boostData.boost.gold || 0;
+            boostData.applied = true;
+            fs.writeFileSync(boostFile, JSON.stringify(boostData, null, 2));
+            console.log(`[AI BOOST] Applied: +${boostData.boost.food} food, +${boostData.boost.wood} wood, +${boostData.boost.metal} metal, +${boostData.boost.gold} gold`);
+            
+            // Add resource update action to sync to frontend
+            actions.push({
+              type: 'resource_update',
+              data: { 
+                playerId: aiPlayerId, 
+                resources: { ...aiPlayer.resources } 
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore boost errors
+    }
+
     // Initial prompt to the agent
     const turnPrompt = `New turn! Tick: ${gameState.tick}. Analyze the game state and take strategic actions. Remember: call get_game_state first, then assign_workers, then build/train as needed.`;
 

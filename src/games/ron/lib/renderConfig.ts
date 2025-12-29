@@ -321,6 +321,8 @@ export const AGE_BUILDING_OVERRIDES: Record<Age, Partial<Record<RoNBuildingType,
     bunker: { row: 4, col: 0 },
     // Fort - Row 0, Col 3 is gray brick building (fortified look)
     fort: { row: 0, col: 3 },
+    // Auto plant - Row 4, Col 0 is large industrial facility
+    auto_plant: { row: 4, col: 0 },
   },
   modern: {
     // City - Row 0, Col 1 is tall skyscraper
@@ -345,28 +347,9 @@ export const AGE_BUILDING_OVERRIDES: Record<Age, Partial<Record<RoNBuildingType,
     airbase: { row: 5, col: 0 },
     // Auto plant - Row 4, Col 2 is industrial manufacturing facility
     auto_plant: { row: 4, col: 2 },
-    // Dock - Row 5, col 0 is airport area (or use different)
-    dock: { row: 5, col: 0 },
-    // Mine - Row 4, Col 2 is factory (repurpose)
-    mine: { row: 4, col: 2 },
-    // Smelter - Row 0, Col 2 is power plant
-    smelter: { row: 0, col: 2 },
     // Granary - Row 4, Col 1 is warehouse/logistics
     granary: { row: 4, col: 1 },
-    // Factory - Row 4, Col 2 is smokestack factory
-    factory: { row: 4, col: 2 },
-    // Oil well - Row 4, Col 4 is refinery towers
-    oil_well: { row: 4, col: 4 },
-    // Refinery - Row 4, Col 3 is heavy industrial
-    refinery: { row: 4, col: 3 },
-    // Auto plant - Row 4, Col 0 is large industrial facility
-    auto_plant: { row: 4, col: 0 },
-    // Siege factory - Row 4, Col 1 is hangar/warehouse
-    siege_factory: { row: 4, col: 1 },
-    // Bunker - Row 1, Col 3 police station (fortified)
-    bunker: { row: 1, col: 3 },
-    // Fort/Fortress - Use Medieval fallback (stone fortress) - removed from overrides
-    // Stable - Row 4, Col 1 is warehouse/logistics depot with trucks!
+    // Stable - Row 4, Col 1 is warehouse/logistics depot
     stable: { row: 4, col: 1 },
   },
 };
@@ -497,6 +480,7 @@ export const CONSTRUCTION_VERTICAL_OFFSETS: Partial<Record<RoNBuildingType, numb
   smelter: 0.1,         // Slight shift for construction
   market: 0.0,          // Will use cropTop instead
   auto_plant: -0.3,     // Shift up 0.3 tiles
+  oil_well: 1.0,        // Shift down 1 full tile
 };
 
 // Construction-specific top cropping (fraction of sprite height to remove from top)
@@ -519,6 +503,7 @@ export const AGE_BUILDING_CROP: Partial<Record<Age, Partial<Record<RoNBuildingTy
     market: { cropTop: 0.25, cropBottom: 0.1 },  // 0.5 tiles lower at top (~25%), 0.2 lower at bottom (~10%)
     library: { cropTop: 0.15, cropBottom: 0.15 }, // 0.3 tiles lower at top and bottom (~15% each)
     university: { cropTop: 0.15, cropBottom: 0.15 }, // 0.3 tiles lower at top and bottom (~15% each)
+    oil_well: { cropTop: 0.2, cropBottom: 0.2 }, // 0.4 tiles lower at top and bottom (~20% each)
   },
 };
 
