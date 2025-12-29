@@ -407,11 +407,42 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
     setState(prev => {
       // Get all selected units for formation calculation
       const selectedUnits = prev.units.filter(u => u.isSelected);
-      const numSelected = selectedUnits.length;
+      
+      // Check building capacity for gather tasks
+      let maxToAssign = selectedUnits.length;
+      if (task.startsWith('gather_') && target && typeof target === 'object' && 'x' in target) {
+        const tile = prev.grid[target.y]?.[target.x];
+        if (tile?.building) {
+          const buildingStats = BUILDING_STATS[tile.building.type as RoNBuildingType];
+          const maxWorkers = buildingStats?.maxWorkers ?? 999;
+          
+          // Count current workers at this building
+          let currentWorkers = 0;
+          for (const unit of prev.units) {
+            if (!unit.isSelected && unit.task?.startsWith('gather_')) {
+              const unitTarget = unit.taskTarget;
+              if (unitTarget && typeof unitTarget === 'object' && 'x' in unitTarget) {
+                if (Math.floor(unitTarget.x) === target.x && Math.floor(unitTarget.y) === target.y) {
+                  currentWorkers++;
+                }
+              }
+            }
+          }
+          
+          // Limit how many we can assign
+          maxToAssign = Math.max(0, maxWorkers - currentWorkers);
+        }
+      }
       
       let unitIndex = 0;
+      let assignedCount = 0;
       const updatedUnits = prev.units.map(u => {
         if (!u.isSelected) return u;
+
+        // Skip if we've reached capacity
+        if (task.startsWith('gather_') && assignedCount >= maxToAssign) {
+          return u; // Don't assign this unit
+        }
 
         const newUnit = { ...u, task, taskTarget: target };
 
@@ -421,13 +452,14 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
           let offsetX = 0;
           let offsetY = 0;
           
-          if (numSelected > 1) {
+          const effectiveNumSelected = Math.min(selectedUnits.length, maxToAssign);
+          if (effectiveNumSelected > 1) {
             const spreadRadius = 0.6;
             if (unitIndex === 0) {
               offsetX = 0;
               offsetY = 0;
             } else {
-              const angle = (unitIndex - 1) * (Math.PI * 2 / Math.max(1, numSelected - 1));
+              const angle = (unitIndex - 1) * (Math.PI * 2 / Math.max(1, effectiveNumSelected - 1));
               const ring = Math.floor((unitIndex - 1) / 6) + 1;
               offsetX = Math.cos(angle) * spreadRadius * ring;
               offsetY = Math.sin(angle) * spreadRadius * ring;
@@ -440,6 +472,7 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
         }
         
         unitIndex++;
+        assignedCount++;
 
         return newUnit;
       });

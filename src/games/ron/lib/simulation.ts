@@ -34,34 +34,58 @@ const AUTO_WORK_SEARCH_RADIUS = 6; // Tiles radius to search for nearby work
 const CITY_CENTER_TYPES: RoNBuildingType[] = ['city_center', 'small_city', 'large_city', 'major_city'];
 
 /**
- * Get the territory owner for a specific tile position.
- * Territory is determined by proximity to city centers.
- * Returns the player ID who owns the territory, or null if unclaimed.
+ * City center cache for performance - avoid scanning entire grid repeatedly
  */
-export function getTerritoryOwner(
-  grid: RoNTile[][],
-  gridSize: number,
-  x: number,
-  y: number
-): string | null {
-  let closestOwner: string | null = null;
-  let closestDistance = Infinity;
-  
-  // Find all city centers and their distances
+type CityCenter = { x: number; y: number; ownerId: string };
+let cachedCityCenters: CityCenter[] = [];
+let cityCenterCacheVersion = -1;
+
+/**
+ * Extract all city centers from the grid (call once per frame/tick, not per tile)
+ */
+export function extractCityCenters(grid: RoNTile[][], gridSize: number): CityCenter[] {
+  const centers: CityCenter[] = [];
   for (let cy = 0; cy < gridSize; cy++) {
     for (let cx = 0; cx < gridSize; cx++) {
       const tile = grid[cy]?.[cx];
       if (!tile?.building) continue;
       
-      if (CITY_CENTER_TYPES.includes(tile.building.type as RoNBuildingType)) {
-        const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
-        
-        // Only count if within city center radius
-        if (dist <= CITY_CENTER_RADIUS && dist < closestDistance) {
-          closestDistance = dist;
-          closestOwner = tile.building.ownerId;
-        }
+      if (CITY_CENTER_TYPES.includes(tile.building.type as RoNBuildingType) && tile.building.ownerId) {
+        centers.push({ x: cx, y: cy, ownerId: tile.building.ownerId });
       }
+    }
+  }
+  return centers;
+}
+
+/**
+ * Get the territory owner for a specific tile position.
+ * Territory is determined by proximity to city centers.
+ * Returns the player ID who owns the territory, or null if unclaimed.
+ * 
+ * PERFORMANCE: Pass pre-computed cityCenters array to avoid O(n²) grid scan per call.
+ */
+export function getTerritoryOwner(
+  grid: RoNTile[][],
+  gridSize: number,
+  x: number,
+  y: number,
+  cityCenters?: CityCenter[]
+): string | null {
+  // Use provided city centers or extract them (fallback for backwards compatibility)
+  const centers = cityCenters ?? extractCityCenters(grid, gridSize);
+  
+  let closestOwner: string | null = null;
+  let closestDistance = Infinity;
+  
+  // Find closest city center
+  for (const center of centers) {
+    const dist = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
+    
+    // Only count if within city center radius
+    if (dist <= CITY_CENTER_RADIUS && dist < closestDistance) {
+      closestDistance = dist;
+      closestOwner = center.ownerId;
     }
   }
   
@@ -537,13 +561,39 @@ function findNearbyEnemies(
 }
 
 /**
+ * Count workers assigned to a building (including those en route)
+ */
+function countWorkersAtBuilding(
+  units: Unit[],
+  buildingX: number,
+  buildingY: number,
+  ownerId: string
+): number {
+  let count = 0;
+  for (const unit of units) {
+    if (unit.ownerId !== ownerId) continue;
+    if (!unit.task?.startsWith('gather_')) continue;
+    
+    const target = unit.taskTarget;
+    if (target && typeof target === 'object' && 'x' in target) {
+      // Check if targeting this building (allow small tolerance for float positions)
+      if (Math.floor(target.x) === buildingX && Math.floor(target.y) === buildingY) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+/**
  * Find nearby economic buildings that a citizen can work at
  */
 function findNearbyEconomicBuilding(
   unit: Unit,
   grid: RoNTile[][],
   gridSize: number,
-  radius: number
+  radius: number,
+  allUnits: Unit[]
 ): { x: number; y: number; type: RoNBuildingType; task: UnitTask } | null {
   const unitX = Math.floor(unit.x);
   const unitY = Math.floor(unit.y);
@@ -565,6 +615,12 @@ function findNearbyEconomicBuilding(
       
       // Check if this is an economic building
       if (!ECONOMIC_BUILDINGS.includes(tile.building.type)) continue;
+      
+      // Check worker capacity
+      const buildingStats = BUILDING_STATS[tile.building.type as RoNBuildingType];
+      const maxWorkers = buildingStats?.maxWorkers ?? 999;
+      const currentWorkers = countWorkersAtBuilding(allUnits, gx, gy, unit.ownerId);
+      if (currentWorkers >= maxWorkers) continue; // Building is full
       
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > radius) continue; // Circular radius check
@@ -631,12 +687,13 @@ function updateUnits(state: RoNGameState): RoNGameState {
         // Check if idle long enough to auto-assign work
         const idleDuration = state.tick - updatedUnit.idleSince;
         if (idleDuration >= IDLE_AUTO_WORK_THRESHOLD) {
-          // Find nearby economic building to work at
+          // Find nearby economic building to work at (pass all units for capacity check)
           const nearbyWork = findNearbyEconomicBuilding(
             updatedUnit,
             state.grid,
             state.gridSize,
-            AUTO_WORK_SEARCH_RADIUS
+            AUTO_WORK_SEARCH_RADIUS,
+            state.units
           );
           
           if (nearbyWork) {
@@ -1170,7 +1227,7 @@ function aiAssignIdleWorkers(state: RoNGameState, player: RoNPlayer): RoNGameSta
   
   if (idleCitizens.length === 0) return state;
   
-  // Find economic buildings that need workers
+  // Find economic buildings that need workers (with capacity available)
   const economicBuildings: Array<{ x: number; y: number; type: RoNBuildingType }> = [];
   
   state.grid.forEach((row, y) => {
@@ -1179,14 +1236,20 @@ function aiAssignIdleWorkers(state: RoNGameState, player: RoNPlayer): RoNGameSta
           tile.building && 
           tile.building.constructionProgress >= 100 &&
           ECONOMIC_BUILDINGS.includes(tile.building.type)) {
-        economicBuildings.push({ x, y, type: tile.building.type });
+        // Check worker capacity
+        const buildingStats = BUILDING_STATS[tile.building.type as RoNBuildingType];
+        const maxWorkers = buildingStats?.maxWorkers ?? 999;
+        const currentWorkers = countWorkersAtBuilding(state.units, x, y, player.id);
+        if (currentWorkers < maxWorkers) {
+          economicBuildings.push({ x, y, type: tile.building.type });
+        }
       }
     });
   });
   
   if (economicBuildings.length === 0) return state;
   
-  // Assign first idle citizen to a random building
+  // Assign first idle citizen to a random building with capacity
   const citizen = idleCitizens[0];
   const building = economicBuildings[Math.floor(Math.random() * economicBuildings.length)];
   

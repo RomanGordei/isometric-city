@@ -39,7 +39,7 @@ import {
   drawFireEffect,
 } from '@/components/game/shared';
 import { drawRoNUnit } from '../lib/drawUnits';
-import { getTerritoryOwner } from '../lib/simulation';
+import { getTerritoryOwner, extractCityCenters } from '../lib/simulation';
 
 /**
  * Find the origin tile of a multi-tile building by searching backwards from a clicked position.
@@ -182,10 +182,14 @@ function isAdjacentToOil(
   return false;
 }
 
+// Type for pre-computed city centers
+type CityCenter = { x: number; y: number; ownerId: string };
+
 /**
  * Check if a building placement is valid at the given position.
  * Returns true if valid, false if invalid.
  * Buildings can only be placed within player's territory (except city centers and roads).
+ * PERF: Pass pre-computed cityCenters to avoid O(n²) grid scan.
  */
 function isBuildingPlacementValid(
   buildingType: RoNBuildingType,
@@ -193,7 +197,8 @@ function isBuildingPlacementValid(
   gridY: number,
   grid: import('../types/game').RoNTile[][],
   gridSize: number,
-  currentPlayerId?: string
+  currentPlayerId?: string,
+  cityCenters?: CityCenter[]
 ): boolean {
   // Roads can only be placed on empty/grass terrain, not on existing buildings
   if (buildingType === 'road') {
@@ -215,7 +220,7 @@ function isBuildingPlacementValid(
   if (buildingType === 'city_center' || buildingType === 'small_city' || 
       buildingType === 'large_city' || buildingType === 'major_city') {
     // Check territory isn't owned by enemy
-    const owner = getTerritoryOwner(grid, gridSize, gridX, gridY);
+    const owner = getTerritoryOwner(grid, gridSize, gridX, gridY, cityCenters);
     if (owner !== null && owner !== currentPlayerId) {
       return false; // Can't place in enemy territory
     }
@@ -224,7 +229,7 @@ function isBuildingPlacementValid(
   
   // All other buildings must be in player's territory
   if (currentPlayerId) {
-    const territoryOwner = getTerritoryOwner(grid, gridSize, gridX, gridY);
+    const territoryOwner = getTerritoryOwner(grid, gridSize, gridX, gridY, cityCenters);
     if (territoryOwner !== currentPlayerId) {
       return false; // Must be in own territory
     }
@@ -1055,6 +1060,9 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
       lastFrameTimeRef.current = now;
       fireAnimTimeRef.current += delta;
       
+      // PERF: Pre-compute city centers ONCE per frame for all territory lookups
+      const cityCenters = extractCityCenters(gameState.grid, gameState.gridSize);
+      
       // Disable image smoothing for crisp pixel art
       ctx.imageSmoothingEnabled = false;
       
@@ -1093,6 +1101,9 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
           const isSelected = gameState.selectedBuildingPos?.x === x && 
                             gameState.selectedBuildingPos?.y === y;
           
+          // Check if this tile is part of a dock (skip green base - water drawn in building pass)
+          const isPartOfDock = hasDock(gameState.grid, x, y, gameState.gridSize);
+          
           // Draw terrain
           if (tile.terrain === 'water') {
             // Check adjacent water tiles
@@ -1103,6 +1114,9 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
               west: y < gameState.gridSize - 1 && gameState.grid[y + 1]?.[x]?.terrain === 'water',
             };
             drawWaterTile(ctx, screenX, screenY, x, y, adjacentWater);
+          } else if (isPartOfDock) {
+            // Skip green base for dock tiles - water will be drawn in building pass
+            // Do nothing here
           } else {
             // Determine zone color based on ownership/deposits
             let zoneType: 'none' | 'residential' | 'commercial' | 'industrial' = 'none';
@@ -1379,7 +1393,8 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
                 y,
                 gameState.grid,
                 gameState.gridSize,
-                gameState.currentPlayerId
+                gameState.currentPlayerId,
+                cityCenters
               );
               drawTileHighlight(ctx, screenX, screenY, isValidPlacement ? 'hover' : 'invalid');
             } else {
@@ -1449,15 +1464,17 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
       // Territory borders pass: Draw warring-states style borders where territories meet
       // Build a territory ownership map and draw border lines between different owners
       ctx.save();
-      
+
       // Cache territory ownership for visible tiles to avoid recalculating
+      // Uses cityCenters already pre-computed at start of render
       const territoryCache: Map<string, string | null> = new Map();
       const getTileOwner = (gx: number, gy: number): string | null => {
         const key = `${gx},${gy}`;
         if (territoryCache.has(key)) {
           return territoryCache.get(key) || null;
         }
-        const owner = getTerritoryOwner(gameState.grid, gameState.gridSize, gx, gy);
+        // Pass pre-computed city centers for O(k) instead of O(n²) lookup
+        const owner = getTerritoryOwner(gameState.grid, gameState.gridSize, gx, gy, cityCenters);
         territoryCache.set(key, owner);
         return owner;
       };

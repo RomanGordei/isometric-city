@@ -100,6 +100,7 @@ export interface BuildingStats {
   attackDamage?: number;  // If building can attack
   attackRange?: number;   // Attack range in tiles
   visionRange?: number;   // How far it can see
+  maxWorkers?: number;    // Maximum workers that can gather at this building
 }
 
 // Sprite sheet position for each building type
@@ -169,6 +170,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     buildTime: 40,
     minAge: 'classical',
     size: { width: 1, height: 1 },
+    maxWorkers: 5,
   },
   woodcutters_camp: { 
     cost: { wood: 30 }, 
@@ -176,6 +178,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     buildTime: 30, 
     minAge: 'classical', 
     size: { width: 1, height: 1 },
+    maxWorkers: 5,
   },
   granary: { 
     cost: { wood: 80 }, 
@@ -184,6 +187,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     minAge: 'classical', 
     size: { width: 1, height: 1 },
     providesStorage: { food: 300 },
+    maxWorkers: 5,
   },
   lumber_mill: {
     cost: { wood: 100, gold: 30 },
@@ -192,6 +196,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     minAge: 'classical',
     size: { width: 1, height: 1 },
     gatherBonus: { wood: 0.25 },
+    maxWorkers: 5,
   },
   mine: {
     cost: { wood: 80, gold: 50 },
@@ -199,6 +204,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     buildTime: 70,
     minAge: 'classical',
     size: { width: 1, height: 1 },
+    maxWorkers: 5,
   },
   smelter: { 
     cost: { wood: 120, gold: 80, metal: 50 }, 
@@ -207,6 +213,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     minAge: 'medieval', 
     size: { width: 2, height: 2 },
     gatherBonus: { metal: 0.3 },
+    maxWorkers: 8,
   },
   market: { 
     cost: { wood: 100, gold: 50 }, 
@@ -214,6 +221,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     buildTime: 60, 
     minAge: 'classical', 
     size: { width: 2, height: 2 },
+    maxWorkers: 5,
   },
   oil_well: { 
     cost: { wood: 200, metal: 150, gold: 100 }, 
@@ -221,6 +229,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     buildTime: 100, 
     minAge: 'industrial', 
     size: { width: 1, height: 1 },
+    maxWorkers: 4,
   },
   oil_platform: { 
     cost: { wood: 300, metal: 250, gold: 200 }, 
@@ -228,6 +237,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     buildTime: 150, 
     minAge: 'industrial', 
     size: { width: 2, height: 2 },
+    maxWorkers: 6,
   },
   refinery: { 
     cost: { wood: 250, metal: 200, gold: 150 }, 
