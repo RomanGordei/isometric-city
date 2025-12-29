@@ -54,6 +54,21 @@ Made with [Cursor](https://cursor.com)
 
 4.  **Open the game:**
     Visit [http://localhost:3000](http://localhost:3000) in your browser.
+    - Rise prototype: [http://localhost:3000/rise](http://localhost:3000/rise)
+
+### Production build
+
+`npm run build` is configured to set `TURBOPACK=0` to avoid upstream font resolution issues in turbopack. If you run `next build` directly, set `TURBOPACK=0` in your environment for the same behavior.
+
+## Rise mode controls (prototype)
+
+- Speed: `1/2/3`, Pause: `0` or `Space`
+- Spawn citizen: `C`; Age up: `A`
+- Build: Barracks `B`, Farm `F`
+- Selection helpers: Idle worker `I`, Army group cycle `M`
+- Camera: Pan `WASD` / Arrows; Center on city `H`, enemy `E`
+- Alerts: Jump to last alert `J`; Toggle alerts `L`; Clear selection/build `Esc`
+- Mouse: Drag to select; Right-click to move/gather/attack; Shift+Right-click = attack-move
 
 ## Contributing
 
