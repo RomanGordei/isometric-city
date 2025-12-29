@@ -40,6 +40,11 @@ export default function RiseGame() {
         state.units.some(u => u.ownerId === state.localPlayerId && u.hp < u.maxHp)),
     [state.buildings, state.units, state.localPlayerId, state.gameStatus]
   );
+  const alertInfo = React.useMemo(() => {
+    if (!state.lastDamageAt) return null;
+    const age = state.elapsedSeconds - state.lastDamageAt.time;
+    return { age, x: state.lastDamageAt.x, y: state.lastDamageAt.y };
+  }, [state.lastDamageAt, state.elapsedSeconds]);
 
   const panCamera = React.useCallback((dx: number, dy: number) => {
     setOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
@@ -287,13 +292,17 @@ export default function RiseGame() {
                 Under attack!
               </span>
             )}
-            {state.lastDamageAt && (
-              <button
-                className="px-2 py-1 text-xs rounded-md bg-rose-700/50 hover:bg-rose-600/60 text-rose-100 border border-rose-500/60"
-                onClick={jumpToLastAttack}
-              >
-                Jump to alert
-              </button>
+            {alertInfo && (
+              <div className="flex items-center gap-1 bg-rose-900/40 border border-rose-700 rounded-md px-2 py-1 text-rose-100 text-[11px]">
+                <span>Alert {Math.max(0, Math.floor(alertInfo.age))}s ago</span>
+                <button
+                  className="px-1.5 py-0.5 bg-rose-700/60 hover:bg-rose-600 rounded text-[11px] font-semibold"
+                  onClick={jumpToLastAttack}
+                  title="Jump to last alert (hotkey: J)"
+                >
+                  Jump
+                </button>
+              </div>
             )}
             <button
               className="px-2 py-1 text-xs rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200"
