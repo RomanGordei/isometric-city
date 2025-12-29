@@ -87,6 +87,155 @@ function findBuildingOrigin(
 // IsoCity sprite sheet path for trees
 const ISOCITY_SPRITE_PATH = '/assets/sprites_red_water_new.png';
 
+/**
+ * Draw a road tile with proper corners/turns based on adjacent roads.
+ * Adapts style based on age (ancient = dirt, modern = asphalt).
+ */
+function drawRoNRoad(
+  ctx: CanvasRenderingContext2D,
+  screenX: number,
+  screenY: number,
+  gridX: number,
+  gridY: number,
+  grid: import('../types/game').RoNTile[][],
+  gridSize: number,
+  age: import('../types/ages').Age
+): void {
+  const w = TILE_WIDTH;
+  const h = TILE_HEIGHT;
+  const cx = screenX + w / 2;
+  const cy = screenY + h / 2;
+  
+  // Check adjacency
+  const hasRoad = (x: number, y: number) => {
+    if (x < 0 || x >= gridSize || y < 0 || y >= gridSize) return false;
+    const tile = grid[y]?.[x];
+    return tile?.building?.type === 'road';
+  };
+  
+  const north = hasRoad(gridX - 1, gridY);  // top-left edge
+  const east = hasRoad(gridX, gridY - 1);   // top-right edge
+  const south = hasRoad(gridX + 1, gridY);  // bottom-right edge
+  const west = hasRoad(gridX, gridY + 1);   // bottom-left edge
+  
+  // Age-based road colors
+  const AGE_ORDER_LOCAL = ['ancient', 'classical', 'medieval', 'enlightenment', 'industrial', 'modern', 'information'];
+  const ageIndex = AGE_ORDER_LOCAL.indexOf(age);
+  
+  let roadColor: string;
+  let edgeColor: string;
+  let centerLineColor: string | null = null;
+  
+  if (ageIndex <= 1) {
+    // Ancient/Classical - dirt road
+    roadColor = '#8B7355';
+    edgeColor = '#6B5344';
+  } else if (ageIndex <= 2) {
+    // Medieval - cobblestone
+    roadColor = '#6B6B6B';
+    edgeColor = '#4B4B4B';
+  } else if (ageIndex <= 3) {
+    // Enlightenment - improved cobblestone
+    roadColor = '#5A5A5A';
+    edgeColor = '#3A3A3A';
+  } else {
+    // Industrial+ - asphalt with markings
+    roadColor = '#3A3A3A';
+    edgeColor = '#2A2A2A';
+    centerLineColor = '#FFD700';
+  }
+  
+  // Road width (narrower than full tile)
+  const roadWidth = w * 0.35;
+  
+  // Edge midpoints
+  const topMidX = screenX + w * 0.25;
+  const topMidY = screenY + h * 0.25;
+  const rightMidX = screenX + w * 0.75;
+  const rightMidY = screenY + h * 0.25;
+  const bottomMidX = screenX + w * 0.75;
+  const bottomMidY = screenY + h * 0.75;
+  const leftMidX = screenX + w * 0.25;
+  const leftMidY = screenY + h * 0.75;
+  
+  // Draw base tile (dirt/grass under road)
+  ctx.fillStyle = '#4a7c3f';
+  ctx.beginPath();
+  ctx.moveTo(screenX + w / 2, screenY);
+  ctx.lineTo(screenX + w, screenY + h / 2);
+  ctx.lineTo(screenX + w / 2, screenY + h);
+  ctx.lineTo(screenX, screenY + h / 2);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Draw road segments based on connections
+  ctx.fillStyle = roadColor;
+  ctx.strokeStyle = edgeColor;
+  ctx.lineWidth = 1;
+  
+  const drawRoadSegment = (fromX: number, fromY: number, toX: number, toY: number) => {
+    // Calculate perpendicular direction for road width
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const perpX = (-dy / len) * (roadWidth / 2);
+    const perpY = (dx / len) * (roadWidth / 2);
+    
+    ctx.beginPath();
+    ctx.moveTo(fromX + perpX, fromY + perpY);
+    ctx.lineTo(toX + perpX, toY + perpY);
+    ctx.lineTo(toX - perpX, toY - perpY);
+    ctx.lineTo(fromX - perpX, fromY - perpY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  };
+  
+  // Draw connected segments
+  if (north) drawRoadSegment(cx, cy, topMidX, topMidY);
+  if (east) drawRoadSegment(cx, cy, rightMidX, rightMidY);
+  if (south) drawRoadSegment(cx, cy, bottomMidX, bottomMidY);
+  if (west) drawRoadSegment(cx, cy, leftMidX, leftMidY);
+  
+  // Draw center intersection/circle
+  const centerRadius = roadWidth * 0.4;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, centerRadius, centerRadius * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  
+  // If no connections, draw a small road stub
+  if (!north && !east && !south && !west) {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, roadWidth * 0.5, roadWidth * 0.25, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  
+  // Draw center line for modern roads
+  if (centerLineColor && (north || south || east || west)) {
+    ctx.strokeStyle = centerLineColor;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    
+    if (north && south && !east && !west) {
+      // Straight north-south
+      ctx.beginPath();
+      ctx.moveTo(topMidX, topMidY);
+      ctx.lineTo(bottomMidX, bottomMidY);
+      ctx.stroke();
+    } else if (east && west && !north && !south) {
+      // Straight east-west
+      ctx.beginPath();
+      ctx.moveTo(rightMidX, rightMidY);
+      ctx.lineTo(leftMidX, leftMidY);
+      ctx.stroke();
+    }
+    
+    ctx.setLineDash([]);
+  }
+}
+
 interface RoNCanvasProps {
   navigationTarget?: { x: number; y: number } | null;
   onNavigationComplete?: () => void;
@@ -642,11 +791,25 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete }: RoNCanvasP
         }
       }
       
-      // Second pass: Draw buildings (after all terrain so they appear on top)
+      // Second pass: Draw roads (need special handling for corners/turns)
       for (let y = 0; y < gameState.gridSize; y++) {
         for (let x = 0; x < gameState.gridSize; x++) {
           const tile = gameState.grid[y]?.[x];
-          if (!tile?.building) continue;
+          if (!tile?.building || tile.building.type !== 'road') continue;
+          
+          const { screenX, screenY } = gridToScreen(x, y, 0, 0);
+          if (!isTileVisible(screenX, screenY, viewBounds)) continue;
+          
+          // Draw road with proper corners/turns
+          drawRoNRoad(ctx, screenX, screenY, x, y, gameState.grid, gameState.gridSize, playerAge);
+        }
+      }
+      
+      // Third pass: Draw buildings (after all terrain so they appear on top)
+      for (let y = 0; y < gameState.gridSize; y++) {
+        for (let x = 0; x < gameState.gridSize; x++) {
+          const tile = gameState.grid[y]?.[x];
+          if (!tile?.building || tile.building.type === 'road') continue; // Skip roads, drawn above
           
           const { screenX, screenY } = gridToScreen(x, y, 0, 0);
           if (!isTileVisible(screenX, screenY, viewBounds)) continue;
@@ -703,7 +866,7 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete }: RoNCanvasP
         }
       }
       
-      // Third pass: Draw units
+      // Fourth pass: Draw units
       gameState.units.forEach(unit => {
         const { screenX, screenY } = gridToScreen(unit.x, unit.y, 0, 0);
         

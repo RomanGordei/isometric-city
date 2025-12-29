@@ -6,3 +6,4 @@
  */
 
 export * from './isometricRenderer';
+export * from './SpeedControl';

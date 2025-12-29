@@ -14,6 +14,8 @@ import { RoNBuildingPanel } from './RoNBuildingPanel';
 import { Button } from '@/components/ui/button';
 import { AGE_INFO } from '../types/ages';
 import { PLAYER_COLORS } from '../lib/renderConfig';
+import { SpeedControl } from '@/components/game/shared';
+import { StatBadge } from '@/components/game/TopBar';
 
 function GameContent({ onExit }: { onExit?: () => void }) {
   const { state, getCurrentPlayer, newGame, selectedBuildingPos } = useRoN();
