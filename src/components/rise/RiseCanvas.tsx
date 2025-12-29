@@ -76,10 +76,12 @@ export function RiseCanvas({
   activeBuild,
   onBuildPlaced,
   offset,
+  showAlerts = true,
 }: {
   activeBuild?: string | null;
   onBuildPlaced?: () => void;
   offset: { x: number; y: number };
+  showAlerts?: boolean;
 }) {
   const { state, issueMove, issueGather, selectUnits, placeBuilding, issueAttack } = useRiseGame();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -231,7 +233,7 @@ export function RiseCanvas({
     }
 
     // Last damage ping (fade over 8s)
-    if (state.lastDamageAt) {
+    if (showAlerts && state.lastDamageAt) {
       const age = state.elapsedSeconds - state.lastDamageAt.time;
       if (age <= 8) {
         const { x: sx, y: sy } = gridToScreen(state.lastDamageAt.x, state.lastDamageAt.y, offset);
@@ -260,7 +262,7 @@ export function RiseCanvas({
       ctx.stroke();
       ctx.setLineDash([]);
     }
-  }, [state, dragStart, dragEnd, offset, spriteImage, activeBuild, hoverTile, isPlacementValid, lastCommand]);
+  }, [state, dragStart, dragEnd, offset, spriteImage, activeBuild, hoverTile, isPlacementValid, lastCommand, showAlerts]);
 
   // Event handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {

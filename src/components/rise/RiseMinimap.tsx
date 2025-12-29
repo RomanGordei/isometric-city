@@ -14,10 +14,12 @@ export function RiseMinimap({
   state,
   onNavigate,
   viewport,
+  showAlerts = true,
 }: {
   state: RiseGameState;
   onNavigate?: (x: number, y: number) => void;
   viewport?: { x1: number; y1: number; x2: number; y2: number };
+  showAlerts?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const size = 200;
@@ -56,7 +58,7 @@ export function RiseMinimap({
     }
 
     // alert ping (last damage)
-    if (state.lastDamageAt && alertAge <= 8) {
+    if (showAlerts && state.lastDamageAt && alertAge <= 8) {
       const alpha = Math.max(0, 1 - alertAge / 8);
       const pingSize = scale * 4;
       ctx.strokeStyle = `rgba(239,68,68,${alpha})`;
@@ -84,7 +86,7 @@ export function RiseMinimap({
       ctx.arc(u.position.x * scale, u.position.y * scale, Math.max(1.5, scale * 0.6), 0, Math.PI * 2);
       ctx.fill();
     }
-  }, [state, size, viewport]);
+  }, [state, size, viewport, showAlerts]);
 
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2 shadow-lg">

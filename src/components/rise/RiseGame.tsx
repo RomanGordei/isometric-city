@@ -24,6 +24,7 @@ export default function RiseGame() {
   const { state, setSpeed, spawnCitizen, trainUnit, ageUp, setAIDifficulty, restart, selectUnits } = useRiseGame();
   const [activeBuild, setActiveBuild] = React.useState<string | null>(null);
   const [offset, setOffset] = React.useState<{ x: number; y: number }>({ x: 520, y: 120 });
+  const [showAlerts, setShowAlerts] = React.useState(true);
   const player = state.players.find(p => p.id === state.localPlayerId);
   const ageLabel = useMemo(() => {
     if (!player) return '';
@@ -208,7 +209,7 @@ export default function RiseGame() {
 
   return (
     <div className="w-full h-full min-h-screen bg-slate-950 text-slate-100 flex flex-col gap-3 p-3">
-      {alertInfo && alertInfo.age < 8 && (
+      {showAlerts && alertInfo && alertInfo.age < 8 && (
         <div className="fixed top-4 right-4 z-40">
           <div className="bg-rose-900/80 border border-rose-700 rounded-lg px-4 py-3 shadow-xl text-sm text-rose-50 flex items-center gap-3">
             <div className="flex flex-col">
@@ -305,12 +306,12 @@ export default function RiseGame() {
             >
               Restart
             </button>
-            {underAttack && (
+            {showAlerts && underAttack && (
               <span className="px-2 py-1 text-xs rounded-md bg-rose-600/40 text-rose-100 border border-rose-500/50">
                 Under attack!
               </span>
             )}
-            {alertInfo && (
+            {showAlerts && alertInfo && (
               <div className="flex items-center gap-1 bg-rose-900/40 border border-rose-700 rounded-md px-2 py-1 text-rose-100 text-[11px]">
                 <span>Alert {Math.max(0, Math.floor(alertInfo.age))}s ago</span>
                 <button
@@ -351,6 +352,13 @@ export default function RiseGame() {
               title="Select next army group (hotkey: M)"
             >
               Army (M)
+            </button>
+            <button
+              className={`px-2 py-1 text-xs rounded-md ${showAlerts ? 'bg-emerald-700/70 hover:bg-emerald-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'} border border-slate-700`}
+              onClick={() => setShowAlerts(!showAlerts)}
+              title="Toggle alert pings/toasts"
+            >
+              Alerts: {showAlerts ? 'On' : 'Off'}
             </button>
           </div>
         </div>
@@ -422,7 +430,7 @@ export default function RiseGame() {
         </div>
 
         <div className="relative flex-1 min-h-[720px] rounded-lg overflow-hidden border border-slate-800 bg-slate-900/60">
-          <RiseCanvas activeBuild={activeBuild} onBuildPlaced={() => setActiveBuild(null)} offset={offset} />
+          <RiseCanvas activeBuild={activeBuild} onBuildPlaced={() => setActiveBuild(null)} offset={offset} showAlerts={showAlerts} />
           {state.gameStatus !== 'playing' && (
             <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center">
               <div className="bg-slate-900/90 border border-slate-700 rounded-xl px-6 py-4 text-center shadow-xl space-y-3">
@@ -442,7 +450,7 @@ export default function RiseGame() {
         </div>
 
         <div className="w-64 space-y-3">
-          <RiseMinimap state={state} onNavigate={centerOnTile} viewport={viewport} />
+          <RiseMinimap state={state} onNavigate={centerOnTile} viewport={viewport} showAlerts={showAlerts} />
           <AgeProgress age={player.age} elapsedSinceAge={state.elapsedSeconds - (player.ageStartSeconds ?? 0)} />
         </div>
       </div>
