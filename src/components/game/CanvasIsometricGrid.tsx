@@ -3207,9 +3207,9 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
                 )}
                 <span className="text-xs font-semibold text-sidebar-foreground">
                   {hoveredIncident.type === 'fire'
-                    ? getFireNameForTile(hoveredIncident.x, hoveredIncident.y)
+                    ? m(getFireNameForTile(hoveredIncident.x, hoveredIncident.y))
                     : hoveredIncident.crimeType
-                      ? getCrimeName(hoveredIncident.crimeType)
+                      ? m(getCrimeName(hoveredIncident.crimeType))
                       : gt('Incident')}
                 </span>
               </div>
@@ -3217,9 +3217,9 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
               {/* Description */}
               <p className="text-[11px] text-muted-foreground leading-tight">
                 {hoveredIncident.type === 'fire'
-                  ? getFireDescriptionForTile(hoveredIncident.x, hoveredIncident.y)
+                  ? m(getFireDescriptionForTile(hoveredIncident.x, hoveredIncident.y))
                   : hoveredIncident.crimeType
-                    ? getCrimeDescription(hoveredIncident.crimeType)
+                    ? m(getCrimeDescription(hoveredIncident.crimeType))
                     : gt('Incident reported.')}
               </p>
               
