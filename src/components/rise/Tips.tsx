@@ -8,6 +8,7 @@ const tips = [
   'Barracks enable infantry/ranged; factories for vehicles/siege; airbase for air (modern).',
   'Use minimap or Center buttons to jump quickly across the map.',
   'WASD / Arrow keys pan camera; H/E center on you/enemy; J jumps to last alert; Esc clears selection/build.',
+  'Toggle alerts (toasts/pings) with the Alerts button or hotkey L.',
   'Age Up unlocks after the minimum time and resource cost are met.',
   'Spread your army with shift-right-click; health bars show damage.',
 ];

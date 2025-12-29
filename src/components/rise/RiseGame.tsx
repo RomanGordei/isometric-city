@@ -178,6 +178,9 @@ export default function RiseGame() {
       if (e.key.toLowerCase() === 'j') {
         jumpToLastAttack();
       }
+      if (e.key.toLowerCase() === 'l') {
+        setShowAlerts(prev => !prev);
+      }
       if (e.key.toLowerCase() === 'h') centerOnCity(state.localPlayerId);
       if (e.key.toLowerCase() === 'e') centerOnCity('ai');
       if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
