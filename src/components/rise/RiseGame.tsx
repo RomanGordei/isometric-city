@@ -208,6 +208,24 @@ export default function RiseGame() {
 
   return (
     <div className="w-full h-full min-h-screen bg-slate-950 text-slate-100 flex flex-col gap-3 p-3">
+      {alertInfo && alertInfo.age < 8 && (
+        <div className="fixed top-4 right-4 z-40">
+          <div className="bg-rose-900/80 border border-rose-700 rounded-lg px-4 py-3 shadow-xl text-sm text-rose-50 flex items-center gap-3">
+            <div className="flex flex-col">
+              <span className="font-semibold">Under attack!</span>
+              <span className="text-xs text-rose-100/80">Alert {Math.max(0, Math.floor(alertInfo.age))}s ago</span>
+            </div>
+            <button
+              className="px-3 py-1 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold"
+              onClick={jumpToLastAttack}
+              title="Jump to last alert (J)"
+            >
+              Jump (J)
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-4">
         <TopStats resources={player.resources} ageId={player.age} elapsedSeconds={state.elapsedSeconds} />
         <div className="flex items-center gap-2">
