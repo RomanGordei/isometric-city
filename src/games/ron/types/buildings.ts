@@ -170,7 +170,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     buildTime: 20,
     minAge: 'classical',
     size: { width: 1, height: 1 },
-    maxWorkers: 5,
+    maxWorkers: 3,  // Reduced from 5 - more realistic
   },
   woodcutters_camp: { 
     cost: { wood: 30 }, 
@@ -178,7 +178,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     buildTime: 15, 
     minAge: 'classical', 
     size: { width: 1, height: 1 },
-    maxWorkers: 5,
+    maxWorkers: 3,  // Reduced from 5 - more realistic
   },
   granary: { 
     cost: { wood: 80 }, 
@@ -187,7 +187,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     minAge: 'classical', 
     size: { width: 1, height: 1 },
     providesStorage: { food: 300 },
-    maxWorkers: 5,
+    maxWorkers: 3,  // Reduced from 5
   },
   lumber_mill: {
     cost: { wood: 100, gold: 30 },
@@ -196,7 +196,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     minAge: 'classical',
     size: { width: 1, height: 1 },
     gatherBonus: { wood: 0.25 },
-    maxWorkers: 5,
+    maxWorkers: 3,  // Reduced from 5
   },
   mine: {
     cost: { wood: 80, gold: 50 },
@@ -204,7 +204,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     buildTime: 35,
     minAge: 'classical',
     size: { width: 1, height: 1 },
-    maxWorkers: 5,
+    maxWorkers: 3,  // Reduced from 5
   },
   smelter: { 
     cost: { wood: 120, gold: 80, metal: 50 }, 
@@ -221,7 +221,7 @@ export const BUILDING_STATS: Record<RoNBuildingType, BuildingStats> = {
     buildTime: 30,
     minAge: 'classical',
     size: { width: 2, height: 2 },
-    maxWorkers: 5,
+    maxWorkers: 3,  // Reduced from 5
   },
   oil_well: { 
     cost: { wood: 200, metal: 150, gold: 100 }, 

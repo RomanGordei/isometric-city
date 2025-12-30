@@ -463,11 +463,14 @@ export function generateCondensedGameState(
     // Filter empty tiles that can fit a 2x2 building (barracks, etc.)
     // SORT BY DISTANCE TO CITY CENTER - prefer building near your base!
     emptyTerritoryTiles: (() => {
+      // Check if a tile can be built on - must match executeBuildBuilding validation!
       const canBuildable = (tile: typeof state.grid[0][0] | undefined): boolean => {
         if (!tile) return false;
         if (tile.building) return false;
         if (tile.terrain === 'water' || tile.terrain === 'forest' || tile.terrain === 'mountain') return false;
         if (tile.forestDensity > 0) return false; // Trees block building
+        if (tile.hasMetalDeposit) return false; // Metal deposits block building
+        if (tile.hasOilDeposit) return false; // Oil deposits block building
         return true;
       };
       
@@ -705,12 +708,27 @@ export function executeBuildBuilding(
     return { newState: state, result: { success: false, message: 'Tile already has a building' } };
   }
 
-  // Check building size fits
+  // Check building size fits - ALL tiles must be buildable
   for (let dy = 0; dy < stats.size.height; dy++) {
     for (let dx = 0; dx < stats.size.width; dx++) {
       const checkTile = state.grid[y + dy]?.[x + dx];
-      if (!checkTile || checkTile.terrain === 'water' || checkTile.building) {
-        return { newState: state, result: { success: false, message: `Building footprint doesn't fit at (${x}, ${y})` } };
+      if (!checkTile) {
+        return { newState: state, result: { success: false, message: `Building footprint doesn't fit at (${x}, ${y}) - tile (${x+dx}, ${y+dy}) is out of bounds` } };
+      }
+      if (checkTile.terrain === 'water') {
+        return { newState: state, result: { success: false, message: `Cannot build at (${x}, ${y}) - tile (${x+dx}, ${y+dy}) is water` } };
+      }
+      if (checkTile.building) {
+        return { newState: state, result: { success: false, message: `Cannot build at (${x}, ${y}) - tile (${x+dx}, ${y+dy}) already has a building` } };
+      }
+      if (checkTile.forestDensity > 0) {
+        return { newState: state, result: { success: false, message: `Cannot build at (${x}, ${y}) - tile (${x+dx}, ${y+dy}) has trees` } };
+      }
+      if (checkTile.hasMetalDeposit) {
+        return { newState: state, result: { success: false, message: `Cannot build at (${x}, ${y}) - tile (${x+dx}, ${y+dy}) is a metal deposit` } };
+      }
+      if (checkTile.hasOilDeposit) {
+        return { newState: state, result: { success: false, message: `Cannot build at (${x}, ${y}) - tile (${x+dx}, ${y+dy}) is an oil deposit` } };
       }
     }
   }

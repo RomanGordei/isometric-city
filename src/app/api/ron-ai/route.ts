@@ -10,7 +10,8 @@ import OpenAI from 'openai';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { RoNGameState, RoNTile, RoNPlayer } from '@/games/ron/types/game';
-import { Unit } from '@/games/ron/types/units';
+import { Unit, UNIT_STATS } from '@/games/ron/types/units';
+import { BUILDING_STATS } from '@/games/ron/types/buildings';
 import {
   generateCondensedGameState,
   executeBuildBuilding,
@@ -20,11 +21,38 @@ import {
   executeAssignIdleWorkers,
 } from '@/games/ron/lib/aiTools';
 
+// Helper to format cost from building/unit stats
+function formatCost(cost: Partial<Record<string, number>>): string {
+  const parts: string[] = [];
+  if (cost.wood) parts.push(`${cost.wood}w`);
+  if (cost.food) parts.push(`${cost.food}f`);
+  if (cost.gold) parts.push(`${cost.gold}g`);
+  if (cost.metal) parts.push(`${cost.metal}m`);
+  if (cost.oil) parts.push(`${cost.oil}o`);
+  if (cost.knowledge) parts.push(`${cost.knowledge}k`);
+  return parts.join('+') || 'free';
+}
+
+// Generate costs dynamically from actual game data to prevent divergence
+const BUILDING_COSTS = {
+  farm: formatCost(BUILDING_STATS.farm.cost),
+  woodcutter: formatCost(BUILDING_STATS.woodcutters_camp.cost),
+  mine: formatCost(BUILDING_STATS.mine.cost),
+  barracks: formatCost(BUILDING_STATS.barracks.cost),
+  market: formatCost(BUILDING_STATS.market.cost),
+  small_city: formatCost(BUILDING_STATS.small_city.cost),
+};
+
+const UNIT_COSTS = {
+  citizen: formatCost(UNIT_STATS.citizen.cost),
+  infantry: formatCost(UNIT_STATS.infantry.cost),
+};
+
 // ============================================================================
 // AI MODEL CONFIGURATION
 // ============================================================================
 // Change this to switch AI models (e.g., 'gpt-4.1', 'gpt-4o', 'gpt-5.1-2025-11-13')
-export const AI_MODEL = 'gpt-4.1';
+export const AI_MODEL = 'gpt-5.1';
 
 // ============================================================================
 // AGENT LOGGING SYSTEM
@@ -259,10 +287,11 @@ const AI_TOOLS: OpenAI.Responses.Tool[] = [
   // },
 ];
 
+// System prompt uses dynamic costs from actual game data
 const SYSTEM_PROMPT = `You are playing a RTS game called Rise of Nations. You are playing against many other extremely skilled players who want to destroy your cities.
 
-COSTS: farm 50w, woodcutter 30w, mine 80w+50g, barracks 100w+50g, market 60w+30g, small_city 200w+100g
-TRAIN: citizen 60f, infantry 40f+20w (scales with age - same unit, stronger each age)
+COSTS: farm ${BUILDING_COSTS.farm}, woodcutter ${BUILDING_COSTS.woodcutter}, mine ${BUILDING_COSTS.mine}, barracks ${BUILDING_COSTS.barracks}, market ${BUILDING_COSTS.market}, small_city ${BUILDING_COSTS.small_city}
+TRAIN: citizen ${UNIT_COSTS.citizen}, infantry ${UNIT_COSTS.infantry} (scales with age - same unit, stronger each age)
 
 ECONOMY PRIORITY:
 1. Build farm + woodcutters_camp FIRST
@@ -273,9 +302,10 @@ RULES:
 - Pop capped? Build a small_city
 - Low resources? Build buildings and assign workers.
 - Have 10+ military? ATTACK enemy cities!
+- DEFENSE: If Threat Level is HIGH or CRITICAL, send your military to intercept enemy units near your city! Use send_units to move military to enemy unit positions.
 
-TURN: get_game_state → build farms/barracks → train citizens/infantry → attack → assign_workers
-ATTACK enemy cities to win!`;
+TURN: get_game_state → build farms/barracks → train citizens/infantry → DEFEND if threatened → attack → assign_workers
+ATTACK enemy cities to win! DEFEND your cities when under attack!`;
 
 interface AIAction {
   type: 'build' | 'unit_task' | 'train' | 'resource_update';
@@ -360,6 +390,38 @@ export async function POST(request: NextRequest): Promise<NextResponse<AIRespons
     const militaryCount = gameState.units.filter((u: Unit) => u.ownerId === aiPlayerId && u.type !== 'citizen').length;
     const canAffordCity = aiPlayer.resources.wood >= 400 && aiPlayer.resources.metal >= 100 && aiPlayer.resources.gold >= 200;
     
+    // Calculate threat level - find enemy military near our city
+    const myCity = gameState.grid.flat().find((t: RoNTile) => 
+      t.building?.ownerId === aiPlayerId && t.building?.type === 'city_center'
+    );
+    const myCityX = myCity?.x || 50;
+    const myCityY = myCity?.y || 50;
+    
+    const enemyMilitaryNearby = gameState.units.filter((u: Unit) => {
+      if (u.ownerId === aiPlayerId) return false;
+      if (u.type === 'citizen') return false;
+      const dist = Math.sqrt((u.x - myCityX) ** 2 + (u.y - myCityY) ** 2);
+      return dist < 25; // Within 25 tiles of our city
+    });
+    
+    let threatLevel = 'NONE';
+    let threatInfo = '';
+    if (enemyMilitaryNearby.length > 0) {
+      const nearestEnemy = enemyMilitaryNearby.reduce((nearest: Unit, u: Unit) => {
+        const dist = Math.sqrt((u.x - myCityX) ** 2 + (u.y - myCityY) ** 2);
+        const nearestDist = Math.sqrt((nearest.x - myCityX) ** 2 + (nearest.y - myCityY) ** 2);
+        return dist < nearestDist ? u : nearest;
+      });
+      const nearestDist = Math.sqrt((nearestEnemy.x - myCityX) ** 2 + (nearestEnemy.y - myCityY) ** 2);
+      
+      if (nearestDist < 10) threatLevel = 'CRITICAL';
+      else if (nearestDist < 15) threatLevel = 'HIGH';
+      else if (nearestDist < 20) threatLevel = 'MEDIUM';
+      else threatLevel = 'LOW';
+      
+      threatInfo = `\n🚨 THREAT ${threatLevel}! ${enemyMilitaryNearby.length} enemy military within 25 tiles! Nearest at (${Math.round(nearestEnemy.x)},${Math.round(nearestEnemy.y)}). DEFEND!`;
+    }
+    
     // Find enemy cities from ALL enemies (including other AIs) - prioritize city_center
     const enemyPlayers = gameState.players.filter((pl: RoNPlayer) => pl.id !== aiPlayerId && !pl.isDefeated);
     const allEnemyCities: { x: number; y: number; type: string; ownerId: string; ownerName: string }[] = [];
@@ -414,7 +476,7 @@ Resources: ${Math.round(aiPlayer.resources.food)}F / ${Math.round(aiPlayer.resou
 Population: ${aiPlayer.population}/${aiPlayer.populationCap}${popCapped ? ' (CAPPED)' : ''}
 Military: ${militaryCount} units | Barracks: ${barracksCount}
 ${enemyCityPos ? `Enemy city spotted at (${enemyCityPos.x},${enemyCityPos.y})` : 'No enemy cities visible'}
-Age: ${aiPlayer.age}
+Age: ${aiPlayer.age}${threatInfo}
 
 Start by calling get_game_state to see full details, then take actions.`;
 
