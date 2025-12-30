@@ -434,14 +434,13 @@ export function useAgenticAI(
             
             console.log(`[${aiPlayer.name} SYNC] Applied ${actions.length} actions successfully`);
             
-            const merged = {
+            // Return merged state - latestStateRef will be updated by the useEffect
+            return {
               ...currentState,
               grid: newGrid,
               units: newUnits,
               players: newPlayers,
             };
-            latestStateRef.current = merged;
-            return merged;
           });
         } else if (result.newState?.tick) {
           // Fallback: sync resources at minimum

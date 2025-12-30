@@ -1270,6 +1270,7 @@ function getTaskForBuilding(buildingType: RoNBuildingType): string | null {
       return 'gather_gold';
     case 'library':
     case 'university':
+    case 'temple':
       return 'gather_knowledge';
     case 'oil_well':
     case 'oil_platform':
@@ -1769,14 +1770,14 @@ export function executeReassignWorkerToResource(
     return { newState: state, result: { success: false, message: `Unknown resource type: ${resourceType}` } };
   }
   
-  // Map resource to building types
+  // Map resource to building types (must match getTaskForBuilding)
   const resourceToBuildings: Record<string, string[]> = {
-    'food': ['farm'],
-    'wood': ['woodcutters_camp'],
+    'food': ['farm', 'granary'],
+    'wood': ['woodcutters_camp', 'lumber_mill'],
     'metal': ['mine', 'smelter'],
     'gold': ['market'],
     'knowledge': ['library', 'university', 'temple'],
-    'oil': ['oil_well', 'refinery'],
+    'oil': ['oil_well', 'oil_platform', 'refinery'],
   };
   
   const validBuildingTypes = resourceToBuildings[resourceType] || [];

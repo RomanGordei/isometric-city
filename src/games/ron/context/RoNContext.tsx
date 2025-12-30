@@ -267,8 +267,9 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
   const aiPlayerIds = state.players.filter(p => p.type === 'ai').map(p => p.id);
   
   // Agentic AI hook - uses OpenAI Responses SDK (supports multiple AIs)
+  // IMPORTANT: Don't enable AI until state is ready from localStorage to prevent race condition
   const agenticAIConfig: AgenticAIConfig = {
-    enabled: agenticAIEnabled && aiPlayerIds.length > 0,
+    enabled: isStateReady && agenticAIEnabled && aiPlayerIds.length > 0,
     aiPlayerIds,
     actionInterval: 100, // AI acts every 100 ticks
   };
@@ -427,7 +428,9 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
   }, [isStateReady, agenticAI]);
   
   // Simulation loop
+  // IMPORTANT: Don't start simulation until state is loaded from localStorage
   useEffect(() => {
+    if (!isStateReady) return;
     if (state.gameSpeed === 0) return;
     
     // Fast simulation for 40-minute game across all ages
@@ -469,7 +472,7 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
     }, interval);
     
     return () => clearInterval(timer);
-  }, [state.gameSpeed]);
+  }, [state.gameSpeed, isStateReady]);
   
   // Tool actions
   const setTool = useCallback((tool: RoNTool) => {
