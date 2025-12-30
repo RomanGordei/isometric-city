@@ -460,23 +460,28 @@ export function generateCondensedGameState(
         maxY: Math.max(...ys),
       };
     })(),
-    // Filter empty tiles and space them out for larger building footprints
+    // Filter empty tiles that can fit a 2x2 building (barracks, etc.)
     emptyTerritoryTiles: (() => {
-      const empty = territoryTiles.filter(t => {
-        const tile = state.grid[t.y]?.[t.x];
+      const canBuildable = (tile: typeof state.grid[0][0] | undefined): boolean => {
         if (!tile) return false;
         if (tile.building) return false;
-        // Filter out non-buildable terrain
-        if (tile.terrain === 'water') return false;
-        if (tile.terrain === 'forest') return false;
-        if (tile.terrain === 'mountain') return false;
-        // Check if nearby tiles are also free (for 2x2 or 3x3 buildings)
-        // At least check if the adjacent tile is free
+        if (tile.terrain === 'water' || tile.terrain === 'forest' || tile.terrain === 'mountain') return false;
+        if (tile.forestDensity > 0) return false; // Trees block building
+        return true;
+      };
+      
+      const empty = territoryTiles.filter(t => {
+        const tile = state.grid[t.y]?.[t.x];
+        if (!canBuildable(tile)) return false;
+        
+        // Check if a 2x2 building can fit here (barracks is 2x2)
+        // All 4 tiles must be buildable
         const right = state.grid[t.y]?.[t.x + 1];
         const down = state.grid[t.y + 1]?.[t.x];
-        const hasSpace = (right && !right.building && right.terrain !== 'water') ||
-                        (down && !down.building && down.terrain !== 'water');
-        return hasSpace;
+        const diag = state.grid[t.y + 1]?.[t.x + 1];
+        
+        const has2x2Space = canBuildable(right) && canBuildable(down) && canBuildable(diag);
+        return has2x2Space;
       });
       // Space out tiles to avoid suggesting clustered locations
       const spaced: typeof empty = [];
@@ -1083,12 +1088,19 @@ export function executeAssignIdleWorkers(
     t?.building?.type === 'market' &&
     t?.building?.constructionProgress === 100
   );
+  const hasFarmBuilding = state.grid.flat().some(t =>
+    t?.building?.ownerId === aiPlayerId &&
+    t?.building?.type === 'farm' &&
+    t?.building?.constructionProgress === 100
+  );
 
   // Find farmers to reassign if we have unproductive resource buildings
+  // CRITICAL: Also rebalance if food rate is 0 but we have farms!
   const needsRebalance = (hasWoodBuilding && woodRate === 0) || 
                          (hasMineBuilding && metalRate === 0) ||
-                         (hasMarketBuilding && goldRate === 0 && needsGoldForCity);
-  console.log(`[assign_workers] Checking rebalance: idleCount=${idleCitizens.length}, hasWoodBuilding=${hasWoodBuilding}, woodRate=${woodRate}, hasMineBuilding=${hasMineBuilding}, metalRate=${metalRate}, hasMarket=${hasMarketBuilding}, goldRate=${goldRate}, needsGoldForCity=${needsGoldForCity}`);
+                         (hasMarketBuilding && goldRate === 0 && needsGoldForCity) ||
+                         (hasFarmBuilding && foodRate === 0); // FOOD IS CRITICAL!
+  console.log(`[assign_workers] Checking rebalance: idleCount=${idleCitizens.length}, hasFarm=${hasFarmBuilding}, foodRate=${foodRate}, hasWood=${hasWoodBuilding}, woodRate=${woodRate}, hasMine=${hasMineBuilding}, metalRate=${metalRate}`);
   if (idleCitizens.length === 0 && needsRebalance) {
     // Find ALL workers (any task) to potentially reassign
     const allWorkers = state.units.filter(u =>
@@ -1109,15 +1121,51 @@ export function executeAssignIdleWorkers(
       u.task === 'gather_metal'
     );
 
-    // Priority: take from metal first (we have 1500 metal), then food
+    // SMART rebalancing: protect food if low, prioritize by actual need
     let workersToReassign: typeof farmWorkers = [];
-    if (woodRate === 0 && metalWorkers.length >= 2) {
-      workersToReassign = metalWorkers.slice(0, Math.max(1, Math.floor(metalWorkers.length / 2)));
+    let rebalanceTarget: 'food' | 'wood' | 'metal' | null = null;
+    const foodIsLow = player.resources.food < 80; // Less than cost of 1 citizen
+    const woodIsLow = player.resources.wood < 50;
+    
+    const woodWorkers = state.units.filter(u =>
+      u.ownerId === aiPlayerId &&
+      u.type === 'citizen' &&
+      u.task === 'gather_wood'
+    );
+    
+    console.log(`[assign_workers] Resource status: food=${Math.round(player.resources.food)} (rate=${foodRate.toFixed(2)}), wood=${Math.round(player.resources.wood)} (rate=${woodRate.toFixed(2)}), workers: food=${farmWorkers.length}, wood=${woodWorkers.length}, metal=${metalWorkers.length}`);
+    
+    // Priority: 
+    // 1. FOOD IS MOST IMPORTANT - if food rate is 0 and we have farms, move workers TO food
+    // 2. Take from metal first for other needs
+    // 3. Only take from food if food is abundant
+    
+    if (foodRate === 0 && hasFarmBuilding && farmWorkers.length === 0) {
+      // CRITICAL: No food income! Move workers TO food from wood or metal
+      if (woodWorkers.length >= 1) {
+        workersToReassign = woodWorkers.slice(0, Math.max(1, Math.ceil(woodWorkers.length / 2)));
+        rebalanceTarget = 'food';
+        console.log(`[assign_workers] CRITICAL: No food income! Moving ${workersToReassign.length} workers from WOOD to food`);
+      } else if (metalWorkers.length >= 1) {
+        workersToReassign = metalWorkers.slice(0, Math.max(1, Math.ceil(metalWorkers.length / 2)));
+        rebalanceTarget = 'food';
+        console.log(`[assign_workers] CRITICAL: No food income! Moving ${workersToReassign.length} workers from METAL to food`);
+      }
+    } else if (woodRate === 0 && metalWorkers.length >= 1) {
+      // Need wood, take from metal first
+      workersToReassign = metalWorkers.slice(0, Math.max(1, Math.ceil(metalWorkers.length / 2)));
       console.log(`[assign_workers] Rebalancing: moving ${workersToReassign.length} workers from METAL to wood`);
-    } else if (farmWorkers.length >= 1) {
-      const numToReassign = Math.max(1, Math.min(2, Math.floor(farmWorkers.length / 2)));
-      workersToReassign = farmWorkers.slice(0, numToReassign);
-      console.log(`[assign_workers] Rebalancing: moving ${workersToReassign.length} workers from food to wood/metal`);
+    } else if (metalRate === 0 && hasMineBuilding && metalWorkers.length === 0 && farmWorkers.length >= 2 && !foodIsLow) {
+      // Need metal, have mine but no metal workers, and food is ok - take from food
+      workersToReassign = farmWorkers.slice(0, 1);
+      console.log(`[assign_workers] Rebalancing: moving 1 worker from FOOD to metal (food ok: ${Math.round(player.resources.food)})`);
+    } else if (woodRate === 0 && hasWoodBuilding && farmWorkers.length >= 3 && !foodIsLow) {
+      // Need wood badly, have woodcutters but no income, food is ok - take from food
+      workersToReassign = farmWorkers.slice(0, 1);
+      console.log(`[assign_workers] Rebalancing: moving 1 worker from FOOD to wood (food ok: ${Math.round(player.resources.food)})`);
+    } else if (foodIsLow && foodRate === 0) {
+      // Food is critically low - DON'T rebalance, let priority system handle it
+      console.log(`[assign_workers] NOT rebalancing - food is critically low (${Math.round(player.resources.food)}) and no income!`);
     }
 
     if (workersToReassign.length > 0) {

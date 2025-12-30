@@ -130,13 +130,13 @@ export const UNIT_STATS: Record<UnitType, UnitStats> = {
   // Civilians
   citizen: {
     category: 'civilian',
-    cost: { food: 100 },  // Expensive citizens force economy decisions
+    cost: { food: 60 },  // Reasonable cost for growth
     health: 30,
     attack: 2,
     defense: 0,
     speed: 1.5,
     range: 1,
-    buildTime: 90,  // ~3 mins to train - citizens are precious
+    buildTime: 45,  // ~1.5 mins to train
     minAge: 'classical',
     visionRange: 4,
     canBuild: true,

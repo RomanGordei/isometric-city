@@ -32,10 +32,10 @@ export interface ResourceRates {
 }
 
 export const INITIAL_RESOURCES: Resources = {
-  food: 150,   // Just enough for 1-2 citizens
-  wood: 100,   // Minimal starting wood
+  food: 200,   // Enough for 2-3 citizens
+  wood: 150,   // Can build a few buildings
   metal: 0,
-  gold: 50,    // Very limited gold
+  gold: 75,    // Some starting gold
   knowledge: 0,
   oil: 0,
 };

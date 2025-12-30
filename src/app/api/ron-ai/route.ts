@@ -253,22 +253,25 @@ const AI_TOOLS: OpenAI.Responses.Tool[] = [
   },
 ];
 
-const SYSTEM_PROMPT = `RTS AI. Be CONCISE - short responses only. Multiple enemies exist - attack any!
+const SYSTEM_PROMPT = `RTS AI. Be CONCISE. Multiple enemies - attack any!
 
 COSTS: farm 50w, woodcutter 30w, mine 80w+50g, barracks 100w, market 60w+30g, small_city 400w+100m+200g
-TRAIN: citizen 50f, militia 40f+20w (only if pop < popCap!)
+TRAIN: citizen 60f, militia 40f+20w
+
+ECONOMY PRIORITY:
+1. Build farms FIRST and assign workers to them
+2. Train citizens to grow population
+3. Then wood (for buildings), then metal (for military)
 
 RULES:
-- Pop capped? Build small_city ONLY, save wood!
-- Not capped? Train units, build economy, ATTACK!
-- Industrial age? Build oil_well + refinery on oil deposits
-- 5+ military? ATTACK enemy cities with send_units task="attack"!
-- Destroy ALL enemy city_centers to win!
+- Pop capped? Save for small_city (need 200g+100m+400w)
+- Low food? Build farms, assign to food!
+- 5+ military? ATTACK enemy cities!
+- CRITICAL: Use ONLY the EXACT coordinates from "General:" list when building barracks/markets!
+- If "General: NO VALID TILES" - don't try to build large buildings!
 
-CRITICAL: ONLY use coordinates from "BUILDABLE TILES" section! Building outside your territory FAILS.
-
-TURN: get_game_state → build/train if able → send_units to attack → assign_workers
-Don't repeat failed actions. ATTACK to win!`;
+TURN: get_game_state → build farms/barracks → train citizens/militia → attack → assign_workers
+ATTACK to win!`;
 
 interface AIAction {
   type: 'build' | 'unit_task' | 'train' | 'resource_update';

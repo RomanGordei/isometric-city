@@ -16,10 +16,10 @@ import { Unit, UnitType, UnitTask, UNIT_STATS } from '../types/units';
 
 // Simulation constants
 const CONSTRUCTION_SPEED = 0.5; // Progress per tick (slow construction)
-const PRODUCTION_SPEED = 0.3; // Unit production progress per tick (hard economy)
+const PRODUCTION_SPEED = 0.5; // Unit production progress per tick (balanced)
 const UNIT_MOVE_SPEED = 0.1; // Movement per tick (in tiles)
 const ATTACK_COOLDOWN = 10; // Ticks between attacks
-const RESOURCE_GATHER_RATE = 0.06; // Base gathering per tick per worker (hard economy)
+const RESOURCE_GATHER_RATE = 0.10; // Base gathering per tick per worker (balanced economy)
 
 // Border/Territory constants
 const CITY_CENTER_RADIUS = 24; // Base territory radius from city centers (3x larger for warring states style)
