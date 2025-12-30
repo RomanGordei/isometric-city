@@ -8,9 +8,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AIPlayerConversation, AIConversationEntry } from '../hooks/useAgenticAI';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { RoNPlayer } from '../types/game';
 
 interface AIAgentsSidebarProps {
   conversations: AIPlayerConversation[];
+  players: RoNPlayer[];
   onClear: () => void;
   onWidthChange?: (width: number) => void;
 }
@@ -163,7 +165,7 @@ function ConversationEntry({ entry }: { entry: AIConversationEntry }) {
   }
 }
 
-function PlayerConversation({ conversation }: { conversation: AIPlayerConversation }) {
+function PlayerConversation({ conversation, player }: { conversation: AIPlayerConversation; player?: RoNPlayer }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -176,31 +178,49 @@ function PlayerConversation({ conversation }: { conversation: AIPlayerConversati
   
   const recentEntries = conversation.entries.slice(-30); // Show last 30 entries
   
+  // Format resource value compactly
+  const formatRes = (val: number) => val >= 1000 ? `${(val / 1000).toFixed(1)}k` : Math.floor(val).toString();
+  
   return (
     <div className="flex flex-col min-h-0 flex-1">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 px-2 py-1.5 bg-slate-800 border-b border-slate-700 hover:bg-slate-700/50 transition-colors"
+        className="flex flex-col px-2 py-1.5 bg-slate-800 border-b border-slate-700 hover:bg-slate-700/50 transition-colors"
       >
-        {isExpanded ? (
-          <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-        ) : (
-          <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+        <div className="flex items-center gap-2 w-full">
+          {isExpanded ? (
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+          )}
+          <div 
+            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+            style={{ backgroundColor: conversation.color }}
+          />
+          <span className="text-xs font-medium text-slate-300 flex-1 text-left font-mono">
+            {conversation.playerName}
+          </span>
+          {conversation.isThinking && (
+            <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+          )}
+          <span className="text-[10px] text-slate-500 font-mono">
+            {conversation.entries.length}
+          </span>
+        </div>
+        {/* Resource row */}
+        {player && (
+          <div className="flex items-center gap-1.5 mt-1 ml-6 text-[9px] font-mono">
+            <span className="text-green-400" title="Food">🌾{formatRes(player.resources.food)}</span>
+            <span className="text-amber-600" title="Wood">🪵{formatRes(player.resources.wood)}</span>
+            <span className="text-slate-400" title="Metal">⛏️{formatRes(player.resources.metal)}</span>
+            <span className="text-yellow-400" title="Gold">💰{formatRes(player.resources.gold)}</span>
+            <span className="text-slate-500">|</span>
+            <span className={player.population >= player.populationCap ? 'text-red-400' : 'text-blue-400'} title="Population">
+              👥{player.population}/{player.populationCap}
+            </span>
+          </div>
         )}
-        <div 
-          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-          style={{ backgroundColor: conversation.color }}
-        />
-        <span className="text-xs font-medium text-slate-300 flex-1 text-left font-mono">
-          {conversation.playerName}
-        </span>
-        {conversation.isThinking && (
-          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-        )}
-        <span className="text-[10px] text-slate-500 font-mono">
-          {conversation.entries.length}
-        </span>
       </button>
       
       {/* Entries */}
@@ -235,7 +255,7 @@ function PlayerConversation({ conversation }: { conversation: AIPlayerConversati
   );
 }
 
-export function AIAgentsSidebar({ conversations, onClear, onWidthChange }: AIAgentsSidebarProps) {
+export function AIAgentsSidebar({ conversations, players, onClear, onWidthChange }: AIAgentsSidebarProps) {
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -246,6 +266,9 @@ export function AIAgentsSidebar({ conversations, onClear, onWidthChange }: AIAge
     c.playerName.toLowerCase().includes('red') || 
     c.playerName.toLowerCase().includes('green')
   );
+  
+  // Map player ID to player data for quick lookup
+  const playerMap = new Map(players.map(p => [p.id, p]));
   
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -326,7 +349,11 @@ export function AIAgentsSidebar({ conversations, onClear, onWidthChange }: AIAge
       {/* Conversations - split evenly between AI players */}
       <div className="flex-1 flex flex-col min-h-0 divide-y divide-slate-700 overflow-hidden">
         {aiConversations.map((conv) => (
-          <PlayerConversation key={conv.playerId} conversation={conv} />
+          <PlayerConversation 
+            key={conv.playerId} 
+            conversation={conv} 
+            player={playerMap.get(conv.playerId)}
+          />
         ))}
       </div>
     </div>

@@ -260,6 +260,7 @@ export interface CondensedGameState {
     producedAt: string[];
   }>;
   territoryTiles: Array<{ x: number; y: number }>;
+  territoryBounds: { minX: number; maxX: number; minY: number; maxY: number }; // Your territory boundaries
   emptyTerritoryTiles: Array<{ x: number; y: number }>; // Empty tiles you can build on
   tilesNearForest: Array<{ x: number; y: number }>; // Good for woodcutters_camp
   tilesNearMetal: Array<{ x: number; y: number }>; // Good for mine
@@ -445,6 +446,20 @@ export function generateCondensedGameState(
     availableBuildingTypes,
     availableUnitTypes,
     territoryTiles: territoryTiles.slice(0, 10), // Reduced to save tokens
+    // Calculate territory bounds
+    territoryBounds: (() => {
+      if (territoryTiles.length === 0) {
+        return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+      }
+      const xs = territoryTiles.map(t => t.x);
+      const ys = territoryTiles.map(t => t.y);
+      return {
+        minX: Math.min(...xs),
+        maxX: Math.max(...xs),
+        minY: Math.min(...ys),
+        maxY: Math.max(...ys),
+      };
+    })(),
     // Filter empty tiles and space them out for larger building footprints
     emptyTerritoryTiles: (() => {
       const empty = territoryTiles.filter(t => {

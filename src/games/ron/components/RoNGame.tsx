@@ -286,6 +286,7 @@ function GameContent({ onExit }: { onExit?: () => void }) {
         <div className="fixed right-0 top-0 h-screen z-40">
           <AIAgentsSidebar 
             conversations={agenticAI.conversations}
+            players={state.players}
             onClear={clearAIConversations}
             onWidthChange={setAiSidebarWidth}
           />

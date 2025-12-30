@@ -833,6 +833,47 @@ function findNearbyEnemyMilitary(
 }
 
 /**
+ * Find nearby enemy buildings within range
+ */
+function findNearbyEnemyBuilding(
+  unit: Unit,
+  grid: RoNTile[][],
+  gridSize: number,
+  range: number
+): { x: number; y: number; type: string } | null {
+  const unitX = Math.floor(unit.x);
+  const unitY = Math.floor(unit.y);
+  
+  let closestBuilding: { x: number; y: number; type: string; dist: number } | null = null;
+  
+  // Search in a square around the unit
+  const searchRadius = Math.ceil(range);
+  for (let dy = -searchRadius; dy <= searchRadius; dy++) {
+    for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+      const tx = unitX + dx;
+      const ty = unitY + dy;
+      
+      if (tx < 0 || tx >= gridSize || ty < 0 || ty >= gridSize) continue;
+      
+      const tile = grid[ty]?.[tx];
+      if (!tile?.building) continue;
+      if (!tile.building.ownerId) continue;
+      if (tile.building.ownerId === unit.ownerId) continue; // Skip own buildings
+      if (tile.building.health <= 0) continue;
+      
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > range) continue;
+      
+      if (!closestBuilding || dist < closestBuilding.dist) {
+        closestBuilding = { x: tx, y: ty, type: tile.building.type, dist };
+      }
+    }
+  }
+  
+  return closestBuilding ? { x: closestBuilding.x, y: closestBuilding.y, type: closestBuilding.type } : null;
+}
+
+/**
  * Count workers assigned to a building (including those en route)
  */
 function countWorkersAtBuilding(
@@ -1119,8 +1160,8 @@ function updateUnits(state: RoNGameState): RoNGameState {
       }
     }
     
-    // Auto-attack for military units: ALWAYS check for nearby enemies and engage them
-    // Military units should fight back when attacked, even if they have other tasks
+    // Auto-attack for military units: check for nearby enemies and engage them
+    // BUT respect player commands - don't override move commands or attack commands
     if (isMilitaryUnit(updatedUnit)) {
       const nearbyEnemies = findNearbyEnemies(updatedUnit, state.units, AUTO_ATTACK_RANGE);
       
@@ -1128,15 +1169,34 @@ function updateUnits(state: RoNGameState): RoNGameState {
         const currentTarget = updatedUnit.taskTarget;
         const closestEnemy = nearbyEnemies[0];
         
-        // Military units ALWAYS engage nearby enemies unless:
-        // 1. Already attacking a valid target (don't switch targets constantly)
-        const isAlreadyAttackingValidTarget = 
+        // Don't auto-attack if:
+        // 1. Already attacking a valid unit target (don't switch targets constantly)
+        // 2. Already attacking a position (building) - don't interrupt player commands!
+        // 3. Player has given a move command - respect their movement order!
+        const isAlreadyAttackingUnit = 
           updatedUnit.task === 'attack' && 
           typeof currentTarget === 'string' && 
           state.units.find(u => u.id === currentTarget && u.health > 0);
         
-        if (!isAlreadyAttackingValidTarget) {
-          // Drop everything and fight!
+        const isAlreadyAttackingBuilding = 
+          updatedUnit.task === 'attack' && 
+          typeof currentTarget === 'object' && 
+          currentTarget !== null &&
+          'x' in currentTarget;
+        
+        // Check if player gave a move command - respect it!
+        const isMovingByPlayerCommand = 
+          updatedUnit.task === 'move' && 
+          updatedUnit.isMoving;
+        
+        // Only auto-engage if idle or just standing around (no active player command)
+        const shouldAutoEngage = 
+          !isAlreadyAttackingUnit && 
+          !isAlreadyAttackingBuilding && 
+          !isMovingByPlayerCommand;
+        
+        if (shouldAutoEngage) {
+          // No current command - engage nearby enemy!
           updatedUnit.task = 'attack';
           updatedUnit.taskTarget = closestEnemy.id;
           updatedUnit.targetX = closestEnemy.x;
@@ -1561,14 +1621,43 @@ function updateUnits(state: RoNGameState): RoNGameState {
               updatedUnit.targetY = targetPos.y;
               updatedUnit.isMoving = true;
             } else {
-              // Arrived at target position with no enemies or buildings - go idle
-              // Debug: Log when units arrive and can't find target
-              if (updatedUnit.task === 'attack' && state.tick % 100 === 0) {
-                console.log(`[ATTACK] Unit arrived at (${targetPos.x.toFixed(1)},${targetPos.y.toFixed(1)}) but no building found. buildingCheck=${buildingCheck.occupied}, buildingOrigin=${buildingOrigin ? `${buildingOrigin.building.type}@${buildingOrigin.x},${buildingOrigin.y}` : 'null'}`);
+              // Arrived at target position with no enemies or buildings
+              // Target might have been destroyed - look for new targets!
+              
+              // First, check for nearby enemy units
+              const nearbyEnemies = findNearbyEnemies(updatedUnit, state.units, AUTO_ATTACK_RANGE);
+              if (nearbyEnemies.length > 0) {
+                // Found enemies - attack them!
+                const closestEnemy = nearbyEnemies[0];
+                updatedUnit.task = 'attack';
+                updatedUnit.taskTarget = closestEnemy.id;
+                updatedUnit.targetX = closestEnemy.x;
+                updatedUnit.targetY = closestEnemy.y;
+                updatedUnit.isMoving = true;
+                updatedUnit.attackCooldown = 0;
+              } else {
+                // No enemies - look for nearby enemy buildings
+                const nearbyEnemyBuilding = findNearbyEnemyBuilding(
+                  updatedUnit, 
+                  state.grid, 
+                  state.gridSize, 
+                  AUTO_ATTACK_RANGE * 2
+                );
+                
+                if (nearbyEnemyBuilding) {
+                  // Found an enemy building - attack it!
+                  updatedUnit.task = 'attack';
+                  updatedUnit.taskTarget = { x: nearbyEnemyBuilding.x, y: nearbyEnemyBuilding.y };
+                  updatedUnit.targetX = nearbyEnemyBuilding.x + 0.5;
+                  updatedUnit.targetY = nearbyEnemyBuilding.y + 0.5;
+                  updatedUnit.isMoving = true;
+                } else {
+                  // No enemies or buildings - go idle
+                  updatedUnit.task = 'idle';
+                  updatedUnit.taskTarget = undefined;
+                  updatedUnit.isMoving = false;
+                }
               }
-              updatedUnit.task = 'idle';
-              updatedUnit.taskTarget = undefined;
-              updatedUnit.isMoving = false;
             }
           }
         }

@@ -265,8 +265,10 @@ RULES:
 - 5+ military? ATTACK enemy cities with send_units task="attack"!
 - Destroy ALL enemy city_centers to win!
 
+CRITICAL: ONLY use coordinates from "BUILDABLE TILES" section! Building outside your territory FAILS.
+
 TURN: get_game_state → build/train if able → send_units to attack → assign_workers
-Don't repeat failed actions. Use coordinates from game state. ATTACK to win!`;
+Don't repeat failed actions. ATTACK to win!`;
 
 interface AIAction {
   type: 'build' | 'unit_task' | 'train' | 'resource_update';
@@ -503,8 +505,11 @@ ${condensed.myBuildings.map(b => `- ${b.type} at (${b.x},${b.y})`).join('\n') ||
 - Citizens: ${condensed.myUnits.filter(u => u.type === 'citizen').length} (idle: ${condensed.myUnits.filter(u => u.type === 'citizen' && u.task === 'idle').length})
 - Military: ${condensed.myUnits.filter(u => u.type !== 'citizen').map(u => `${u.type}[${u.id}]`).join(', ') || 'none'}
 
-## BUILDABLE TILES:
-General: ${(condensed.emptyTerritoryTiles || []).slice(0, 5).map(t => `(${t.x},${t.y})`).join(', ')}
+## YOUR TERRITORY (x: ${condensed.territoryBounds.minX}-${condensed.territoryBounds.maxX}, y: ${condensed.territoryBounds.minY}-${condensed.territoryBounds.maxY}):
+⚠️ You can ONLY build within these coordinates! Building outside will FAIL.
+
+## BUILDABLE TILES (all within your territory):
+General: ${(condensed.emptyTerritoryTiles || []).slice(0, 5).map(t => `(${t.x},${t.y})`).join(', ') || 'NO VALID TILES'}
 🌲 For woodcutters_camp (near forest): ${(condensed.tilesNearForest || []).slice(0, 4).map(t => `(${t.x},${t.y})`).join(', ') || 'none in territory'}
 ⛏️ For mine (near metal): ${(condensed.tilesNearMetal || []).slice(0, 4).map(t => `(${t.x},${t.y})`).join(', ') || 'none in territory'}
 

@@ -598,6 +598,9 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
           targetX: x + offsetX,
           targetY: y + offsetY,
           task: 'move' as UnitTask,
+          taskTarget: undefined, // Clear any previous attack target
+          attackCooldown: 0, // Reset attack cooldown
+          isAttacking: false, // Not attacking anymore
         };
       });
 
