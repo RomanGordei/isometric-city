@@ -51,6 +51,16 @@ import {
   drawFoundationPlot,
 } from '@/components/game/drawing';
 import {
+  drawRealisticWaterTile,
+  drawRealisticMountain,
+  drawRealisticForest,
+  updateEnvParticles,
+  drawEnvParticles,
+  drawSelectionGlow,
+  drawUnitShadow,
+  drawVignette,
+} from '@/components/game/enhancedGraphics';
+import {
   getOverlayFillStyle,
   OVERLAY_TO_BUILDING_TYPES,
   OVERLAY_CIRCLE_COLORS,
@@ -1228,62 +1238,51 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     }
     
     // Helper function to draw water tile at a given screen position
-    // Used for marina/pier buildings that sit on water
+    // Uses enhanced realistic water with waves, reflections, and caustics
     function drawWaterTileAt(ctx: CanvasRenderingContext2D, screenX: number, screenY: number, gridX: number, gridY: number) {
-      const waterImage = getCachedImage(WATER_ASSET_PATH);
-      if (!waterImage) return;
+      // Calculate water depth based on distance from land (approximation)
+      const currentGrid = latestStateRef.current.grid;
+      const gSize = latestStateRef.current.gridSize;
       
-      const w = TILE_WIDTH;
-      const h = TILE_HEIGHT;
-      const tileCenterX = screenX + w / 2;
-      const tileCenterY = screenY + h / 2;
+      // Check adjacent tiles to estimate depth (more water neighbors = deeper)
+      let adjacentWaterCount = 0;
+      const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      const adjacentWater = { north: true, east: true, south: true, west: true };
       
-      // Random subcrop of water texture based on tile position for variety
-      const imgW = waterImage.naturalWidth || waterImage.width;
-      const imgH = waterImage.naturalHeight || waterImage.height;
+      for (let i = 0; i < dirs.length; i++) {
+        const nx = gridX + dirs[i][0];
+        const ny = gridY + dirs[i][1];
+        if (nx >= 0 && nx < gSize && ny >= 0 && ny < gSize) {
+          const neighborTile = currentGrid[ny]?.[nx];
+          const isNeighborWater = neighborTile?.building?.type === 'water';
+          if (isNeighborWater) adjacentWaterCount++;
+          
+          // Track adjacent water for shore effects
+          if (i === 0) adjacentWater.north = isNeighborWater;
+          else if (i === 1) adjacentWater.south = isNeighborWater;
+          else if (i === 2) adjacentWater.east = isNeighborWater;
+          else if (i === 3) adjacentWater.west = isNeighborWater;
+        }
+      }
       
-      // Deterministic "random" offset based on tile position
-      const seedX = ((gridX * 7919 + gridY * 6271) % 1000) / 1000;
-      const seedY = ((gridX * 4177 + gridY * 9311) % 1000) / 1000;
+      // Depth is based on adjacent water tiles (0-4) mapped to 0.2-1.0
+      const waterDepth = 0.2 + (adjacentWaterCount / 4) * 0.8;
       
-      // Take a subcrop for variety
-      const cropScale = 0.35;
-      const cropW = imgW * cropScale;
-      const cropH = imgH * cropScale;
-      const maxOffsetX = imgW - cropW;
-      const maxOffsetY = imgH - cropH;
-      const srcX = seedX * maxOffsetX;
-      const srcY = seedY * maxOffsetY;
+      // Get current animation time
+      const animTime = Date.now() * 0.001;
       
-      ctx.save();
-      // Clip to isometric diamond shape
-      ctx.beginPath();
-      ctx.moveTo(screenX + w / 2, screenY);           // top
-      ctx.lineTo(screenX + w, screenY + h / 2);       // right
-      ctx.lineTo(screenX + w / 2, screenY + h);       // bottom
-      ctx.lineTo(screenX, screenY + h / 2);           // left
-      ctx.closePath();
-      ctx.clip();
-      
-      const aspectRatio = cropH / cropW;
-      const jitterX = (seedX - 0.5) * w * 0.3;
-      const jitterY = (seedY - 0.5) * h * 0.3;
-      
-      // Draw water with slight transparency
-      const destWidth = w * 1.15;
-      const destHeight = destWidth * aspectRatio;
-      
-      ctx.globalAlpha = 0.95;
-      ctx.drawImage(
-        waterImage,
-        srcX, srcY, cropW, cropH,
-        Math.round(tileCenterX - destWidth / 2 + jitterX * 0.3),
-        Math.round(tileCenterY - destHeight / 2 + jitterY * 0.3),
-        Math.round(destWidth),
-        Math.round(destHeight)
+      // Draw enhanced realistic water
+      drawRealisticWaterTile(
+        ctx,
+        screenX,
+        screenY,
+        gridX,
+        gridY,
+        zoom,
+        animTime,
+        waterDepth,
+        adjacentWater
       );
-      
-      ctx.restore();
     }
     
     // Draw building sprite
@@ -1325,13 +1324,12 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         (activePack.stationsVariants && activePack.stationsVariants[buildingType]);
       
       if (hasTileSprite) {
-        // Special handling for water: use separate water.png image with blending for adjacent water tiles
+        // Special handling for water: use enhanced realistic water rendering
         if (buildingType === 'water') {
-          const waterImage = getCachedImage(WATER_ASSET_PATH);
-          
-          // Check which adjacent tiles are also water for blending
           const gridX = tile.x;
           const gridY = tile.y;
+          
+          // Check which adjacent tiles are also water
           const adjacentWater = {
             north: gridX > 0 && grid[gridY]?.[gridX - 1]?.building.type === 'water',
             east: gridY > 0 && grid[gridY - 1]?.[gridX]?.building.type === 'water',
@@ -1339,142 +1337,26 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
             west: gridY < gridSize - 1 && grid[gridY + 1]?.[gridX]?.building.type === 'water',
           };
           
-          // Count adjacent water tiles
+          // Calculate water depth based on adjacent water tiles
           const adjacentCount = (adjacentWater.north ? 1 : 0) + (adjacentWater.east ? 1 : 0) + 
                                (adjacentWater.south ? 1 : 0) + (adjacentWater.west ? 1 : 0);
+          const waterDepth = 0.2 + (adjacentCount / 4) * 0.8;
           
-          if (waterImage) {
-            // Center the water sprite on the tile
-            const tileCenterX = x + w / 2;
-            const tileCenterY = y + h / 2;
-            
-            // Random subcrop of water texture based on tile position for variety
-            const imgW = waterImage.naturalWidth || waterImage.width;
-            const imgH = waterImage.naturalHeight || waterImage.height;
-            
-            // Deterministic "random" offset based on tile position
-            const seedX = ((gridX * 7919 + gridY * 6271) % 1000) / 1000;
-            const seedY = ((gridX * 4177 + gridY * 9311) % 1000) / 1000;
-            
-            // Take a subcrop - use 35% of the image, offset randomly for variety
-            const cropScale = 0.35;
-            const cropW = imgW * cropScale;
-            const cropH = imgH * cropScale;
-            const maxOffsetX = imgW - cropW;
-            const maxOffsetY = imgH - cropH;
-            const srcX = seedX * maxOffsetX;
-            const srcY = seedY * maxOffsetY;
-            
-            // Create a clipping path - expand toward adjacent WATER tiles only
-            // This allows blending between water tiles while preventing bleed onto land
-            const expand = w * 0.4; // How much to expand toward water neighbors
-            
-            // Calculate expanded corners based on water adjacency
-            // North edge (top-left): between left and top corners
-            // East edge (top-right): between top and right corners
-            // South edge (bottom-right): between right and bottom corners
-            // West edge (bottom-left): between bottom and left corners
-            const topY = y - (adjacentWater.north && adjacentWater.east ? expand * 0.5 : 0);
-            const rightX = x + w + ((adjacentWater.east && adjacentWater.south) ? expand * 0.5 : 0);
-            const bottomY = y + h + ((adjacentWater.south && adjacentWater.west) ? expand * 0.5 : 0);
-            const leftX = x - ((adjacentWater.west && adjacentWater.north) ? expand * 0.5 : 0);
-            
-            // Expand individual edges toward water neighbors only
-            // Each edge should only expand if THAT specific edge direction has water
-            const topExpand = (adjacentWater.north && adjacentWater.east) ? expand * 0.3 : 0;
-            const rightExpand = (adjacentWater.east && adjacentWater.south) ? expand * 0.3 : 0;
-            const bottomExpand = (adjacentWater.south && adjacentWater.west) ? expand * 0.3 : 0;
-            const leftExpand = (adjacentWater.west && adjacentWater.north) ? expand * 0.3 : 0;
-            
-            ctx.save();
-            ctx.beginPath();
-            ctx.moveTo(x + w / 2, topY - topExpand);                    // top
-            ctx.lineTo(rightX + rightExpand, y + h / 2);                // right
-            ctx.lineTo(x + w / 2, bottomY + bottomExpand);              // bottom
-            ctx.lineTo(leftX - leftExpand, y + h / 2);                  // left
-            ctx.closePath();
-            ctx.clip();
-            
-            const aspectRatio = cropH / cropW;
-            const savedAlpha = ctx.globalAlpha;
-            
-            // Jitter for variety
-            const jitterX = (seedX - 0.5) * w * 0.3;
-            const jitterY = (seedY - 0.5) * h * 0.3;
-            
-            // PERF: When zoomed out (zoom < 0.5), use single pass water rendering to reduce draw calls
-            // At low zoom, the blending detail is not visible anyway
-            if (zoom < 0.5) {
-              // Simplified single-pass water at low zoom
-              const destWidth = w * 1.15;
-              const destHeight = destWidth * aspectRatio;
-              ctx.globalAlpha = 0.9;
-              ctx.drawImage(
-                waterImage,
-                srcX, srcY, cropW, cropH,
-                Math.round(tileCenterX - destWidth / 2),
-                Math.round(tileCenterY - destHeight / 2),
-                Math.round(destWidth),
-                Math.round(destHeight)
-              );
-            } else if (adjacentCount >= 2) {
-              // Two passes: large soft outer, smaller solid core
-              // Outer pass - large, semi-transparent for blending
-              const outerScale = 2.0 + adjacentCount * 0.3;
-              const outerWidth = w * outerScale;
-              const outerHeight = outerWidth * aspectRatio;
-              ctx.globalAlpha = 0.35;
-              ctx.drawImage(
-                waterImage,
-                srcX, srcY, cropW, cropH,
-                Math.round(tileCenterX - outerWidth / 2 + jitterX),
-                Math.round(tileCenterY - outerHeight / 2 + jitterY),
-                Math.round(outerWidth),
-                Math.round(outerHeight)
-              );
-              
-              // Core pass - full opacity
-              const coreScale = 1.1;
-              const coreWidth = w * coreScale;
-              const coreHeight = coreWidth * aspectRatio;
-              ctx.globalAlpha = 0.9;
-              ctx.drawImage(
-                waterImage,
-                srcX, srcY, cropW, cropH,
-                Math.round(tileCenterX - coreWidth / 2 + jitterX * 0.5),
-                Math.round(tileCenterY - coreHeight / 2 + jitterY * 0.5),
-                Math.round(coreWidth),
-                Math.round(coreHeight)
-              );
-            } else {
-              // Edge tile with few water neighbors - single contained draw
-              const destWidth = w * 1.15;
-              const destHeight = destWidth * aspectRatio;
-              
-              ctx.globalAlpha = 0.95;
-              ctx.drawImage(
-                waterImage,
-                srcX, srcY, cropW, cropH,
-                Math.round(tileCenterX - destWidth / 2 + jitterX * 0.3),
-                Math.round(tileCenterY - destHeight / 2 + jitterY * 0.3),
-                Math.round(destWidth),
-                Math.round(destHeight)
-              );
-            }
-            
-            ctx.globalAlpha = savedAlpha;
-            ctx.restore();
-          } else {
-            // Water image not loaded yet - draw placeholder diamond
-            ctx.fillStyle = '#0ea5e9';
-            ctx.beginPath();
-            ctx.moveTo(x + w / 2, y);
-            ctx.lineTo(x + w, y + h / 2);
-            ctx.lineTo(x + w / 2, y + h);
-            ctx.lineTo(x, y + h / 2);
-            ctx.closePath();
-            ctx.fill();
-          }
+          // Get current animation time
+          const animTime = Date.now() * 0.001;
+          
+          // Draw enhanced realistic water with waves, reflections, and caustics
+          drawRealisticWaterTile(
+            ctx,
+            x,
+            y,
+            gridX,
+            gridY,
+            zoom,
+            animTime,
+            waterDepth,
+            adjacentWater
+          );
         } else {
           // ===== TILE RENDERER PATH =====
           // Handles both single-tile and multi-tile buildings using extracted sprite utilities
@@ -1772,6 +1654,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     // PERF: Skip beach rendering when zoomed out - detail is not visible
     if (zoom >= 0.4) {
       // PERF: Use for loop instead of forEach
+      // Get animation time for foam effects
+      const beachAnimTime = Date.now() * 0.001;
       for (let i = 0; i < waterQueue.length; i++) {
         const { tile, screenX, screenY } = waterQueue[i];
         // Compute land adjacency for each edge (opposite of water adjacency)
@@ -1783,7 +1667,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
           south: (tile.x + 1 >= 0 && tile.x + 1 < gridSize && tile.y >= 0 && tile.y < gridSize) && !isWater(tile.x + 1, tile.y) && !hasMarinaPier(tile.x + 1, tile.y) && !isBridge(tile.x + 1, tile.y),
           west: (tile.x >= 0 && tile.x < gridSize && tile.y + 1 >= 0 && tile.y + 1 < gridSize) && !isWater(tile.x, tile.y + 1) && !hasMarinaPier(tile.x, tile.y + 1) && !isBridge(tile.x, tile.y + 1),
         };
-        drawBeachOnWater(ctx, screenX, screenY, adjacentLand);
+        // Enhanced beach rendering with animated foam
+        drawBeachOnWater(ctx, screenX, screenY, adjacentLand, tile.x, tile.y, zoom, beachAnimTime);
       }
     }
     
@@ -1795,10 +1680,12 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     
     // Draw green base tiles for grass/empty tiles adjacent to water BEFORE bridges
     // This ensures bridge railings are drawn on top of the green base tiles
+    // Use current animation time for subtle grass movement effects
+    const animTime = Date.now() * 0.001;
     insertionSortByDepth(greenBaseTileQueue);
     for (let i = 0; i < greenBaseTileQueue.length; i++) {
       const { tile, screenX, screenY } = greenBaseTileQueue[i];
-      drawGreenBaseTile(ctx, screenX, screenY, tile, zoom);
+      drawGreenBaseTile(ctx, screenX, screenY, tile, zoom, animTime);
     }
     
     // Draw roads (above water, needs full redraw including base tile)

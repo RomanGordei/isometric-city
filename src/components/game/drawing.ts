@@ -1,10 +1,17 @@
 /**
  * Drawing utilities for isometric tile rendering.
  * Extracted from Game.tsx for better code organization.
+ * Enhanced with realistic procedural graphics.
  */
 
 import { Tile, ZoneType } from '@/types/game';
 import { TILE_WIDTH, TILE_HEIGHT } from './types';
+import {
+  drawRealisticGrassTile,
+  drawRealisticBeach,
+  drawRealisticBeachOnWater,
+  REALISTIC_GRASS_PALETTE,
+} from './enhancedGraphics';
 
 // ============================================================================
 // Types
@@ -166,22 +173,31 @@ export function drawIsometricDiamond(
 
 /**
  * Draw a green base tile for grass/empty tiles.
- * Colors are determined by the tile's zone.
+ * Uses enhanced realistic graphics with procedural texturing.
+ * Colors are influenced by the tile's zone.
  */
 export function drawGreenBaseTile(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   tile: Tile,
-  currentZoom: number
+  currentZoom: number,
+  time: number = 0
 ): void {
-  const colors = ZONE_COLORS[tile.zone];
-
-  // Draw the base diamond with stroke only when zoomed in
-  drawIsometricDiamond(ctx, x, y, colors, {
-    drawStroke: currentZoom >= 0.6,
-    strokeWidth: 0.5,
-  });
+  // Use enhanced realistic grass rendering
+  drawRealisticGrassTile(
+    ctx,
+    x,
+    y,
+    tile.x,
+    tile.y,
+    currentZoom,
+    time,
+    {
+      ambient: 1.0,
+      zoneType: tile.zone,
+    }
+  );
 
   // Draw zone border with dashed line when zoomed in enough
   if (tile.zone !== 'none' && currentZoom >= 0.95) {
@@ -431,133 +447,20 @@ function drawBeachCorner(
 
 /**
  * Draw beach effect on tiles adjacent to water.
- * Creates a sidewalk-style sandy strip along edges facing water.
+ * Uses enhanced realistic graphics with sand textures, foam lines, and gradients.
  */
 export function drawBeach(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  adjacentWater: { north: boolean; east: boolean; south: boolean; west: boolean }
+  adjacentWater: { north: boolean; east: boolean; south: boolean; west: boolean },
+  gridX: number = 0,
+  gridY: number = 0,
+  zoom: number = 1,
+  time: number = 0
 ): void {
-  const { north, east, south, west } = adjacentWater;
-
-  // Early exit if no adjacent water
-  if (!north && !east && !south && !west) return;
-
-  const beachWidth = TILE_WIDTH * BEACH_CONFIG.widthRatio;
-  const corners = getDiamondCorners(x, y);
-
-  // Draw beach edges for sides adjacent to water
-  // Each edge connects two corners and has an inward direction
-
-  // North edge (top-left: left corner → top corner)
-  if (north) {
-    const inward = BEACH_INWARD_VECTORS.north;
-    drawBeachEdge(
-      ctx,
-      corners.left.x, corners.left.y,
-      corners.top.x, corners.top.y,
-      inward.dx, inward.dy,
-      beachWidth,
-      west,  // Shorten at left if west also has beach
-      east   // Shorten at top if east also has beach
-    );
-  }
-
-  // East edge (top-right: top corner → right corner)
-  if (east) {
-    const inward = BEACH_INWARD_VECTORS.east;
-    drawBeachEdge(
-      ctx,
-      corners.top.x, corners.top.y,
-      corners.right.x, corners.right.y,
-      inward.dx, inward.dy,
-      beachWidth,
-      north, // Shorten at top if north also has beach
-      south  // Shorten at right if south also has beach
-    );
-  }
-
-  // South edge (bottom-right: right corner → bottom corner)
-  if (south) {
-    const inward = BEACH_INWARD_VECTORS.south;
-    drawBeachEdge(
-      ctx,
-      corners.right.x, corners.right.y,
-      corners.bottom.x, corners.bottom.y,
-      inward.dx, inward.dy,
-      beachWidth,
-      east,  // Shorten at right if east also has beach
-      west   // Shorten at bottom if west also has beach
-    );
-  }
-
-  // West edge (bottom-left: bottom corner → left corner)
-  if (west) {
-    const inward = BEACH_INWARD_VECTORS.west;
-    drawBeachEdge(
-      ctx,
-      corners.bottom.x, corners.bottom.y,
-      corners.left.x, corners.left.y,
-      inward.dx, inward.dy,
-      beachWidth,
-      south, // Shorten at bottom if south also has beach
-      north  // Shorten at left if north also has beach
-    );
-  }
-
-  // Draw corner pieces where two beach edges meet
-  // Top corner (north + east)
-  if (north && east) {
-    drawBeachCorner(
-      ctx,
-      corners.top,
-      corners.left,
-      BEACH_INWARD_VECTORS.north,
-      corners.right,
-      BEACH_INWARD_VECTORS.east,
-      beachWidth
-    );
-  }
-
-  // Right corner (east + south)
-  if (east && south) {
-    drawBeachCorner(
-      ctx,
-      corners.right,
-      corners.top,
-      BEACH_INWARD_VECTORS.east,
-      corners.bottom,
-      BEACH_INWARD_VECTORS.south,
-      beachWidth
-    );
-  }
-
-  // Bottom corner (south + west)
-  if (south && west) {
-    drawBeachCorner(
-      ctx,
-      corners.bottom,
-      corners.right,
-      BEACH_INWARD_VECTORS.south,
-      corners.left,
-      BEACH_INWARD_VECTORS.west,
-      beachWidth
-    );
-  }
-
-  // Left corner (west + north)
-  if (west && north) {
-    drawBeachCorner(
-      ctx,
-      corners.left,
-      corners.bottom,
-      BEACH_INWARD_VECTORS.west,
-      corners.top,
-      BEACH_INWARD_VECTORS.north,
-      beachWidth
-    );
-  }
+  // Use enhanced realistic beach rendering
+  drawRealisticBeach(ctx, x, y, gridX, gridY, zoom, time, adjacentWater);
 }
 
 // ============================================================================
@@ -667,132 +570,19 @@ function drawBeachCornerOnWater(
 
 /**
  * Draw beach effect on water tiles at edges facing land.
- * Creates a sandy strip along edges where water meets non-water tiles.
+ * Uses enhanced realistic graphics with animated foam lines and gradients.
  * @param adjacentLand - Which adjacent tiles are land (not water)
  */
 export function drawBeachOnWater(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  adjacentLand: { north: boolean; east: boolean; south: boolean; west: boolean }
+  adjacentLand: { north: boolean; east: boolean; south: boolean; west: boolean },
+  gridX: number = 0,
+  gridY: number = 0,
+  zoom: number = 1,
+  time: number = 0
 ): void {
-  const { north, east, south, west } = adjacentLand;
-
-  // Early exit if no adjacent land (water is fully surrounded by water)
-  if (!north && !east && !south && !west) return;
-
-  const beachWidth = TILE_WIDTH * BEACH_CONFIG.widthRatio * 2.5; // Slightly wider for visibility on water
-  const corners = getDiamondCorners(x, y);
-
-  // The inward vectors point FROM the edge TOWARD the center of the tile
-  // For water tiles, we draw beach strips starting at the edge and going inward
-
-  // North edge (top-left: left corner → top corner) - land is to the north
-  if (north) {
-    const inward = BEACH_INWARD_VECTORS.north;
-    drawBeachEdgeOnWater(
-      ctx,
-      corners.left.x, corners.left.y,
-      corners.top.x, corners.top.y,
-      inward.dx, inward.dy,
-      beachWidth,
-      west,   // Shorten at left if west also has land
-      east    // Shorten at top if east also has land
-    );
-  }
-
-  // East edge (top-right: top corner → right corner) - land is to the east
-  if (east) {
-    const inward = BEACH_INWARD_VECTORS.east;
-    drawBeachEdgeOnWater(
-      ctx,
-      corners.top.x, corners.top.y,
-      corners.right.x, corners.right.y,
-      inward.dx, inward.dy,
-      beachWidth,
-      north,  // Shorten at top if north also has land
-      south   // Shorten at right if south also has land
-    );
-  }
-
-  // South edge (bottom-right: right corner → bottom corner) - land is to the south
-  if (south) {
-    const inward = BEACH_INWARD_VECTORS.south;
-    drawBeachEdgeOnWater(
-      ctx,
-      corners.right.x, corners.right.y,
-      corners.bottom.x, corners.bottom.y,
-      inward.dx, inward.dy,
-      beachWidth,
-      east,   // Shorten at right if east also has land
-      west    // Shorten at bottom if west also has land
-    );
-  }
-
-  // West edge (bottom-left: bottom corner → left corner) - land is to the west
-  if (west) {
-    const inward = BEACH_INWARD_VECTORS.west;
-    drawBeachEdgeOnWater(
-      ctx,
-      corners.bottom.x, corners.bottom.y,
-      corners.left.x, corners.left.y,
-      inward.dx, inward.dy,
-      beachWidth,
-      south,  // Shorten at bottom if south also has land
-      north   // Shorten at left if north also has land
-    );
-  }
-
-  // Draw corner pieces where two beach edges meet
-  // Top corner (north + east)
-  if (north && east) {
-    drawBeachCornerOnWater(
-      ctx,
-      corners.top,
-      corners.left,
-      BEACH_INWARD_VECTORS.north,
-      corners.right,
-      BEACH_INWARD_VECTORS.east,
-      beachWidth
-    );
-  }
-
-  // Right corner (east + south)
-  if (east && south) {
-    drawBeachCornerOnWater(
-      ctx,
-      corners.right,
-      corners.top,
-      BEACH_INWARD_VECTORS.east,
-      corners.bottom,
-      BEACH_INWARD_VECTORS.south,
-      beachWidth
-    );
-  }
-
-  // Bottom corner (south + west)
-  if (south && west) {
-    drawBeachCornerOnWater(
-      ctx,
-      corners.bottom,
-      corners.right,
-      BEACH_INWARD_VECTORS.south,
-      corners.left,
-      BEACH_INWARD_VECTORS.west,
-      beachWidth
-    );
-  }
-
-  // Left corner (west + north)
-  if (west && north) {
-    drawBeachCornerOnWater(
-      ctx,
-      corners.left,
-      corners.bottom,
-      BEACH_INWARD_VECTORS.west,
-      corners.top,
-      BEACH_INWARD_VECTORS.north,
-      beachWidth
-    );
-  }
+  // Use enhanced realistic beach-on-water rendering
+  drawRealisticBeachOnWater(ctx, x, y, gridX, gridY, zoom, time, adjacentLand);
 }
