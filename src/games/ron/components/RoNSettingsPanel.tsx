@@ -8,6 +8,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AGE_ORDER, Age, AGE_INFO } from '../types/ages';
@@ -38,7 +40,7 @@ const BUILDING_CATEGORIES: Record<string, RoNBuildingType[]> = {
 };
 
 export function RoNSettingsPanel({ onClose }: RoNSettingsPanelProps) {
-  const { state, exportState, loadState, resetGame } = useRoN();
+  const { state, exportState, loadState, resetGame, graphicsSettings, setGraphicsSettings } = useRoN();
   const [activeTab, setActiveTab] = useState<'settings' | 'sprites' | 'buildings'>('settings');
   const [loadedAges, setLoadedAges] = useState<Set<Age>>(new Set());
   const canvasRefs = useRef<Map<Age, HTMLCanvasElement>>(new Map());
@@ -291,6 +293,62 @@ export function RoNSettingsPanel({ onClose }: RoNSettingsPanelProps) {
                   <div className="flex justify-between text-muted-foreground">
                     <span>Auto-Save</span>
                     <span className="text-green-400">Enabled</span>
+                  </div>
+                </div>
+              </div>
+              
+              <Separator />
+
+              {/* Graphics */}
+              <div className="space-y-3">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Graphics</div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-4">
+                    <Label className="text-sm text-muted-foreground">Quality</Label>
+                    <select
+                      className="bg-background border border-border rounded-md px-2 py-1 text-xs"
+                      value={graphicsSettings.quality}
+                      onChange={(e) => {
+                        const quality = e.target.value as typeof graphicsSettings.quality;
+                        setGraphicsSettings({ ...graphicsSettings, quality });
+                      }}
+                    >
+                      <option value="low">Low (fast)</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High (realistic)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <Label className="text-sm text-muted-foreground">Time of day</Label>
+                    <select
+                      className="bg-background border border-border rounded-md px-2 py-1 text-xs"
+                      value={graphicsSettings.timeOfDay}
+                      onChange={(e) => {
+                        const timeOfDay = e.target.value as typeof graphicsSettings.timeOfDay;
+                        setGraphicsSettings({ ...graphicsSettings, timeOfDay });
+                      }}
+                    >
+                      <option value="auto">Auto</option>
+                      <option value="day">Day</option>
+                      <option value="dawn">Dawn</option>
+                      <option value="dusk">Dusk</option>
+                      <option value="night">Night</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm text-muted-foreground">Realistic color grade</Label>
+                      <div className="text-[10px] text-muted-foreground">Muted terrain + less cartoony saturation</div>
+                    </div>
+                    <Switch
+                      checked={graphicsSettings.colorGrade}
+                      onCheckedChange={(checked) => {
+                        setGraphicsSettings({ ...graphicsSettings, colorGrade: checked });
+                      }}
+                    />
                   </div>
                 </div>
               </div>

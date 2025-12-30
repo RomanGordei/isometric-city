@@ -95,10 +95,9 @@ export function RoNSidebar() {
   const [showSettings, setShowSettings] = useState(false);
   
   const currentPlayer = getCurrentPlayer();
-  if (!currentPlayer) return null;
-  
-  const ageInfo = AGE_INFO[currentPlayer.age];
-  const ageIndex = AGE_ORDER.indexOf(currentPlayer.age);
+  const safeAge = currentPlayer?.age ?? 'classical';
+  const ageInfo = AGE_INFO[safeAge];
+  const ageIndex = AGE_ORDER.indexOf(safeAge);
   
   // Selected building info (uses separate state that simulation can't overwrite)
   const selectedBuilding = selectedBuildingPos 
@@ -107,7 +106,7 @@ export function RoNSidebar() {
   
   // Available units for selected building
   const availableUnits = useMemo(() => {
-    if (!selectedBuilding) return [];
+    if (!currentPlayer || !selectedBuilding) return [];
     
     const units: Array<{ type: UnitType; name: string }> = [];
     
@@ -215,7 +214,9 @@ export function RoNSidebar() {
     }
     
     return units;
-  }, [selectedBuilding, ageIndex]);
+  }, [currentPlayer, selectedBuilding, ageIndex]);
+
+  if (!currentPlayer) return null;
   
   return (
     <div className="w-56 bg-slate-900 border-r border-slate-700 flex flex-col h-screen fixed left-0 top-0 z-40">

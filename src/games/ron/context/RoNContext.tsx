@@ -25,6 +25,61 @@ import { useAgenticAI, AgenticAIMessage, AgenticAIConfig } from '../hooks/useAge
 
 // Storage keys for RoN (separate from IsoCity)
 const RON_STORAGE_KEY = 'ron-game-state';
+const RON_GRAPHICS_STORAGE_KEY = 'ron-graphics-settings';
+
+export type RoNGraphicsQuality = 'low' | 'medium' | 'high';
+export type RoNTimeOfDay = 'auto' | 'day' | 'dawn' | 'dusk' | 'night';
+
+export interface RoNGraphicsSettings {
+  quality: RoNGraphicsQuality;
+  timeOfDay: RoNTimeOfDay;
+  /**
+   * Enables a subtle, realistic color grade pass (desaturate/shadow lift).
+   * Kept as a flag so we can disable on low-end devices if needed.
+   */
+  colorGrade: boolean;
+}
+
+const DEFAULT_RON_GRAPHICS_SETTINGS: RoNGraphicsSettings = {
+  quality: 'high',
+  timeOfDay: 'day',
+  colorGrade: true,
+};
+
+function loadRoNGraphicsSettings(): RoNGraphicsSettings | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const saved = localStorage.getItem(RON_GRAPHICS_STORAGE_KEY);
+    if (!saved) return null;
+    const parsed = JSON.parse(saved) as Partial<RoNGraphicsSettings> | null;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const quality: RoNGraphicsQuality =
+      parsed.quality === 'low' || parsed.quality === 'medium' || parsed.quality === 'high'
+        ? parsed.quality
+        : DEFAULT_RON_GRAPHICS_SETTINGS.quality;
+    const timeOfDay: RoNTimeOfDay =
+      parsed.timeOfDay === 'auto' ||
+      parsed.timeOfDay === 'day' ||
+      parsed.timeOfDay === 'dawn' ||
+      parsed.timeOfDay === 'dusk' ||
+      parsed.timeOfDay === 'night'
+        ? parsed.timeOfDay
+        : DEFAULT_RON_GRAPHICS_SETTINGS.timeOfDay;
+    const colorGrade = typeof parsed.colorGrade === 'boolean' ? parsed.colorGrade : DEFAULT_RON_GRAPHICS_SETTINGS.colorGrade;
+    return { quality, timeOfDay, colorGrade };
+  } catch {
+    return null;
+  }
+}
+
+function saveRoNGraphicsSettings(settings: RoNGraphicsSettings): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(RON_GRAPHICS_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * Load RoN game state from localStorage
@@ -165,6 +220,8 @@ function isTileOccupiedByBuilding(grid: import('../types/game').RoNTile[][], gri
 interface RoNContextValue {
   state: RoNGameState;
   latestStateRef: React.RefObject<RoNGameState>;
+  graphicsSettings: RoNGraphicsSettings;
+  setGraphicsSettings: (settings: RoNGraphicsSettings) => void;
   
   // SEPARATE building selection state (not affected by simulation)
   selectedBuildingPos: { x: number; y: number } | null;
@@ -241,6 +298,19 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
   
   // Agentic AI state - enabled by default
   const [agenticAIEnabled, setAgenticAIEnabled] = useState(true);
+
+  // Graphics settings live outside the saved game state (safe to change without migrations)
+  const [graphicsSettings, setGraphicsSettingsState] = useState<RoNGraphicsSettings>(() => {
+    return loadRoNGraphicsSettings() ?? DEFAULT_RON_GRAPHICS_SETTINGS;
+  });
+
+  const setGraphicsSettings = useCallback((settings: RoNGraphicsSettings) => {
+    setGraphicsSettingsState(settings);
+  }, []);
+
+  useEffect(() => {
+    saveRoNGraphicsSettings(graphicsSettings);
+  }, [graphicsSettings]);
 
   // Initialize with a default 5-player game (1 human vs 4 AIs)
   // Map size 130 = 30% bigger than original 100
@@ -1097,6 +1167,8 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
   const value: RoNContextValue = {
     state,
     latestStateRef,
+    graphicsSettings,
+    setGraphicsSettings,
     selectedBuildingPos,  // SEPARATE state for building selection
     setTool,
     setSpeed,

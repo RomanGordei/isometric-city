@@ -8,6 +8,89 @@
 import { Unit, UnitTask, UNIT_STATS } from '../types/units';
 import { TILE_WIDTH, TILE_HEIGHT, gridToScreen } from '@/components/game/shared';
 
+type Rgb = { r: number; g: number; b: number };
+type Hsl = { h: number; s: number; l: number };
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+function hexToRgb(hex: string): Rgb {
+  const cleaned = hex.replace('#', '').trim();
+  const full = cleaned.length === 3
+    ? cleaned.split('').map(ch => ch + ch).join('')
+    : cleaned.padStart(6, '0').slice(0, 6);
+  const num = parseInt(full, 16);
+  return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+}
+
+function rgbToHex({ r, g, b }: Rgb): string {
+  const rr = Math.max(0, Math.min(255, Math.round(r)));
+  const gg = Math.max(0, Math.min(255, Math.round(g)));
+  const bb = Math.max(0, Math.min(255, Math.round(b)));
+  return `#${((1 << 24) + (rr << 16) + (gg << 8) + bb).toString(16).slice(1)}`;
+}
+
+function rgbToHsl({ r, g, b }: Rgb): Hsl {
+  const rr = r / 255;
+  const gg = g / 255;
+  const bb = b / 255;
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const d = max - min;
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+  if (d !== 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    switch (max) {
+      case rr:
+        h = ((gg - bb) / d) % 6;
+        break;
+      case gg:
+        h = (bb - rr) / d + 2;
+        break;
+      default:
+        h = (rr - gg) / d + 4;
+        break;
+    }
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return { h, s, l };
+}
+
+function hslToRgb({ h, s, l }: Hsl): Rgb {
+  const hh = ((h % 360) + 360) % 360;
+  const ss = clamp01(s);
+  const ll = clamp01(l);
+  const c = (1 - Math.abs(2 * ll - 1)) * ss;
+  const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+  const m = ll - c / 2;
+  let rr = 0, gg = 0, bb = 0;
+  if (hh < 60) [rr, gg, bb] = [c, x, 0];
+  else if (hh < 120) [rr, gg, bb] = [x, c, 0];
+  else if (hh < 180) [rr, gg, bb] = [0, c, x];
+  else if (hh < 240) [rr, gg, bb] = [0, x, c];
+  else if (hh < 300) [rr, gg, bb] = [x, 0, c];
+  else [rr, gg, bb] = [c, 0, x];
+  return { r: (rr + m) * 255, g: (gg + m) * 255, b: (bb + m) * 255 };
+}
+
+/**
+ * Tone down a bright team color into a more realistic, pigment-like accent.
+ * Keeps hue recognizable but reduces saturation and clamps lightness.
+ */
+function toRealisticAccent(hex: string): string {
+  const hsl = rgbToHsl(hexToRgb(hex));
+  const toned: Hsl = {
+    h: hsl.h,
+    s: Math.min(hsl.s, 0.55),
+    l: Math.max(0.25, Math.min(hsl.l, 0.55)),
+  };
+  return rgbToHex(hslToRgb(toned));
+}
+
 // Skin tone colors (similar to IsoCity)
 const SKIN_TONES = ['#f5d0c5', '#e8beac', '#d4a574', '#c68642', '#8d5524', '#5c3317'];
 
@@ -72,8 +155,8 @@ function drawCitizenUnit(
   playerColor: string
 ): void {
   const appearance = getUnitAppearance(unit.id);
-  // Use player color for clothing instead of random color
-  const clothingColor = playerColor;
+  // Use a toned-down team accent for clothing (less cartoony)
+  const clothingColor = toRealisticAccent(playerColor);
   // Canvas is already scaled by zoom, so just use a fixed scale
   // Increased by 50% for better visibility
   const scale = 0.75;
@@ -198,6 +281,7 @@ function drawMilitaryUnit(
   tick: number
 ): void {
   const stats = UNIT_STATS[unit.type];
+  const team = toRealisticAccent(color);
   // Naval units largest, cavalry/tanks medium-large, air smaller (they circle so look bigger), infantry smaller
   // All scales increased by 50% for better visibility
   const isTankOrVehicle = unit.type.includes('tank') || unit.type.includes('armored');
@@ -209,27 +293,27 @@ function drawMilitaryUnit(
   const animPhase = (tick * 0.1 + getUnitIdHash(unit.id)) % (Math.PI * 2);
 
   // Darken color for shadows
-  const darkerColor = shadeColor(color, -30);
-  const lighterColor = shadeColor(color, 30);
+  const darkerColor = shadeColor(team, -30);
+  const lighterColor = shadeColor(team, 30);
   
   if (stats.category === 'cavalry') {
     // Draw horse/mount with rider
-    drawCavalryUnit(ctx, centerX, centerY, unit, color, darkerColor, lighterColor, scale, animPhase);
+    drawCavalryUnit(ctx, centerX, centerY, unit, team, darkerColor, lighterColor, scale, animPhase);
   } else if (stats.category === 'siege') {
     // Draw siege weapon (catapult, cannon, etc.)
-    drawSiegeUnit(ctx, centerX, centerY, unit, color, darkerColor, scale, animPhase);
+    drawSiegeUnit(ctx, centerX, centerY, unit, team, darkerColor, scale, animPhase);
   } else if (stats.category === 'ranged') {
     // Draw ranged soldier with bow/gun
-    drawRangedUnit(ctx, centerX, centerY, unit, color, darkerColor, scale, animPhase);
+    drawRangedUnit(ctx, centerX, centerY, unit, team, darkerColor, scale, animPhase);
   } else if (stats.category === 'naval') {
     // Draw ship/boat
-    drawNavalUnit(ctx, centerX, centerY, unit, color, darkerColor, lighterColor, scale, animPhase);
+    drawNavalUnit(ctx, centerX, centerY, unit, team, darkerColor, lighterColor, scale, animPhase);
   } else if (stats.category === 'air') {
     // Draw aircraft
-    drawAirUnit(ctx, centerX, centerY, unit, color, darkerColor, lighterColor, scale, animPhase);
+    drawAirUnit(ctx, centerX, centerY, unit, team, darkerColor, lighterColor, scale, animPhase);
   } else {
     // Infantry - draw soldier with weapon and shield
-    drawInfantryUnit(ctx, centerX, centerY, unit, color, darkerColor, scale, animPhase);
+    drawInfantryUnit(ctx, centerX, centerY, unit, team, darkerColor, scale, animPhase);
   }
 }
 
