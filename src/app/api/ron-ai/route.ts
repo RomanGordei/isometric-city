@@ -400,7 +400,7 @@ const AI_TOOLS: OpenAI.Responses.Tool[] = [
   {
     type: 'function',
     name: 'advance_age',
-    description: 'Advance to the next age! Ages unlock better units & buildings. Classical→Medieval→Gunpowder→Enlightenment→Industrial→Modern. Requires library + resources (check nextAgeRequirements in game state).',
+    description: 'Advance to the next age. ONLY call this when game state shows "READY TO ADVANCE!" with ALL requirements showing ✓. If any show ✗, do NOT call - wait and gather more resources first.',
     strict: true,
     parameters: {
       type: 'object',

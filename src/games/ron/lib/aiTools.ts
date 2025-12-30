@@ -1103,11 +1103,25 @@ export function executeAdvanceAge(
     return { newState: state, result: { success: false, message: 'No requirements defined for next age' } };
   }
 
-  // Check resources
+  // Check ALL resources and report what's missing
+  const missing: string[] = [];
+  const status: string[] = [];
   for (const [resource, amount] of Object.entries(requirements)) {
-    if (player.resources[resource as ResourceType] < amount) {
-      return { newState: state, result: { success: false, message: `Not enough ${resource}. Need ${amount}, have ${player.resources[resource as ResourceType]}` } };
+    const have = Math.floor(player.resources[resource as ResourceType]);
+    if (have < amount) {
+      missing.push(`${resource}: ${have}/${amount}`);
     }
+    status.push(`${resource}: ${have}/${amount}${have >= amount ? '✓' : '✗'}`);
+  }
+  
+  if (missing.length > 0) {
+    return { 
+      newState: state, 
+      result: { 
+        success: false, 
+        message: `Cannot advance age! Missing: ${missing.join(', ')}. Full status: ${status.join(', ')}. DO NOT call advance_age again until ALL show ✓!` 
+      } 
+    };
   }
 
   // Deduct resources
