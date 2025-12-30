@@ -76,6 +76,12 @@ export interface RoNGameState {
   // UI state
   selectedTool: RoNTool;
   activePanel: 'none' | 'research' | 'military' | 'economy' | 'diplomacy' | 'settings';
+
+  // Graphics (RoN-only rendering preferences)
+  graphics: {
+    mode: 'realistic' | 'classic';
+    quality: 'high' | 'balanced' | 'low';
+  };
   
   // Camera
   cameraOffset: { x: number; y: number };
@@ -730,6 +736,10 @@ export function createInitialRoNGameState(
     selectionEnd: null,
     selectedTool: 'none',
     activePanel: 'none',
+    graphics: {
+      mode: 'realistic',
+      quality: 'balanced',
+    },
     cameraOffset: { x: 0, y: 0 },
     zoom: 1,
     gameOver: false,

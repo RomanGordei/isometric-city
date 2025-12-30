@@ -55,7 +55,7 @@ function loadRoNGameState(): RoNGameState | null {
       
       // Validate basic structure
       if (parsed && parsed.grid && parsed.gridSize && parsed.players) {
-        return parsed as RoNGameState;
+        return normalizeRoNGameState(parsed) as RoNGameState;
       } else {
         localStorage.removeItem(RON_STORAGE_KEY);
       }
@@ -69,6 +69,22 @@ function loadRoNGameState(): RoNGameState | null {
     }
   }
   return null;
+}
+
+function normalizeRoNGameState(input: unknown): RoNGameState {
+  const parsed = input as Partial<RoNGameState> | null;
+  if (!parsed) throw new Error('Invalid RoN state');
+
+  const graphics = parsed.graphics ?? { mode: 'realistic', quality: 'balanced' };
+  const normalized: RoNGameState = {
+    ...(parsed as RoNGameState),
+    graphics: {
+      mode: graphics.mode ?? 'realistic',
+      quality: graphics.quality ?? 'balanced',
+    },
+  };
+
+  return normalized;
 }
 
 /**
@@ -173,6 +189,8 @@ interface RoNContextValue {
   setTool: (tool: RoNTool) => void;
   setSpeed: (speed: 0 | 1 | 2 | 3) => void;
   setActivePanel: (panel: RoNGameState['activePanel']) => void;
+  setGraphicsMode: (mode: RoNGameState['graphics']['mode']) => void;
+  setGraphicsQuality: (quality: RoNGameState['graphics']['quality']) => void;
   
   // Unit actions
   selectUnits: (unitIds: string[]) => void;
@@ -449,6 +467,7 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
         const currentPanel = currentState.activePanel;
         const currentCamera = currentState.cameraOffset;
         const currentZoom = currentState.zoom;
+        const currentGraphics = currentState.graphics;
         
         // Run simulation on current state
         const simulatedState = simulateRoNTick(currentState);
@@ -462,6 +481,7 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
           activePanel: currentPanel,
           cameraOffset: currentCamera,
           zoom: currentZoom,
+          graphics: currentGraphics,
         };
         latestStateRef.current = newState;
         return newState;
@@ -484,6 +504,14 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, activePanel: panel }));
   }, []);
   
+  const setGraphicsMode = useCallback((mode: RoNGameState['graphics']['mode']) => {
+    setState(prev => ({ ...prev, graphics: { ...prev.graphics, mode } }));
+  }, []);
+
+  const setGraphicsQuality = useCallback((quality: RoNGameState['graphics']['quality']) => {
+    setState(prev => ({ ...prev, graphics: { ...prev.graphics, quality } }));
+  }, []);
+
   // Unit selection
   const selectUnits = useCallback((unitIds: string[]) => {
     setState(prev => {
@@ -1065,8 +1093,9 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
       const parsed = JSON.parse(stateString);
       // Validate basic structure
       if (parsed && parsed.grid && parsed.gridSize && parsed.players) {
-        setState(parsed as RoNGameState);
-        latestStateRef.current = parsed as RoNGameState;
+        const normalized = normalizeRoNGameState(parsed);
+        setState(normalized);
+        latestStateRef.current = normalized;
         return true;
       }
       return false;
@@ -1101,6 +1130,8 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
     setTool,
     setSpeed,
     setActivePanel,
+    setGraphicsMode,
+    setGraphicsQuality,
     selectUnits,
     selectUnitsInArea,
     moveSelectedUnits,

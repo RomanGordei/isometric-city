@@ -10,6 +10,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import { AGE_ORDER, Age, AGE_INFO } from '../types/ages';
 import { AGE_SPRITE_PACKS, BUILDING_SPRITE_MAP } from '../lib/renderConfig';
 import { loadSpriteImage, getCachedImage } from '@/components/game/shared';
@@ -38,7 +39,7 @@ const BUILDING_CATEGORIES: Record<string, RoNBuildingType[]> = {
 };
 
 export function RoNSettingsPanel({ onClose }: RoNSettingsPanelProps) {
-  const { state, exportState, loadState, resetGame } = useRoN();
+  const { state, exportState, loadState, resetGame, setGraphicsMode, setGraphicsQuality } = useRoN();
   const [activeTab, setActiveTab] = useState<'settings' | 'sprites' | 'buildings'>('settings');
   const [loadedAges, setLoadedAges] = useState<Set<Age>>(new Set());
   const canvasRefs = useRef<Map<Age, HTMLCanvasElement>>(new Map());
@@ -292,6 +293,41 @@ export function RoNSettingsPanel({ onClose }: RoNSettingsPanelProps) {
                     <span>Auto-Save</span>
                     <span className="text-green-400">Enabled</span>
                   </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Graphics */}
+              <div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">Graphics</div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="text-sm">Realistic renderer</div>
+                    <div className="text-xs text-muted-foreground">
+                      Natural terrain textures, animated water/foam, and muted unit palettes.
+                    </div>
+                  </div>
+                  <Switch
+                    checked={state.graphics.mode === 'realistic'}
+                    onCheckedChange={(checked) => setGraphicsMode(checked ? 'realistic' : 'classic')}
+                  />
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="text-sm">Quality</div>
+                    <div className="text-xs text-muted-foreground">Controls texture/detail density.</div>
+                  </div>
+                  <select
+                    className="bg-background border border-border rounded-md px-2 py-1 text-sm"
+                    value={state.graphics.quality}
+                    onChange={(e) => setGraphicsQuality(e.target.value as typeof state.graphics.quality)}
+                  >
+                    <option value="high">High</option>
+                    <option value="balanced">Balanced</option>
+                    <option value="low">Low</option>
+                  </select>
                 </div>
               </div>
               
