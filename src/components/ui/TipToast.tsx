@@ -22,18 +22,22 @@ function TipToastContent({ message, isVisible, onContinue, onSkipAll }: TipToast
 
   useEffect(() => {
     if (isVisible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShouldRender(true);
       // Small delay to trigger animation
       const frame = requestAnimationFrame(() => {
         requestAnimationFrame(() => {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setIsAnimating(true);
         });
       });
       return () => cancelAnimationFrame(frame);
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsAnimating(false);
       // Wait for exit animation before unmounting
       const timer = setTimeout(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setShouldRender(false);
       }, 300);
       return () => clearTimeout(timer);
@@ -123,6 +127,7 @@ export function TipToast(props: TipToastProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

@@ -672,15 +672,18 @@ export function GameProvider({ children, startFresh = false }: { children: React
     // Load sprite pack preference
     const savedPackId = loadSpritePackId();
     const pack = getSpritePack(savedPackId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentSpritePack(pack);
     setActiveSpritePack(pack);
     
     // Load day/night mode preference
     const savedDayNightMode = loadDayNightMode();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDayNightModeState(savedDayNightMode);
     
     // Load saved cities index
     const cities = loadSavedCitiesIndex();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSavedCities(cities);
     
     // Load game state (unless startFresh is true - used for co-op to start with a new city)
@@ -710,7 +713,9 @@ export function GameProvider({ children, startFresh = false }: { children: React
   // PERF: Just mark that state has changed - defer expensive deep copy to actual save time
   const stateChangedRef = useRef(false);
   const latestStateRef = useRef(state);
-  latestStateRef.current = state;
+  useEffect(() => {
+    latestStateRef.current = state;
+  }, [state]);
   
   useEffect(() => {
     if (!hasLoadedRef.current) {

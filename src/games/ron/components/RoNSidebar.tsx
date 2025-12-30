@@ -6,7 +6,7 @@
  */
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useRoN } from '../context/RoNContext';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -95,10 +95,9 @@ export function RoNSidebar() {
   const [showSettings, setShowSettings] = useState(false);
   
   const currentPlayer = getCurrentPlayer();
-  if (!currentPlayer) return null;
-  
-  const ageInfo = AGE_INFO[currentPlayer.age];
-  const ageIndex = AGE_ORDER.indexOf(currentPlayer.age);
+  const currentAge = currentPlayer?.age ?? 'classical';
+  const ageInfo = AGE_INFO[currentAge];
+  const ageIndex = AGE_ORDER.indexOf(currentAge);
   
   // Selected building info (uses separate state that simulation can't overwrite)
   const selectedBuilding = selectedBuildingPos 
@@ -106,7 +105,8 @@ export function RoNSidebar() {
     : null;
   
   // Available units for selected building
-  const availableUnits = useMemo(() => {
+  // (Computed directly; avoids React Compiler “preserve memoization” conflicts.)
+  const availableUnits: Array<{ type: UnitType; name: string }> = (() => {
     if (!selectedBuilding) return [];
     
     const units: Array<{ type: UnitType; name: string }> = [];
@@ -215,7 +215,9 @@ export function RoNSidebar() {
     }
     
     return units;
-  }, [selectedBuilding, ageIndex]);
+  })();
+
+  if (!currentPlayer) return null;
   
   return (
     <div className="w-56 bg-slate-900 border-r border-slate-700 flex flex-col h-screen fixed left-0 top-0 z-40">

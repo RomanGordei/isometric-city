@@ -72,7 +72,7 @@ function drawCitizenUnit(
   playerColor: string
 ): void {
   const appearance = getUnitAppearance(unit.id);
-  // Use player color for clothing instead of random color
+  // Use a toned-down player color so units read as “realistic” instead of neon.
   const clothingColor = playerColor;
   // Canvas is already scaled by zoom, so just use a fixed scale
   // Increased by 50% for better visibility
@@ -87,6 +87,14 @@ function drawCitizenUnit(
   const bodyWidth = 5 * scale;
   const headRadius = 3 * scale;
   const legLength = 4 * scale;
+
+  // Ground shadow (helps integrate with terrain lighting)
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath();
+  ctx.ellipse(centerX, centerY + legLength + 2 * scale, bodyWidth * 0.95, bodyWidth * 0.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
   
   // Walking animation
   let legOffset = 0;
@@ -208,45 +216,121 @@ function drawMilitaryUnit(
   const scale = baseScale;
   const animPhase = (tick * 0.1 + getUnitIdHash(unit.id)) % (Math.PI * 2);
 
-  // Darken color for shadows
-  const darkerColor = shadeColor(color, -30);
-  const lighterColor = shadeColor(color, 30);
+  // Team palette shading (color is already normalized by the caller).
+  const baseColor = color;
+  const darkerColor = shadeColor(baseColor, -28);
+  const lighterColor = shadeColor(baseColor, 22);
   
   if (stats.category === 'cavalry') {
     // Draw horse/mount with rider
-    drawCavalryUnit(ctx, centerX, centerY, unit, color, darkerColor, lighterColor, scale, animPhase);
+    drawCavalryUnit(ctx, centerX, centerY, unit, baseColor, darkerColor, lighterColor, scale, animPhase);
   } else if (stats.category === 'siege') {
     // Draw siege weapon (catapult, cannon, etc.)
-    drawSiegeUnit(ctx, centerX, centerY, unit, color, darkerColor, scale, animPhase);
+    drawSiegeUnit(ctx, centerX, centerY, unit, baseColor, darkerColor, scale, animPhase);
   } else if (stats.category === 'ranged') {
     // Draw ranged soldier with bow/gun
-    drawRangedUnit(ctx, centerX, centerY, unit, color, darkerColor, scale, animPhase);
+    drawRangedUnit(ctx, centerX, centerY, unit, baseColor, darkerColor, scale, animPhase);
   } else if (stats.category === 'naval') {
     // Draw ship/boat
-    drawNavalUnit(ctx, centerX, centerY, unit, color, darkerColor, lighterColor, scale, animPhase);
+    drawNavalUnit(ctx, centerX, centerY, unit, baseColor, darkerColor, lighterColor, scale, animPhase);
   } else if (stats.category === 'air') {
     // Draw aircraft
-    drawAirUnit(ctx, centerX, centerY, unit, color, darkerColor, lighterColor, scale, animPhase);
+    drawAirUnit(ctx, centerX, centerY, unit, baseColor, darkerColor, lighterColor, scale, animPhase);
   } else {
     // Infantry - draw soldier with weapon and shield
-    drawInfantryUnit(ctx, centerX, centerY, unit, color, darkerColor, scale, animPhase);
+    drawInfantryUnit(ctx, centerX, centerY, unit, baseColor, darkerColor, scale, animPhase);
   }
 }
 
 /**
- * Shade a hex color lighter or darker
+ * Shade a hex color lighter or darker (HSL-based, keeps saturation sane).
  */
 function shadeColor(color: string, percent: number): string {
-  const num = parseInt(color.replace('#', ''), 16);
-  const amt = Math.round(2.55 * percent);
-  const R = (num >> 16) + amt;
-  const G = (num >> 8 & 0x00FF) + amt;
-  const B = (num & 0x0000FF) + amt;
-  return '#' + (0x1000000 + 
-    (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 + 
-    (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 + 
-    (B < 255 ? (B < 1 ? 0 : B) : 255)
-  ).toString(16).slice(1);
+  const rgb = hexToRgb(color);
+  if (!rgb) return color;
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+  // Adjust lightness, slightly reduce saturation when darkening (realism).
+  const delta = percent / 100;
+  const sMult = percent < 0 ? 0.92 : 1.03;
+  const l = clamp01(hsl.l + delta * 0.55);
+  const s = clamp01(hsl.s * sMult);
+  const out = hslToRgb(hsl.h, s, l);
+  return rgbToHex(out.r, out.g, out.b);
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const s = hex.startsWith('#') ? hex.slice(1) : hex;
+  if (s.length !== 6) return null;
+  const n = Number.parseInt(s, 16);
+  if (Number.isNaN(n)) return null;
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const rr = Math.max(0, Math.min(255, Math.round(r)));
+  const gg = Math.max(0, Math.min(255, Math.round(g)));
+  const bb = Math.max(0, Math.min(255, Math.round(b)));
+  return `#${rr.toString(16).padStart(2, '0')}${gg.toString(16).padStart(2, '0')}${bb.toString(16).padStart(2, '0')}`;
+}
+
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const rr = r / 255;
+  const gg = g / 255;
+  const bb = b / 255;
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const d = max - min;
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+  if (d !== 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    switch (max) {
+      case rr:
+        h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6;
+        break;
+      case gg:
+        h = ((bb - rr) / d + 2) / 6;
+        break;
+      default:
+        h = ((rr - gg) / d + 4) / 6;
+    }
+  }
+  return { h, s, l };
+}
+
+function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+  const hh = ((h % 1) + 1) % 1;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hh * 6) % 2) - 1));
+  const m = l - c / 2;
+  let rr = 0, gg = 0, bb = 0;
+  const seg = Math.floor(hh * 6);
+  switch (seg) {
+    case 0: rr = c; gg = x; bb = 0; break;
+    case 1: rr = x; gg = c; bb = 0; break;
+    case 2: rr = 0; gg = c; bb = x; break;
+    case 3: rr = 0; gg = x; bb = c; break;
+    case 4: rr = x; gg = 0; bb = c; break;
+    default: rr = c; gg = 0; bb = x; break;
+  }
+  return { r: (rr + m) * 255, g: (gg + m) * 255, b: (bb + m) * 255 };
+}
+
+function normalizeTeamColor(teamHex: string): { primary: string } {
+  // Desaturate and slightly darken the pure team color so it reads as fabric/paint.
+  const rgb = hexToRgb(teamHex);
+  if (!rgb) return { primary: teamHex };
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const s = clamp01(hsl.s * 0.78);
+  const l = clamp01(hsl.l * 0.92 + 0.02);
+  const out = hslToRgb(hsl.h, s, l);
+  return { primary: rgbToHex(out.r, out.g, out.b) };
 }
 
 /**
@@ -2702,12 +2786,13 @@ export function drawRoNUnit(
   const centerY = screenY + TILE_HEIGHT * 0.3;
   
   const stats = UNIT_STATS[unit.type];
+  const team = normalizeTeamColor(playerColor);
   
   // Draw unit based on type
   if (stats.category === 'civilian') {
-    drawCitizenUnit(ctx, centerX, centerY, unit, zoom, tick, playerColor);
+    drawCitizenUnit(ctx, centerX, centerY, unit, zoom, tick, team.primary);
   } else {
-    drawMilitaryUnit(ctx, centerX, centerY, unit, playerColor, zoom, tick);
+    drawMilitaryUnit(ctx, centerX, centerY, unit, team.primary, zoom, tick);
   }
   
   // Attack animation effect

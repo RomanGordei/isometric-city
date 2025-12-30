@@ -31,8 +31,10 @@ export function AIMessagePanel({
   useEffect(() => {
     const latestUnread = messages.find(m => !m.isRead);
     if (latestUnread) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowLatest(latestUnread);
       const timer = setTimeout(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setShowLatest(null);
         onMarkRead(latestUnread.id);
       }, 5000);

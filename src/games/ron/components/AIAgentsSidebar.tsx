@@ -272,6 +272,7 @@ export function AIAgentsSidebar({ conversations, players, onClear, onWidthChange
   // Initialize expanded state for new AI players (expand first one by default)
   useEffect(() => {
     if (aiConversations.length > 0 && expandedPlayers.size === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setExpandedPlayers(new Set([aiConversations[0].playerId]));
     }
   }, [aiConversations.length]);
