@@ -631,11 +631,14 @@ ${(() => {
   const popCapped = p.population >= p.populationCap;
   const canTrainCitizen = !popCapped && p.resources.food >= 60; // Citizen costs 60 food
   const canTrainMilitia = !popCapped && p.resources.food >= 40 && p.resources.wood >= 20;
+  // Use actual costs from BUILDING_STATS
   const canBuildFarm = p.resources.wood >= 50;
   const canBuildWoodcutter = p.resources.wood >= 30;
   const canBuildMine = p.resources.wood >= 80 && p.resources.gold >= 50;
-  const canBuildMarket = p.resources.wood >= 60 && p.resources.gold >= 30;
-  const canBuildBarracks = p.resources.wood >= 100;
+  const canBuildMarket = p.resources.wood >= 120; // Market is 120w only (no gold - it's how you GET gold)
+  const canBuildBarracks = p.resources.wood >= 100 && p.resources.gold >= 50; // Barracks needs gold too!
+  const canBuildLibrary = p.resources.wood >= 100 && p.resources.gold >= 80;
+  const canBuildSmelter = p.resources.wood >= 120 && p.resources.gold >= 80 && p.resources.metal >= 50;
   const canBuildSmallCity = p.resources.wood >= 400 && p.resources.metal >= 100 && p.resources.gold >= 200;
   
   const cityTypes = ['city_center', 'small_city', 'large_city', 'major_city'];
