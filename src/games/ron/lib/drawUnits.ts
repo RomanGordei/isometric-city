@@ -61,9 +61,12 @@ function drawCitizenUnit(
   centerY: number,
   unit: Unit,
   zoom: number,
-  tick: number
+  tick: number,
+  playerColor: string
 ): void {
   const appearance = getUnitAppearance(unit.id);
+  // Use player color for clothing instead of random color
+  const clothingColor = playerColor;
   // Canvas is already scaled by zoom, so just use a fixed scale
   // Increased by 50% for better visibility
   const scale = 0.75;
@@ -99,7 +102,7 @@ function drawCitizenUnit(
   ctx.rotate(bodyLean);
   
   // Draw legs
-  ctx.strokeStyle = appearance.clothingColor;
+  ctx.strokeStyle = clothingColor;
   ctx.lineWidth = 2 * scale;
   ctx.lineCap = 'round';
   
@@ -116,7 +119,7 @@ function drawCitizenUnit(
   ctx.stroke();
   
   // Draw body (torso)
-  ctx.fillStyle = appearance.clothingColor;
+  ctx.fillStyle = clothingColor;
   ctx.beginPath();
   ctx.ellipse(0, -bodyHeight * 0.4, bodyWidth * 0.6, bodyHeight * 0.5, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -339,8 +342,8 @@ function drawMilitia(ctx: CanvasRenderingContext2D, cx: number, cy: number, colo
   ctx.ellipse(cx, cy + 5 * s, 4 * s, 1.5 * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Legs (peasant brown)
-  ctx.strokeStyle = '#8b7355';
+  // Legs (use darker team color)
+  ctx.strokeStyle = dark;
   ctx.lineWidth = 2 * s;
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -352,8 +355,8 @@ function drawMilitia(ctx: CanvasRenderingContext2D, cx: number, cy: number, colo
   ctx.lineTo(cx + 1.5 * s - legOffset * 0.3, cy + 4 * s);
   ctx.stroke();
 
-  // Body (rough tunic)
-  ctx.fillStyle = '#a0522d';
+  // Body (team color tunic)
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.roundRect(cx - 3 * s, cy - 6 * s, 6 * s, 7 * s, 1 * s);
   ctx.fill();
@@ -401,8 +404,8 @@ function drawHoplite(ctx: CanvasRenderingContext2D, cx: number, cy: number, colo
   ctx.lineTo(cx + 1.5 * s - legOffset * 0.3, cy + 4 * s);
   ctx.stroke();
 
-  // Large round shield (aspis)
-  ctx.fillStyle = '#8b0000';
+  // Large round shield (aspis) - use team color
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(cx - 3 * s, cy - 3 * s, 5 * s, 0, Math.PI * 2);
   ctx.fill();
@@ -430,8 +433,8 @@ function drawHoplite(ctx: CanvasRenderingContext2D, cx: number, cy: number, colo
   ctx.beginPath();
   ctx.arc(cx, cy - 9 * s, 3 * s, 0, Math.PI * 2);
   ctx.fill();
-  // Helmet crest (red plume)
-  ctx.fillStyle = '#dc143c';
+  // Helmet crest (team color plume)
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.ellipse(cx, cy - 12 * s, 1 * s, 3 * s, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -613,8 +616,8 @@ function drawMusketeer(ctx: CanvasRenderingContext2D, cx: number, cy: number, co
   ctx.ellipse(cx, cy + 5 * s, 4 * s, 1.5 * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Legs (breeches and stockings)
-  ctx.strokeStyle = '#f5f5dc';
+  // Legs (breeches - team color)
+  ctx.strokeStyle = dark;
   ctx.lineWidth = 2 * s;
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -635,13 +638,13 @@ function drawMusketeer(ctx: CanvasRenderingContext2D, cx: number, cy: number, co
   ctx.arc(cx + 1.5 * s - legOffset * 0.3, cy + 4 * s, 1.5 * s, 0, Math.PI * 2);
   ctx.fill();
 
-  // Body (doublet with sash)
+  // Body (team color doublet with sash)
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.roundRect(cx - 3 * s, cy - 7 * s, 6 * s, 8 * s, 1 * s);
   ctx.fill();
-  // Sash
-  ctx.fillStyle = '#ffd700';
+  // Sash (light accent)
+  ctx.fillStyle = '#f5f5dc';
   ctx.beginPath();
   ctx.moveTo(cx - 3 * s, cy - 5 * s);
   ctx.lineTo(cx + 3 * s, cy - 2 * s);
@@ -655,16 +658,16 @@ function drawMusketeer(ctx: CanvasRenderingContext2D, cx: number, cy: number, co
   ctx.beginPath();
   ctx.arc(cx, cy - 9 * s, 2 * s, 0, Math.PI * 2);
   ctx.fill();
-  // Hat
-  ctx.fillStyle = '#2d2d2d';
+  // Hat (team color)
+  ctx.fillStyle = dark;
   ctx.beginPath();
   ctx.ellipse(cx, cy - 10 * s, 4 * s, 1.5 * s, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
   ctx.arc(cx, cy - 11 * s, 2 * s, Math.PI, 0);
   ctx.fill();
-  // Feather
-  ctx.fillStyle = '#dc143c';
+  // Feather (team color)
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.ellipse(cx + 2 * s, cy - 13 * s, 0.8 * s, 3 * s, 0.3, 0, Math.PI * 2);
   ctx.fill();
@@ -685,8 +688,8 @@ function drawRifleman(ctx: CanvasRenderingContext2D, cx: number, cy: number, col
   ctx.ellipse(cx, cy + 5 * s, 4 * s, 1.5 * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Legs (khaki trousers with puttees)
-  ctx.strokeStyle = '#c3b091';
+  // Legs (team color trousers)
+  ctx.strokeStyle = dark;
   ctx.lineWidth = 2.5 * s;
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -698,8 +701,8 @@ function drawRifleman(ctx: CanvasRenderingContext2D, cx: number, cy: number, col
   ctx.lineTo(cx + 1.5 * s - legOffset * 0.3, cy + 4 * s);
   ctx.stroke();
 
-  // Body (military tunic)
-  ctx.fillStyle = '#556b2f';
+  // Body (team color military tunic)
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.roundRect(cx - 3 * s, cy - 7 * s, 6 * s, 8 * s, 1 * s);
   ctx.fill();
@@ -715,8 +718,8 @@ function drawRifleman(ctx: CanvasRenderingContext2D, cx: number, cy: number, col
   ctx.beginPath();
   ctx.arc(cx, cy - 9 * s, 2 * s, 0, Math.PI * 2);
   ctx.fill();
-  // Helmet
-  ctx.fillStyle = '#556b2f';
+  // Helmet (team color)
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(cx, cy - 10 * s, 2.5 * s, Math.PI, 0);
   ctx.fill();
@@ -748,8 +751,8 @@ function drawAssaultInfantry(ctx: CanvasRenderingContext2D, cx: number, cy: numb
   ctx.ellipse(cx, cy + 5 * s, 4 * s, 1.5 * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Legs (camo pattern)
-  ctx.strokeStyle = '#4a5d23';
+  // Legs (team color)
+  ctx.strokeStyle = dark;
   ctx.lineWidth = 2.5 * s;
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -770,18 +773,18 @@ function drawAssaultInfantry(ctx: CanvasRenderingContext2D, cx: number, cy: numb
   ctx.arc(cx + 1.5 * s - legOffset * 0.3, cy + 4 * s, 1.5 * s, 0, Math.PI * 2);
   ctx.fill();
 
-  // Body (tactical vest over camo)
-  ctx.fillStyle = '#4a5d23';
+  // Body (team color uniform)
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.roundRect(cx - 3 * s, cy - 7 * s, 6 * s, 8 * s, 1 * s);
   ctx.fill();
-  // Vest
-  ctx.fillStyle = '#3d4a28';
+  // Vest (darker team color)
+  ctx.fillStyle = dark;
   ctx.beginPath();
   ctx.roundRect(cx - 2.5 * s, cy - 6 * s, 5 * s, 6 * s, 0.5 * s);
   ctx.fill();
   // Pouches
-  ctx.fillStyle = '#2d3a1c';
+  ctx.fillStyle = '#2d2d2d';
   ctx.fillRect(cx - 2 * s, cy - 4 * s, 1.2 * s, 2 * s);
   ctx.fillRect(cx - 0.5 * s, cy - 4 * s, 1.2 * s, 2 * s);
   ctx.fillRect(cx + 1 * s, cy - 4 * s, 1.2 * s, 2 * s);
@@ -791,8 +794,8 @@ function drawAssaultInfantry(ctx: CanvasRenderingContext2D, cx: number, cy: numb
   ctx.beginPath();
   ctx.arc(cx, cy - 9 * s, 2 * s, 0, Math.PI * 2);
   ctx.fill();
-  // Helmet
-  ctx.fillStyle = '#4a5d23';
+  // Helmet (team color)
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(cx, cy - 10 * s, 2.8 * s, Math.PI, 0);
   ctx.fill();
@@ -856,8 +859,8 @@ function drawGenericRanged(ctx: CanvasRenderingContext2D, cx: number, cy: number
   ctx.ellipse(cx, cy + 5 * s, 4 * s, 1.5 * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Legs
-  ctx.strokeStyle = '#4a5568';
+  // Legs (team color)
+  ctx.strokeStyle = dark;
   ctx.lineWidth = 2.5 * s;
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -869,7 +872,7 @@ function drawGenericRanged(ctx: CanvasRenderingContext2D, cx: number, cy: number
   ctx.lineTo(cx + 1.5 * s - legOffset * 0.3, cy + 4 * s);
   ctx.stroke();
 
-  // Body
+  // Body (team color)
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.roundRect(cx - 2.5 * s, cy - 7 * s, 5 * s, 8 * s, 1 * s);
@@ -899,8 +902,8 @@ function drawArcher(ctx: CanvasRenderingContext2D, cx: number, cy: number, color
   ctx.ellipse(cx, cy + 5 * s, 4 * s, 1.5 * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Legs (light leggings)
-  ctx.strokeStyle = '#c3b091';
+  // Legs (team color)
+  ctx.strokeStyle = dark;
   ctx.lineWidth = 2 * s;
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -915,19 +918,19 @@ function drawArcher(ctx: CanvasRenderingContext2D, cx: number, cy: number, color
   // Quiver on back
   ctx.fillStyle = '#5c4033';
   ctx.fillRect(cx - 4 * s, cy - 6 * s, 2 * s, 7 * s);
-  // Arrow feathers showing
-  ctx.fillStyle = '#f5f5dc';
+  // Arrow feathers showing (team color)
+  ctx.fillStyle = color;
   ctx.fillRect(cx - 3.8 * s, cy - 7 * s, 0.5 * s, 1.5 * s);
   ctx.fillRect(cx - 3 * s, cy - 7 * s, 0.5 * s, 1.5 * s);
   ctx.fillRect(cx - 2.2 * s, cy - 7 * s, 0.5 * s, 1.5 * s);
 
-  // Body (leather jerkin)
-  ctx.fillStyle = '#8b7355';
+  // Body (team color jerkin)
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.roundRect(cx - 2.5 * s, cy - 6 * s, 5 * s, 7 * s, 1 * s);
   ctx.fill();
-  // Green hood/cloak
-  ctx.fillStyle = color;
+  // Darker hood/cloak
+  ctx.fillStyle = dark;
   ctx.beginPath();
   ctx.moveTo(cx - 2 * s, cy - 6 * s);
   ctx.lineTo(cx + 2 * s, cy - 6 * s);
@@ -941,8 +944,8 @@ function drawArcher(ctx: CanvasRenderingContext2D, cx: number, cy: number, color
   ctx.beginPath();
   ctx.arc(cx, cy - 8 * s, 2 * s, 0, Math.PI * 2);
   ctx.fill();
-  // Hood over head
-  ctx.fillStyle = color;
+  // Hood over head (team color)
+  ctx.fillStyle = dark;
   ctx.beginPath();
   ctx.arc(cx, cy - 9 * s, 2.5 * s, Math.PI, 0);
   ctx.fill();
@@ -989,8 +992,8 @@ function drawCrossbowman(ctx: CanvasRenderingContext2D, cx: number, cy: number, 
   ctx.ellipse(cx, cy + 5 * s, 4 * s, 1.5 * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Legs
-  ctx.strokeStyle = '#4a4a4a';
+  // Legs (team color)
+  ctx.strokeStyle = dark;
   ctx.lineWidth = 2.5 * s;
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -1002,7 +1005,7 @@ function drawCrossbowman(ctx: CanvasRenderingContext2D, cx: number, cy: number, 
   ctx.lineTo(cx + 1.5 * s - legOffset * 0.3, cy + 4 * s);
   ctx.stroke();
 
-  // Body (padded gambeson)
+  // Body (padded gambeson - team color)
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.roundRect(cx - 3 * s, cy - 6 * s, 6 * s, 7 * s, 1 * s);
@@ -1022,8 +1025,8 @@ function drawCrossbowman(ctx: CanvasRenderingContext2D, cx: number, cy: number, 
   ctx.beginPath();
   ctx.arc(cx, cy - 8 * s, 2 * s, 0, Math.PI * 2);
   ctx.fill();
-  // Cap
-  ctx.fillStyle = '#8b0000';
+  // Cap (team color)
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(cx, cy - 9 * s, 2.2 * s, Math.PI, 0);
   ctx.fill();
@@ -1060,10 +1063,10 @@ function drawCrossbowman(ctx: CanvasRenderingContext2D, cx: number, cy: number, 
   ctx.closePath();
   ctx.fill();
 
-  // Pavise shield on back
-  ctx.fillStyle = '#1e3a5f';
+  // Pavise shield on back (team color)
+  ctx.fillStyle = color;
   ctx.fillRect(cx - 5 * s, cy - 7 * s, 2.5 * s, 8 * s);
-  ctx.strokeStyle = '#ffd700';
+  ctx.strokeStyle = dark;
   ctx.lineWidth = 0.5 * s;
   ctx.strokeRect(cx - 5 * s, cy - 7 * s, 2.5 * s, 8 * s);
 }
@@ -1490,8 +1493,8 @@ function drawFishingBoat(ctx: CanvasRenderingContext2D, cx: number, cy: number, 
   }
   ctx.stroke();
   
-  // Fisherman body
-  ctx.fillStyle = '#3b5998'; // Blue shirt
+  // Fisherman body (team color)
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.ellipse(cx + w * 0.1, cy + bob - h * 0.35, 3 * s, 4 * s, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -2695,7 +2698,7 @@ export function drawRoNUnit(
   
   // Draw unit based on type
   if (stats.category === 'civilian') {
-    drawCitizenUnit(ctx, centerX, centerY, unit, zoom, tick);
+    drawCitizenUnit(ctx, centerX, centerY, unit, zoom, tick, playerColor);
   } else {
     drawMilitaryUnit(ctx, centerX, centerY, unit, playerColor, zoom, tick);
   }

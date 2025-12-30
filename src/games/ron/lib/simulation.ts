@@ -44,6 +44,12 @@ type TerritorySource = { x: number; y: number; ownerId: string; radius: number }
 let cachedTerritorySources: TerritorySource[] = [];
 let territoryCacheVersion = -1;
 
+// Short unit ID counter - produces IDs like "u1", "u2", etc.
+let unitIdCounter = 0;
+function generateUnitId(): string {
+  return `u${++unitIdCounter}`;
+}
+
 /**
  * Extract all territory sources from the grid (city centers and forts)
  * Call once per frame/tick, not per tile for performance.
@@ -354,24 +360,27 @@ function findNextStep(
  */
 export function simulateRoNTick(state: RoNGameState): RoNGameState {
   if (state.gameOver) return state;
-  
+
   let newState = { ...state, tick: state.tick + 1 };
-  
+
   // Update each player
   newState = updatePlayers(newState);
-  
+
   // Update buildings (construction, production)
   newState = updateBuildings(newState);
-  
+
+  // Defensive buildings attack nearby enemies
+  newState = updateDefensiveBuildings(newState);
+
   // Update units (movement, gathering, combat)
   newState = updateUnits(newState);
-  
+
   // Note: AI is now handled by the Agentic AI system via API calls
   // The old utility-based AI has been removed
 
   // Check win/lose conditions
   newState = checkVictoryConditions(newState);
-  
+
   return newState;
 }
 
@@ -631,7 +640,7 @@ function updateBuildings(state: RoNGameState): RoNGameState {
             }
             
             const newUnit: Unit = {
-              id: `unit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              id: generateUnitId(),
               type: unitType,
               ownerId: building.ownerId,
               x: spawnX,
@@ -669,8 +678,82 @@ function updateBuildings(state: RoNGameState): RoNGameState {
   return { ...state, grid: newGrid, units: newUnits, players: newPlayers };
 }
 
-// Detection range for auto-attack (in tiles) - should be large enough for units to see enemies approaching
-const AUTO_ATTACK_RANGE = 5;
+/**
+ * Defensive buildings (towers, forts) automatically attack nearby enemy military units
+ */
+function updateDefensiveBuildings(state: RoNGameState): RoNGameState {
+  // Only process every few ticks for performance
+  if (state.tick % 3 !== 0) return state;
+  
+  let newUnits = [...state.units];
+  const defensiveBuildingTypes = ['tower', 'stockade', 'fort', 'fortress', 'bunker', 'castle', 'redoubt'];
+  
+  // Find all defensive buildings
+  for (let y = 0; y < state.gridSize; y++) {
+    for (let x = 0; x < state.gridSize; x++) {
+      const tile = state.grid[y]?.[x];
+      if (!tile?.building) continue;
+      if (!tile.building.ownerId) continue;
+      if (tile.building.constructionProgress < 100) continue;
+      
+      const buildingType = tile.building.type as RoNBuildingType;
+      if (!defensiveBuildingTypes.includes(buildingType)) continue;
+      
+      const stats = BUILDING_STATS[buildingType];
+      const attackDamage = stats.attackDamage || 0;
+      const attackRange = stats.attackRange || 0;
+      
+      if (attackDamage <= 0 || attackRange <= 0) continue;
+      
+      // Find enemy military units within range
+      const buildingCenterX = x + ((stats.size?.width || 1) / 2);
+      const buildingCenterY = y + ((stats.size?.height || 1) / 2);
+      
+      let closestEnemy: { unit: Unit; dist: number; index: number } | null = null;
+      
+      for (let i = 0; i < newUnits.length; i++) {
+        const unit = newUnits[i];
+        if (unit.ownerId === tile.building.ownerId) continue; // Skip friendly units
+        if (unit.health <= 0) continue; // Skip dead units
+        
+        // Only attack military units
+        const unitStats = UNIT_STATS[unit.type];
+        if (unitStats?.category === 'civilian') continue;
+        
+        const dist = Math.sqrt(
+          (unit.x - buildingCenterX) ** 2 + (unit.y - buildingCenterY) ** 2
+        );
+        
+        if (dist <= attackRange) {
+          if (!closestEnemy || dist < closestEnemy.dist) {
+            closestEnemy = { unit, dist, index: i };
+          }
+        }
+      }
+      
+      // Attack the closest enemy
+      if (closestEnemy) {
+        newUnits[closestEnemy.index] = {
+          ...closestEnemy.unit,
+          health: closestEnemy.unit.health - attackDamage,
+        };
+        
+        // Debug log occasionally
+        if (state.tick % 100 === 0) {
+          console.log(`[DEFENSE] ${buildingType} at (${x},${y}) attacks ${closestEnemy.unit.type}, dmg=${attackDamage}, hp=${newUnits[closestEnemy.index].health}`);
+        }
+      }
+    }
+  }
+  
+  // Remove dead units
+  newUnits = newUnits.filter(u => u.health > 0);
+  
+  return { ...state, units: newUnits };
+}
+
+// Detection range for auto-attack (in tiles) - large range so units respond to threats
+const AUTO_ATTACK_RANGE = 8;
 // Detection range for civilian flee behavior (in tiles)
 const CIVILIAN_FLEE_RANGE = 4;
 // Reaction delay before civilians start fleeing (in ticks) - takes time to notice danger
@@ -969,7 +1052,9 @@ function updateUnits(state: RoNGameState): RoNGameState {
         
         // Check if idle long enough to auto-assign work
         // Add per-unit randomization to prevent all citizens triggering at once
-        const unitIdHash = parseInt(updatedUnit.id.slice(-4), 16) % 10;
+        // Use character code sum for hash since unit IDs may not be hex
+        const idHash = updatedUnit.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+        const unitIdHash = idHash % 10;
         const idleThreshold = IDLE_AUTO_WORK_THRESHOLD + unitIdHash;
         const idleDuration = state.tick - updatedUnit.idleSince;
         if (idleDuration >= idleThreshold) {
@@ -1034,39 +1119,31 @@ function updateUnits(state: RoNGameState): RoNGameState {
       }
     }
     
-    // Auto-attack for military units: check for nearby enemies and engage them
-    // But respect explicit move commands - units should complete their move first
+    // Auto-attack for military units: ALWAYS check for nearby enemies and engage them
+    // Military units should fight back when attacked, even if they have other tasks
     if (isMilitaryUnit(updatedUnit)) {
-      // Skip auto-attack if unit has an explicit move command (player directed them somewhere)
-      const hasExplicitMoveCommand = updatedUnit.task === 'move' && updatedUnit.isMoving;
+      const nearbyEnemies = findNearbyEnemies(updatedUnit, state.units, AUTO_ATTACK_RANGE);
       
-      if (!hasExplicitMoveCommand) {
-        const nearbyEnemies = findNearbyEnemies(updatedUnit, state.units, AUTO_ATTACK_RANGE);
+      if (nearbyEnemies.length > 0) {
+        const currentTarget = updatedUnit.taskTarget;
+        const closestEnemy = nearbyEnemies[0];
         
-        if (nearbyEnemies.length > 0) {
-          const currentTarget = updatedUnit.taskTarget;
-          const closestEnemy = nearbyEnemies[0];
-          
-          // Check if we should switch to attacking this enemy:
-          // 1. Currently idle (no task)
-          // 2. Current attack target is dead or invalid
-          const shouldEngage = 
-            updatedUnit.task === 'idle' || 
-            updatedUnit.task === undefined ||
-            (updatedUnit.task === 'attack' && (
-              !currentTarget ||
-              (typeof currentTarget === 'string' && !state.units.find(u => u.id === currentTarget && u.health > 0))
-            ));
-          
-          if (shouldEngage) {
-            updatedUnit.task = 'attack';
-            updatedUnit.taskTarget = closestEnemy.id;
-            updatedUnit.targetX = closestEnemy.x;
-            updatedUnit.targetY = closestEnemy.y;
-            updatedUnit.isMoving = true;
-            // Reset cooldown so unit can attack immediately when in range
-            updatedUnit.attackCooldown = 0;
-          }
+        // Military units ALWAYS engage nearby enemies unless:
+        // 1. Already attacking a valid target (don't switch targets constantly)
+        const isAlreadyAttackingValidTarget = 
+          updatedUnit.task === 'attack' && 
+          typeof currentTarget === 'string' && 
+          state.units.find(u => u.id === currentTarget && u.health > 0);
+        
+        if (!isAlreadyAttackingValidTarget) {
+          // Drop everything and fight!
+          updatedUnit.task = 'attack';
+          updatedUnit.taskTarget = closestEnemy.id;
+          updatedUnit.targetX = closestEnemy.x;
+          updatedUnit.targetY = closestEnemy.y;
+          updatedUnit.isMoving = true;
+          // Reset cooldown so unit can attack immediately when in range
+          updatedUnit.attackCooldown = 0;
         }
       }
     }
@@ -1298,6 +1375,11 @@ function updateUnits(state: RoNGameState): RoNGameState {
           // This allows units ordered to attack-move to a position to engage enemies they encounter
           const nearbyEnemies = findNearbyEnemies(updatedUnit, state.units, attackRange + 1);
           
+          // Debug: Log attack status periodically
+          if (state.tick % 500 === 0 && updatedUnit.task === 'attack') {
+            console.log(`[ATTACK STATUS] ${updatedUnit.type} at (${updatedUnit.x.toFixed(1)},${updatedUnit.y.toFixed(1)}) -> target (${targetPos.x},${targetPos.y}), dist=${distToTarget.toFixed(1)}, nearbyEnemies=${nearbyEnemies.length}`);
+          }
+          
           if (nearbyEnemies.length > 0) {
             // Found enemy units - attack the closest one
             const targetEnemy = nearbyEnemies[0];
@@ -1328,22 +1410,78 @@ function updateUnits(state: RoNGameState): RoNGameState {
             }
           } else {
             // No enemy units nearby - check for building at target position
-            const targetTile = state.grid[Math.floor(targetPos.y)]?.[Math.floor(targetPos.x)];
-            if (targetTile?.building && targetTile.building.ownerId !== updatedUnit.ownerId) {
-              if (distToTarget <= attackRange) {
+            // Use isTileOccupiedByBuilding to handle multi-tile buildings (e.g., 2x2 city_center)
+            const targetTileX = Math.floor(targetPos.x);
+            const targetTileY = Math.floor(targetPos.y);
+            const buildingCheck = isTileOccupiedByBuilding(state.grid, targetTileX, targetTileY, state.gridSize);
+            
+            // Find the actual building origin if this tile is part of a multi-tile building
+            let buildingOrigin: { x: number; y: number; building: RoNBuilding } | null = null;
+            if (buildingCheck.occupied) {
+              // Search for the building origin
+              const maxSize = 4;
+              for (let dy = 0; dy < maxSize && !buildingOrigin; dy++) {
+                for (let dx = 0; dx < maxSize && !buildingOrigin; dx++) {
+                  const originX = targetTileX - dx;
+                  const originY = targetTileY - dy;
+                  if (originX < 0 || originY < 0) continue;
+                  
+                  const originTile = state.grid[originY]?.[originX];
+                  if (originTile?.building) {
+                    const bStats = BUILDING_STATS[originTile.building.type as RoNBuildingType];
+                    if (bStats?.size) {
+                      const { width, height } = bStats.size;
+                      if (targetTileX >= originX && targetTileX < originX + width &&
+                          targetTileY >= originY && targetTileY < originY + height) {
+                        buildingOrigin = { x: originX, y: originY, building: originTile.building };
+                      }
+                    } else if (dx === 0 && dy === 0) {
+                      // 1x1 building
+                      buildingOrigin = { x: originX, y: originY, building: originTile.building };
+                    }
+                  }
+                }
+              }
+            }
+            
+            if (buildingOrigin && buildingOrigin.building.ownerId !== updatedUnit.ownerId) {
+              // For multi-tile buildings, check if unit is in range of ANY tile of the building
+              const bStats = BUILDING_STATS[buildingOrigin.building.type as RoNBuildingType];
+              const buildingWidth = bStats?.size?.width || 1;
+              const buildingHeight = bStats?.size?.height || 1;
+              
+              // Calculate distance to nearest edge of building
+              let minDistToBuilding = Infinity;
+              for (let by = 0; by < buildingHeight; by++) {
+                for (let bx = 0; bx < buildingWidth; bx++) {
+                  const tileX = buildingOrigin.x + bx + 0.5; // Center of tile
+                  const tileY = buildingOrigin.y + by + 0.5;
+                  const dist = Math.sqrt(
+                    (tileX - updatedUnit.x) ** 2 + (tileY - updatedUnit.y) ** 2
+                  );
+                  minDistToBuilding = Math.min(minDistToBuilding, dist);
+                }
+              }
+              
+              if (minDistToBuilding <= attackRange + 0.5) {
                 // Attack building
                 const damage = unitStats?.attack || 1;
                 const newBuilding = {
-                  ...targetTile.building,
-                  health: targetTile.building.health - damage,
+                  ...buildingOrigin.building,
+                  health: buildingOrigin.building.health - damage,
                 };
                 
-                // Update grid
+                // Debug log for building attacks
+                if (state.tick % 100 === 0) {
+                  console.log(`[ATTACK] ${updatedUnit.type} attacking ${buildingOrigin.building.type} at (${buildingOrigin.x},${buildingOrigin.y}), dmg=${damage}, hp=${newBuilding.health}/${buildingOrigin.building.health + damage}`);
+                }
+                
+                // Update grid at the building's origin tile
                 newGrid = newGrid.map((row, gy) =>
                   row.map((tile, gx) => {
-                    if (gx === Math.floor(targetPos.x) && 
-                        gy === Math.floor(targetPos.y)) {
+                    if (gx === buildingOrigin!.x && gy === buildingOrigin!.y) {
                       if (newBuilding.health <= 0) {
+                        // Building destroyed - also clear all tiles it occupied
                         return { ...tile, building: null, ownerId: null };
                       }
                       return { ...tile, building: newBuilding };
@@ -1357,9 +1495,27 @@ function updateUnits(state: RoNGameState): RoNGameState {
                 updatedUnit.isAttacking = true;
                 updatedUnit.isMoving = false;
               } else {
-                // Move toward target building
-                updatedUnit.targetX = targetPos.x;
-                updatedUnit.targetY = targetPos.y;
+                // Move toward the nearest edge of the building
+                // Find the closest tile of the building to move toward
+                let closestTileX = buildingOrigin.x;
+                let closestTileY = buildingOrigin.y;
+                let closestDist = Infinity;
+                for (let by = 0; by < buildingHeight; by++) {
+                  for (let bx = 0; bx < buildingWidth; bx++) {
+                    const tileX = buildingOrigin.x + bx + 0.5;
+                    const tileY = buildingOrigin.y + by + 0.5;
+                    const dist = Math.sqrt(
+                      (tileX - updatedUnit.x) ** 2 + (tileY - updatedUnit.y) ** 2
+                    );
+                    if (dist < closestDist) {
+                      closestDist = dist;
+                      closestTileX = tileX;
+                      closestTileY = tileY;
+                    }
+                  }
+                }
+                updatedUnit.targetX = closestTileX;
+                updatedUnit.targetY = closestTileY;
                 updatedUnit.isMoving = true;
               }
             } else if (distToTarget > 1) {
@@ -1370,6 +1526,10 @@ function updateUnits(state: RoNGameState): RoNGameState {
               updatedUnit.isMoving = true;
             } else {
               // Arrived at target position with no enemies or buildings - go idle
+              // Debug: Log when units arrive and can't find target
+              if (updatedUnit.task === 'attack' && state.tick % 100 === 0) {
+                console.log(`[ATTACK] Unit arrived at (${targetPos.x.toFixed(1)},${targetPos.y.toFixed(1)}) but no building found. buildingCheck=${buildingCheck.occupied}, buildingOrigin=${buildingOrigin ? `${buildingOrigin.building.type}@${buildingOrigin.x},${buildingOrigin.y}` : 'null'}`);
+              }
               updatedUnit.task = 'idle';
               updatedUnit.taskTarget = undefined;
               updatedUnit.isMoving = false;

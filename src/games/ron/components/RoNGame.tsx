@@ -237,11 +237,13 @@ function GameContent({ onExit }: { onExit?: () => void }) {
                   { name: 'Player', type: 'human', color: '#3b82f6' },
                   { name: 'AI Red', type: 'ai', difficulty: 'medium', color: '#ef4444' },
                   { name: 'AI Green', type: 'ai', difficulty: 'medium', color: '#22c55e' },
+                  { name: 'AI Purple', type: 'ai', difficulty: 'medium', color: '#a855f7' },
+                  { name: 'AI Orange', type: 'ai', difficulty: 'medium', color: '#f97316' },
                 ],
               })}
-              title="Reset game (debug)"
+              title="Start new game (1 human + 4 AIs)"
             >
-              Reset
+              New Game
             </Button>
             {onExit && (
               <Button size="sm" variant="ghost" onClick={onExit}>

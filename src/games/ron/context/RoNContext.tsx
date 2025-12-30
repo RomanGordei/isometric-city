@@ -119,6 +119,49 @@ function clearRoNGameState(): void {
   }
 }
 
+/**
+ * Check if a tile is occupied by a multi-tile building.
+ * Buildings are only stored on the origin tile, so we need to search backward
+ * to find if this tile is part of a larger building's footprint.
+ */
+function isTileOccupiedByBuilding(grid: import('../types/game').RoNTile[][], gridX: number, gridY: number, gridSize: number): boolean {
+  // Check if this tile itself has a building
+  const tile = grid[gridY]?.[gridX];
+  if (tile?.building) {
+    return true;
+  }
+
+  // Search backwards to find if this tile is part of a larger building
+  const maxSize = 4; // Maximum building size to check
+  for (let dy = 0; dy < maxSize; dy++) {
+    for (let dx = 0; dx < maxSize; dx++) {
+      if (dx === 0 && dy === 0) continue; // Already checked this tile
+
+      const originX = gridX - dx;
+      const originY = gridY - dy;
+
+      if (originX < 0 || originY < 0 || originX >= gridSize || originY >= gridSize) continue;
+
+      const originTile = grid[originY]?.[originX];
+      if (!originTile?.building) continue;
+
+      const buildingType = originTile.building.type as RoNBuildingType;
+      const stats = BUILDING_STATS[buildingType];
+      if (!stats?.size) continue;
+
+      const { width, height } = stats.size;
+
+      // Check if the target position falls within this building's footprint
+      if (gridX >= originX && gridX < originX + width &&
+          gridY >= originY && gridY < originY + height) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 interface RoNContextValue {
   state: RoNGameState;
   latestStateRef: React.RefObject<RoNGameState>;
@@ -199,12 +242,14 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
   // Agentic AI state - enabled by default
   const [agenticAIEnabled, setAgenticAIEnabled] = useState(true);
 
-  // Initialize with a default 3-player game (1 human vs 2 AIs)
+  // Initialize with a default 5-player game (1 human vs 4 AIs)
   const [state, setState] = useState<RoNGameState>(() =>
     createInitialRoNGameState(100, [
       { name: 'Player', type: 'human', color: '#3b82f6' },
       { name: 'AI Red', type: 'ai', difficulty: 'medium', color: '#ef4444' },
       { name: 'AI Green', type: 'ai', difficulty: 'medium', color: '#22c55e' },
+      { name: 'AI Purple', type: 'ai', difficulty: 'medium', color: '#a855f7' },
+      { name: 'AI Orange', type: 'ai', difficulty: 'medium', color: '#f97316' },
     ])
   );
 
@@ -308,11 +353,13 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
             
             switch (cmd.action) {
               case 'reset':
-                // Reset game to fresh state
+                // Reset game to fresh state (1 human + 4 AIs)
                 const newState = createInitialRoNGameState(100, [
                   { name: 'Player', type: 'human', color: '#3b82f6' },
                   { name: 'AI Red', type: 'ai', difficulty: 'medium', color: '#ef4444' },
                   { name: 'AI Green', type: 'ai', difficulty: 'medium', color: '#22c55e' },
+                  { name: 'AI Purple', type: 'ai', difficulty: 'medium', color: '#a855f7' },
+                  { name: 'AI Orange', type: 'ai', difficulty: 'medium', color: '#f97316' },
                 ]);
                 setState(newState);
                 latestStateRef.current = newState;
@@ -675,6 +722,7 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
           isMoving: typeof targetId === 'object',
           targetX: typeof targetId === 'object' ? targetId.x + offsetX : undefined,
           targetY: typeof targetId === 'object' ? targetId.y + offsetY : undefined,
+          attackCooldown: 0, // Reset cooldown so unit can attack immediately when in range
         };
       });
       
@@ -740,18 +788,21 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
           return prev; // Can't place road on existing building
         }
       } else {
-        // Non-road buildings can't be placed on existing buildings
-        if (tile.building) return prev;
+        // Non-road buildings can't be placed on existing buildings (including multi-tile building footprints)
+        if (isTileOccupiedByBuilding(prev.grid, x, y, prev.gridSize)) return prev;
       }
       
       // Check building size (for non-road buildings)
       const size = stats.size;
       for (let dy = 0; dy < size.height; dy++) {
         for (let dx = 0; dx < size.width; dx++) {
-          const checkTile = prev.grid[y + dy]?.[x + dx];
+          const checkX = x + dx;
+          const checkY = y + dy;
+          const checkTile = prev.grid[checkY]?.[checkX];
           if (!checkTile || checkTile.terrain === 'water') return prev;
           // For roads, allow placement; for others, check for existing buildings
-          if (buildingType !== 'road' && checkTile.building) {
+          // Use isTileOccupiedByBuilding to properly detect multi-tile building footprints
+          if (buildingType !== 'road' && isTileOccupiedByBuilding(prev.grid, checkX, checkY, prev.gridSize)) {
             return prev;
           }
         }
@@ -1017,18 +1068,20 @@ export function RoNProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Reset game to initial state
+  // Reset game to initial state (1 human + 4 AIs)
   const resetGame = useCallback(() => {
     const newState = createInitialRoNGameState(100, [
       { name: 'Player', type: 'human', color: '#3b82f6' },
       { name: 'AI Red', type: 'ai', difficulty: 'medium', color: '#ef4444' },
       { name: 'AI Green', type: 'ai', difficulty: 'medium', color: '#22c55e' },
+      { name: 'AI Purple', type: 'ai', difficulty: 'medium', color: '#a855f7' },
+      { name: 'AI Orange', type: 'ai', difficulty: 'medium', color: '#f97316' },
     ]);
     setState(newState);
     latestStateRef.current = newState;
     setSelectedBuildingPos(null);
     clearRoNGameState();
-    
+
     // Reset AI state so it starts fresh with a new conversation
     agenticAI.reset();
   }, [agenticAI]);

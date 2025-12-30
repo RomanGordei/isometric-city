@@ -571,12 +571,13 @@ export function createInitialRoNGameState(
     }
   }
 
-  // Place starting positions for each player
+  // Place starting positions for each player (supports up to 5 players)
   const startPositions = [
-    { x: Math.floor(gridSize * 0.2), y: Math.floor(gridSize * 0.2) },
-    { x: Math.floor(gridSize * 0.8), y: Math.floor(gridSize * 0.8) },
-    { x: Math.floor(gridSize * 0.2), y: Math.floor(gridSize * 0.8) },
-    { x: Math.floor(gridSize * 0.8), y: Math.floor(gridSize * 0.2) },
+    { x: Math.floor(gridSize * 0.2), y: Math.floor(gridSize * 0.2) },  // Top-left
+    { x: Math.floor(gridSize * 0.8), y: Math.floor(gridSize * 0.8) },  // Bottom-right
+    { x: Math.floor(gridSize * 0.2), y: Math.floor(gridSize * 0.8) },  // Bottom-left
+    { x: Math.floor(gridSize * 0.8), y: Math.floor(gridSize * 0.2) },  // Top-right
+    { x: Math.floor(gridSize * 0.5), y: Math.floor(gridSize * 0.5) },  // Center
   ];
 
   const units: Unit[] = [];

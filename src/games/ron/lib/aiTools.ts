@@ -879,7 +879,7 @@ export function executeSendUnits(
   let unitIndex = 0;
   
   const newUnits = state.units.map(u => {
-    if (unitIds.includes(u.id) && u.ownerId === aiPlayerId) {
+    if (normalizedIds.includes(u.id) && u.ownerId === aiPlayerId) {
       // Calculate formation offset
       let offsetX = 0;
       let offsetY = 0;

@@ -7,6 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { promises as fs } from 'fs';
+import path from 'path';
 import { RoNGameState, RoNTile, RoNPlayer } from '@/games/ron/types/game';
 import { Unit } from '@/games/ron/types/units';
 import {
@@ -17,6 +19,119 @@ import {
   executeAdvanceAge,
   executeAssignIdleWorkers,
 } from '@/games/ron/lib/aiTools';
+
+// ============================================================================
+// AGENT LOGGING SYSTEM
+// ============================================================================
+
+interface AgentTurnLog {
+  timestamp: string;
+  tick: number;
+  playerId: string;
+  playerName: string;
+  
+  input: {
+    systemPrompt: string;
+    turnPrompt: string;
+    gameStateSnapshot: {
+      resources: Record<string, number>;
+      population: string;
+      militaryCount: number;
+      barracksCount: number;
+      age: string;
+      enemyCities: Array<{ x: number; y: number; type: string }>;
+      buildingCount: number;
+    };
+  };
+  
+  toolCalls: Array<{
+    name: string;
+    args: Record<string, unknown>;
+    result: string;
+    success: boolean;
+  }>;
+  
+  thinking: string[];
+  
+  output: {
+    actions: Array<{ type: string; data: unknown }>;
+    responseTimeMs: number;
+    iterations: number;
+  };
+  
+  errors: string[];
+}
+
+// Session tracking
+let currentSessionId: string | null = null;
+let sessionStartTick: number | null = null;
+
+function getSessionId(tick: number): string {
+  // Start a new session if none exists or if tick reset (new game)
+  if (!currentSessionId || (sessionStartTick !== null && tick < sessionStartTick)) {
+    currentSessionId = `session-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+    sessionStartTick = tick;
+  }
+  return currentSessionId;
+}
+
+async function ensureLogDir(sessionId: string): Promise<string> {
+  const logDir = path.join(process.cwd(), 'agent-logs', sessionId);
+  try {
+    await fs.mkdir(logDir, { recursive: true });
+  } catch {
+    // Directory might already exist
+  }
+  return logDir;
+}
+
+async function writeAgentLog(log: AgentTurnLog): Promise<void> {
+  try {
+    const sessionId = getSessionId(log.tick);
+    const logDir = await ensureLogDir(sessionId);
+    
+    // Create filename with tick and player name (sanitized)
+    const sanitizedName = log.playerName.replace(/[^a-zA-Z0-9]/g, '_');
+    const filename = `turn-${String(log.tick).padStart(6, '0')}-${sanitizedName}.json`;
+    const filepath = path.join(logDir, filename);
+    
+    // Write the log
+    await fs.writeFile(filepath, JSON.stringify(log, null, 2));
+    
+    // Also update session summary
+    const summaryPath = path.join(logDir, 'session-summary.json');
+    let summary: { 
+      startTime: string; 
+      lastTick: number; 
+      players: string[];
+      turnCount: number;
+      errors: number;
+    };
+    
+    try {
+      const existing = await fs.readFile(summaryPath, 'utf-8');
+      summary = JSON.parse(existing);
+      summary.lastTick = log.tick;
+      summary.turnCount++;
+      if (log.errors.length > 0) summary.errors += log.errors.length;
+      if (!summary.players.includes(log.playerName)) {
+        summary.players.push(log.playerName);
+      }
+    } catch {
+      summary = {
+        startTime: log.timestamp,
+        lastTick: log.tick,
+        players: [log.playerName],
+        turnCount: 1,
+        errors: log.errors.length,
+      };
+    }
+    
+    await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
+  } catch (err) {
+    console.error('[AGENT LOG] Failed to write log:', err);
+  }
+}
 
 // Tool definitions for the Responses API
 const AI_TOOLS: OpenAI.Responses.Tool[] = [
@@ -138,86 +253,20 @@ const AI_TOOLS: OpenAI.Responses.Tool[] = [
   },
 ];
 
-const SYSTEM_PROMPT = `You are a strategic RTS AI. Read the game state carefully and only take actions that are POSSIBLE.
+const SYSTEM_PROMPT = `RTS AI. Be CONCISE - short responses only. Multiple enemies exist - attack any!
 
-## CRITICAL: CHECK BEFORE ACTING!
-Before every action, verify you have the resources:
-- farm: 50 wood
-- woodcutters_camp: 30 wood  
-- mine: 80 wood + 50 gold
-- barracks: 100 wood
-- market: 60 wood + 30 gold
-- small_city: 400 wood + 100 metal + 200 gold (increases pop cap by 20!)
-- train citizen: 50 food (REQUIRES pop < popCap!)
-- train militia: 40 food + 20 wood (REQUIRES pop < popCap!)
+COSTS: farm 50w, woodcutter 30w, mine 80w+50g, barracks 100w, market 60w+30g, small_city 400w+100m+200g
+TRAIN: citizen 50f, militia 40f+20w (only if pop < popCap!)
 
-## AGE PROGRESSION
-Ages: classical -> medieval -> enlightenment -> industrial -> modern
-- Build library to research and advance ages
-- Use advance_age tool when you have enough resources
-- Higher ages unlock better units and buildings!
+RULES:
+- Pop capped? Build small_city ONLY, save wood!
+- Not capped? Train units, build economy, ATTACK!
+- Industrial age? Build oil_well + refinery on oil deposits
+- 5+ military? ATTACK enemy cities with send_units task="attack"!
+- Destroy ALL enemy city_centers to win!
 
-## INDUSTRIAL AGE+ OIL ECONOMY (CRITICAL!)
-When you reach INDUSTRIAL AGE, you MUST build oil infrastructure:
-- oil_well: 200 wood + 150 metal + 100 gold (requires oil deposit tile)
-- refinery: 250 wood + 200 metal + 150 gold (boosts oil gathering +50%!)
-Oil is needed for: auto_plant, airbase, missile_silo, modern age advancement
-PRIORITY at Industrial: 1) Build oil_well on oil deposits, 2) Build refinery, 3) Assign workers to oil buildings
-
-## POPULATION CAP RULES
-When population >= populationCap:
-- You CANNOT train ANY units (citizens or military) - don't try!
-- Your ONLY goal is to build small_city (400w + 100m + 200g)
-- SAVE wood - don't build farms/woodcutters/barracks until you have 400 wood
-- Build markets (if gold < 200) or mines (if metal < 100) if you need them
-- The moment you have enough resources, build small_city!
-
-## WHEN NOT POP CAPPED
-1. Train citizens at cities (need workers for economy)
-2. Build farms, woodcutters, mines for resources
-3. Build barracks, train militia for military
-4. At Industrial+: Build oil_well and refinery!
-5. Attack enemy when you have 5+ military units
-
-## IDLE WORKERS = BUILD MORE ECONOMY!
-If assign_workers says "no capacity" but you have idle workers:
-- Build more farms (each farm can have 5 workers)
-- Build more woodcutters_camp near forests
-- Build more mines near metal deposits
-- Build more markets for gold
-Keep building until all workers have jobs!
-
-## ATTACK STRATEGY - CRITICAL FOR WINNING!
-- Build barracks EARLY (by tick 300)
-- Train militia constantly once you have barracks
-- When you have 5+ military: START ATTACKING!
-- Use send_units with task="attack" to attack enemy buildings (especially city_center)
-- KEEP ATTACKING every turn while training more units
-- Destroying enemy cities wins the game!
-- If enemy has no cities for 2 minutes, they lose!
-
-## PATROL & DEFENSE
-- Keep your military ACTIVE! Never let them sit idle!
-- If not attacking, use send_units with task="move" to PATROL your territory
-- Move units between your cities and resource buildings
-- Patrol routes: city -> barracks -> mines -> markets -> back to city
-- Patrolling units will intercept enemy attacks!
-
-## TURN ORDER
-1. get_game_state - see your resources and what's possible
-2. Check: Am I pop capped?
-   - YES: Focus ONLY on getting resources for small_city
-   - NO: Train units, build buildings, attack
-3. At Industrial+: Build oil infrastructure if you have none!
-4. If military >= 5: send_units to attack enemy!
-5. assign_workers - put idle workers to work
-
-## IMPORTANT
-- Read error messages! If an action fails, don't repeat it!
-- Check resource costs before building
-- Check population cap before training
-- Use coordinates from the buildable tiles list in game state
-- ATTACK! Passive play loses!`;
+TURN: get_game_state → build/train if able → send_units to attack → assign_workers
+Don't repeat failed actions. Use coordinates from game state. ATTACK to win!`;
 
 interface AIAction {
   type: 'build' | 'unit_task' | 'train' | 'resource_update';
@@ -302,21 +351,42 @@ export async function POST(request: NextRequest): Promise<NextResponse<AIRespons
     const militaryCount = gameState.units.filter((u: Unit) => u.ownerId === aiPlayerId && u.type !== 'citizen').length;
     const canAffordCity = aiPlayer.resources.wood >= 400 && aiPlayer.resources.metal >= 100 && aiPlayer.resources.gold >= 200;
     
-    // Find enemy city for attack target
-    const enemyPlayer = gameState.players.find((pl: RoNPlayer) => pl.id !== aiPlayerId && !pl.isDefeated);
-    let enemyCityPos: { x: number; y: number } | null = null;
-    if (enemyPlayer) {
+    // Find enemy cities from ALL enemies (including other AIs) - prioritize city_center
+    const enemyPlayers = gameState.players.filter((pl: RoNPlayer) => pl.id !== aiPlayerId && !pl.isDefeated);
+    const allEnemyCities: { x: number; y: number; type: string; ownerId: string; ownerName: string }[] = [];
+    
+    for (const enemy of enemyPlayers) {
       for (let y = 0; y < gameState.gridSize; y++) {
         for (let x = 0; x < gameState.gridSize; x++) {
           const tile = gameState.grid[y]?.[x];
-          if (tile?.building?.ownerId === enemyPlayer.id && 
+          if (tile?.building?.ownerId === enemy.id && 
               ['city_center', 'small_city', 'large_city', 'major_city'].includes(tile.building.type)) {
-            enemyCityPos = { x, y };
-            break;
+            allEnemyCities.push({ x, y, type: tile.building.type, ownerId: enemy.id, ownerName: enemy.name });
           }
         }
-        if (enemyCityPos) break;
       }
+    }
+    
+    // Sort: city_center first, then by distance from AI's city_center
+    const aiCityCenter = gameState.grid.flat().find((t: RoNTile) => 
+      t.building?.ownerId === aiPlayerId && t.building?.type === 'city_center'
+    );
+    const aiX = aiCityCenter?.x || 50;
+    const aiY = aiCityCenter?.y || 50;
+    
+    allEnemyCities.sort((a, b) => {
+      // Prioritize city_center
+      if (a.type === 'city_center' && b.type !== 'city_center') return -1;
+      if (b.type === 'city_center' && a.type !== 'city_center') return 1;
+      // Then by distance
+      const distA = Math.sqrt((a.x - aiX) ** 2 + (a.y - aiY) ** 2);
+      const distB = Math.sqrt((b.x - aiX) ** 2 + (b.y - aiY) ** 2);
+      return distA - distB;
+    });
+    
+    const enemyCityPos = allEnemyCities[0] || null;
+    if (enemyCityPos) {
+      console.log(`[TARGETING] ${aiPlayer.name} targeting ${enemyCityPos.ownerName}'s ${enemyCityPos.type} at (${enemyCityPos.x}, ${enemyCityPos.y})`);
     }
     
     // Simple state summary - let the AI reason about what to do from system prompt
@@ -589,12 +659,17 @@ ${(() => {
     lines.push(`Oil Economy: ${oilWells} oil wells, ${refineries} refineries, ${p.resourceRates.oil.toFixed(1)}/s oil rate`);
   }
   
-  // Enemy targets
-  const enemyCity = condensed.enemyBuildings.find(b => 
+  // Enemy targets - show all enemy cities (multiple AI opponents)
+  const enemyCities = condensed.enemyBuildings.filter(b => 
     ['city_center', 'small_city', 'large_city', 'major_city'].includes(b.type)
   );
-  if (enemyCity) {
-    lines.push(`Enemy Target: ${enemyCity.type} at (${enemyCity.x}, ${enemyCity.y})`);
+  if (enemyCities.length > 0) {
+    // Sort: city_centers first
+    enemyCities.sort((a, b) => (a.type === 'city_center' ? -1 : 1) - (b.type === 'city_center' ? -1 : 1));
+    const targets = enemyCities.slice(0, 5).map(c => 
+      `${c.type}@(${c.x},${c.y})${c.type === 'city_center' ? '!' : ''}`
+    ).join(', ');
+    lines.push(`Enemy Targets: ${targets}${enemyCities.length > 5 ? ` (+${enemyCities.length - 5} more)` : ''}`);
   }
   
   // Military unit IDs for send_units command
@@ -733,6 +808,31 @@ ${condensed.myUnits.filter(u => u.type === 'citizen' && (u.task === 'idle' || !u
             currentState = res.newState;
             result = res.result;
             console.log(`  → ${result.message}`);
+            
+            // Push unit_task actions for each unit that was updated
+            if (res.result.success) {
+              // Find the units that were sent and push their updated state
+              const normalizedIds = unit_ids.map((id: string) => {
+                const match = id.match(/u\d+|unit-[a-z0-9-]+/i);
+                return match ? match[0] : id;
+              });
+              const sentUnits = currentState.units.filter((u: Unit) => 
+                normalizedIds.includes(u.id) && u.ownerId === aiPlayerId
+              );
+              sentUnits.forEach((u: Unit) => {
+                actions.push({
+                  type: 'unit_task',
+                  data: {
+                    unitId: u.id,
+                    task: u.task,
+                    taskTarget: u.taskTarget,
+                    targetX: u.targetX,
+                    targetY: u.targetY,
+                    isMoving: u.isMoving
+                  }
+                });
+              });
+            }
             break;
           }
 
@@ -809,6 +909,59 @@ ${condensed.myUnits.filter(u => u.type === 'citizen' && (u.task === 'idle' || !u
       }
     }
     console.log('='.repeat(60) + '\n');
+
+    // ========================================================================
+    // WRITE STRUCTURED AGENT LOG
+    // ========================================================================
+    const agentLog: AgentTurnLog = {
+      timestamp: new Date().toISOString(),
+      tick: gameState.tick,
+      playerId: aiPlayerId,
+      playerName: aiPlayer.name,
+      
+      input: {
+        systemPrompt: SYSTEM_PROMPT,
+        turnPrompt,
+        gameStateSnapshot: {
+          resources: {
+            food: Math.round(aiPlayer.resources.food),
+            wood: Math.round(aiPlayer.resources.wood),
+            metal: Math.round(aiPlayer.resources.metal),
+            gold: Math.round(aiPlayer.resources.gold),
+            knowledge: Math.round(aiPlayer.resources.knowledge),
+            oil: Math.round(aiPlayer.resources.oil),
+          },
+          population: `${aiPlayer.population}/${aiPlayer.populationCap}`,
+          militaryCount,
+          barracksCount,
+          age: aiPlayer.age,
+          enemyCities: allEnemyCities.slice(0, 10).map(c => ({ x: c.x, y: c.y, type: c.type })),
+          buildingCount: gameState.grid.flat().filter((t: RoNTile) => t.building?.ownerId === aiPlayerId).length,
+        },
+      },
+      
+      toolCalls: allToolCalls.map(tc => ({
+        name: tc.name,
+        args: tc.args,
+        result: tc.result.slice(0, 500), // Truncate long results
+        success: !tc.result.includes('✗') && !tc.result.toLowerCase().includes('error'),
+      })),
+      
+      thinking: lastThinking ? [lastThinking] : [],
+      
+      output: {
+        actions,
+        responseTimeMs: totalTurnTime,
+        iterations,
+      },
+      
+      errors: allToolCalls
+        .filter(tc => tc.result.includes('✗') || tc.result.toLowerCase().includes('error'))
+        .map(tc => `${tc.name}: ${tc.result.slice(0, 200)}`),
+    };
+    
+    // Write log asynchronously (don't wait for it)
+    writeAgentLog(agentLog).catch(err => console.error('[AGENT LOG] Write failed:', err));
 
     return NextResponse.json({
       newState: currentState,
