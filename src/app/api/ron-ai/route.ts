@@ -297,10 +297,12 @@ ECONOMY PRIORITY:
 1. Build farm + woodcutters_camp FIRST
 2. Train citizens, keep building cities with farms, wood, mines, markets, smelters, libraries, etc.
 3. BUILD BARRACKS EARLY (at pop 4-5)! Start infantry production immediately.
+4. BUILD MORE BARRACKS if enemy has more military than you! Each barracks can train 1 unit at a time - more barracks = faster army!
 
 RULES:
 - Pop capped? Build a small_city
 - Low resources? Build buildings and assign workers.
+- Enemy stronger? BUILD MORE BARRACKS! You need multiple barracks to produce military fast enough.
 - Have 10+ military? ATTACK enemy cities!
 - DEFENSE: If Threat Level is HIGH or CRITICAL, send your military to intercept enemy units near your city! Use send_units to move military to enemy unit positions.
 
@@ -587,10 +589,11 @@ ${condensed.myBuildings.map(b => `- ${b.type} at (${b.x},${b.y})`).join('\n') ||
 ## YOUR TERRITORY (x: ${condensed.territoryBounds.minX}-${condensed.territoryBounds.maxX}, y: ${condensed.territoryBounds.minY}-${condensed.territoryBounds.maxY}):
 ⚠️ You can ONLY build within these coordinates! Building outside will FAIL.
 
-## BUILDABLE TILES (all within your territory):
+## BUILDABLE TILES (all within your territory, NOT on water/forest/resources):
 General: ${(condensed.emptyTerritoryTiles || []).slice(0, 5).map(t => `(${t.x},${t.y})`).join(', ') || 'NO VALID TILES'}
 🌲 For woodcutters_camp (near forest): ${(condensed.tilesNearForest || []).slice(0, 4).map(t => `(${t.x},${t.y})`).join(', ') || 'none in territory'}
 ⛏️ For mine (near metal): ${(condensed.tilesNearMetal || []).slice(0, 4).map(t => `(${t.x},${t.y})`).join(', ') || 'none in territory'}
+🛢️ For oil_well (near oil): ${(condensed.tilesNearOil || []).slice(0, 4).map(t => `(${t.x},${t.y})`).join(', ') || 'none in territory'}
 
 ## ENEMY INFO:
 Buildings: ${condensed.enemyBuildings.slice(0, 5).map(b => `${b.type}@(${b.x},${b.y})`).join(', ') || 'none visible'}
@@ -718,6 +721,11 @@ ${(() => {
   lines.push(`Enemy Forces: ${sa.enemyMilitaryCount} military (nearest ${sa.nearestEnemyDistance} tiles away)`);
   lines.push(`Threat Level: ${sa.threatLevel}`);
   
+  // CRITICAL: Warn about barracks shortage when weaker
+  if (sa.strengthAdvantage === 'WEAKER' && sa.barracksCount < 3) {
+    lines.push(`⚠️ BARRACKS SHORTAGE! You have ${sa.barracksCount} barracks but enemy is stronger. BUILD MORE BARRACKS to produce infantry faster!`);
+  }
+  
   // Economy summary
   const marketCount = condensed.myBuildings.filter(b => b.type === 'market').length;
   lines.push(`Economy: ${sa.farmCount} farms, ${sa.woodcutterCount} woodcutters, ${sa.mineCount} mines, ${marketCount} markets, ${sa.barracksCount} barracks`);
@@ -765,18 +773,20 @@ ${(() => {
   return lines.join('\n');
 })()}
 
-## AVAILABLE BUILD LOCATIONS:
+## AVAILABLE BUILD LOCATIONS (guaranteed valid - NOT on water/forest/resources):
 ${(() => {
   const cityTile = condensed.emptyTerritoryTiles?.[0];
   const forestTile = condensed.tilesNearForest?.[0];
   const metalTile = condensed.tilesNearMetal?.[0];
-  const oilTiles = condensed.resourceTiles?.oilDeposits || [];
+  const oilTile = condensed.tilesNearOil?.[0];
+  const oilDeposits = condensed.resourceTiles?.oilDeposits || [];
   
   const locations: string[] = [];
   if (cityTile) locations.push(`General: (${cityTile.x},${cityTile.y})`);
   if (forestTile) locations.push(`Near forest: (${forestTile.x},${forestTile.y})`);
   if (metalTile) locations.push(`Near metal: (${metalTile.x},${metalTile.y})`);
-  if (oilTiles.length > 0) locations.push(`Oil deposits: ${oilTiles.slice(0,3).map((t: {x: number, y: number}) => `(${t.x},${t.y})`).join(', ')}`);
+  if (oilTile) locations.push(`Near oil: (${oilTile.x},${oilTile.y})`);
+  if (oilDeposits.length > 0) locations.push(`Oil deposit locations: ${oilDeposits.slice(0,3).map((t: {x: number, y: number}) => `(${t.x},${t.y})`).join(', ')}`);
   
   return locations.join('\n') || 'No valid build locations in territory';
 })()}

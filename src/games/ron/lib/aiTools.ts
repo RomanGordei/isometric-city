@@ -264,6 +264,7 @@ export interface CondensedGameState {
   emptyTerritoryTiles: Array<{ x: number; y: number }>; // Empty tiles you can build on
   tilesNearForest: Array<{ x: number; y: number }>; // Good for woodcutters_camp
   tilesNearMetal: Array<{ x: number; y: number }>; // Good for mine
+  tilesNearOil: Array<{ x: number; y: number }>; // Good for oil_well (industrial age+)
   resourceTiles: {
     forests: Array<{ x: number; y: number; density: number }>;
     metalDeposits: Array<{ x: number; y: number }>;
@@ -541,7 +542,14 @@ export function generateCondensedGameState(
         const distB = Math.sqrt((b.x - primaryCity.x) ** 2 + (b.y - primaryCity.y) ** 2);
         return distA - distB;
       });
-      return filtered.slice(0, 5);
+      // Space out suggestions to avoid clustering
+      const spaced: typeof filtered = [];
+      for (const t of filtered) {
+        const tooClose = spaced.some(s => Math.abs(s.x - t.x) < 2 && Math.abs(s.y - t.y) < 2);
+        if (!tooClose) spaced.push(t);
+        if (spaced.length >= 4) break;
+      }
+      return spaced;
     })(),
     // Find tiles ADJACENT to metal deposits (good for mine)
     // SORTED by distance to city center - prefer metal near your base!
@@ -573,7 +581,53 @@ export function generateCondensedGameState(
         const distB = Math.sqrt((b.x - primaryCity.x) ** 2 + (b.y - primaryCity.y) ** 2);
         return distA - distB;
       });
-      return filtered.slice(0, 5);
+      // Space out suggestions to avoid clustering
+      const spaced: typeof filtered = [];
+      for (const t of filtered) {
+        const tooClose = spaced.some(s => Math.abs(s.x - t.x) < 2 && Math.abs(s.y - t.y) < 2);
+        if (!tooClose) spaced.push(t);
+        if (spaced.length >= 4) break;
+      }
+      return spaced;
+    })(),
+    // Find tiles ADJACENT to oil deposits (good for oil_well)
+    // SORTED by distance to city center
+    tilesNearOil: (() => {
+      const myCityCenters = myBuildings.filter(b => 
+        b.type === 'city_center' || b.type === 'small_city' || b.type === 'large_city' || b.type === 'major_city'
+      );
+      const primaryCity = myCityCenters[0] || { x: state.gridSize / 2, y: state.gridSize / 2 };
+      
+      const filtered = territoryTiles.filter(t => {
+        const tile = state.grid[t.y]?.[t.x];
+        if (!tile || tile.building) return false;
+        if (tile.terrain === 'water' || tile.terrain === 'forest' || tile.terrain === 'mountain') return false;
+        if (tile.forestDensity > 0 || tile.hasMetalDeposit || tile.hasOilDeposit) return false;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const adj = state.grid[t.y + dy]?.[t.x + dx];
+            if (adj && adj.hasOilDeposit) {
+              return true;
+            }
+          }
+        }
+        return false;
+      });
+      // Sort by distance to city center
+      filtered.sort((a, b) => {
+        const distA = Math.sqrt((a.x - primaryCity.x) ** 2 + (a.y - primaryCity.y) ** 2);
+        const distB = Math.sqrt((b.x - primaryCity.x) ** 2 + (b.y - primaryCity.y) ** 2);
+        return distA - distB;
+      });
+      // Space out suggestions
+      const spaced: typeof filtered = [];
+      for (const t of filtered) {
+        const tooClose = spaced.some(s => Math.abs(s.x - t.x) < 2 && Math.abs(s.y - t.y) < 2);
+        if (!tooClose) spaced.push(t);
+        if (spaced.length >= 4) break;
+      }
+      return spaced;
     })(),
     resourceTiles: {
       forests: forests.slice(0, 5),
