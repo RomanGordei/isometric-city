@@ -80,11 +80,13 @@ function GameContent({ onExit }: { onExit?: () => void }) {
           <div className="flex gap-4 justify-center">
             <Button
               onClick={() => newGame({
-                gridSize: 100,
+                gridSize: 160,
                 playerConfigs: [
                   { name: 'Player', type: 'human', color: '#3b82f6' },
                   { name: 'AI Red', type: 'ai', difficulty: 'medium', color: '#ef4444' },
                   { name: 'AI Green', type: 'ai', difficulty: 'medium', color: '#22c55e' },
+                  { name: 'AI Purple', type: 'ai', difficulty: 'medium', color: '#a855f7' },
+                  { name: 'AI Orange', type: 'ai', difficulty: 'medium', color: '#f97316' },
                 ]
               })}
               className="bg-blue-600 hover:bg-blue-700"
@@ -232,13 +234,13 @@ function GameContent({ onExit }: { onExit?: () => void }) {
               size="sm"
               variant="outline"
               onClick={() => newGame({
-                gridSize: 120,
+                gridSize: 160,
                 playerConfigs: [
                   { name: 'Player', type: 'human', color: '#3b82f6' },
                   { name: 'AI Red', type: 'ai', difficulty: 'medium', color: '#ef4444' },
                   { name: 'AI Green', type: 'ai', difficulty: 'medium', color: '#22c55e' },
-                  // { name: 'AI Purple', type: 'ai', difficulty: 'medium', color: '#a855f7' },
-                  // { name: 'AI Orange', type: 'ai', difficulty: 'medium', color: '#f97316' },
+                  { name: 'AI Purple', type: 'ai', difficulty: 'medium', color: '#a855f7' },
+                  { name: 'AI Orange', type: 'ai', difficulty: 'medium', color: '#f97316' },
                 ],
               })}
               title="Start new game (1 human + 4 AIs)"

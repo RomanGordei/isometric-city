@@ -574,7 +574,8 @@ export function createInitialRoNGameState(
   // Place starting positions for each player (supports up to 5 players)
   // Positions are set so territory radius (24 tiles) doesn't clip at map edges
   // With radius 24, positions should be at least 25 tiles from edges
-  const margin = 0.27; // ~27 tiles from edge ensures full territory
+  // margin = 0.18 on a 160 map = ~29 tiles from edge, positions ~100 tiles apart
+  const margin = 0.18; // Spread players out more
   const startPositions = [
     { x: Math.floor(gridSize * margin), y: Math.floor(gridSize * margin) },           // Top-left
     { x: Math.floor(gridSize * (1 - margin)), y: Math.floor(gridSize * (1 - margin)) }, // Bottom-right

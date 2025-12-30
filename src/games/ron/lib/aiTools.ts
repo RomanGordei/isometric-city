@@ -542,35 +542,42 @@ export function generateCondensedGameState(
       const myCityCenters = myBuildings.filter(b => 
         b.type === 'city_center' || b.type === 'small_city' || b.type === 'large_city' || b.type === 'major_city'
       );
-      const primaryCity = myCityCenters[0] || { x: state.gridSize / 2, y: state.gridSize / 2 };
+      
+      // Get distance to NEAREST city center (for multi-city support)
+      const distToNearestCity = (x: number, y: number): number => {
+        if (myCityCenters.length === 0) {
+          return Math.sqrt((x - state.gridSize / 2) ** 2 + (y - state.gridSize / 2) ** 2);
+        }
+        return Math.min(...myCityCenters.map(c => 
+          Math.sqrt((x - c.x) ** 2 + (y - c.y) ** 2)
+        ));
+      };
       
       const empty = territoryTiles.filter(t => {
         if (!canBuildable(t.x, t.y)) return false;
         
-        // Check if a 3x3 building can fit here (small_city is 3x3)
-        // All 9 tiles must be buildable for maximum flexibility
-        for (let dy = 0; dy < 3; dy++) {
-          for (let dx = 0; dx < 3; dx++) {
+        // Check if a 2x2 building can fit here (most buildings are 2x2)
+        for (let dy = 0; dy < 2; dy++) {
+          for (let dx = 0; dx < 2; dx++) {
             if (!canBuildable(t.x + dx, t.y + dy)) return false;
           }
         }
         return true;
       });
       
-      // Shuffle for randomization
-      // Use tick-based seed for deterministic but varying results each turn
-      const shuffled = [...empty].sort(() => Math.sin(state.tick * 0.1 + empty.length) - 0.5);
+      // SORT BY DISTANCE TO NEAREST CITY CENTER - build compact cities!
+      empty.sort((a, b) => distToNearestCity(a.x, a.y) - distToNearestCity(b.x, b.y));
       
-      // Take tiles from different areas of territory by spacing them out significantly
+      // Take tiles with minimal spacing (3 tiles) to allow dense city building
       const spaced: typeof empty = [];
-      for (const t of shuffled) {
-        // Require at least 5 tiles apart to spread buildings throughout territory
-        const tooClose = spaced.some(s => Math.abs(s.x - t.x) < 5 && Math.abs(s.y - t.y) < 5);
+      for (const t of empty) {
+        // Only 3 tiles apart - allows denser city layouts
+        const tooClose = spaced.some(s => Math.abs(s.x - t.x) < 3 && Math.abs(s.y - t.y) < 3);
         if (!tooClose) spaced.push(t);
         if (spaced.length >= 8) break;
       }
       
-      // Return spaced tiles without distance sorting for more variety
+      // Return tiles sorted by distance to city - closest first for compact cities
       return spaced;
     })(),
     // Find tiles ADJACENT to forests (good for woodcutters_camp)

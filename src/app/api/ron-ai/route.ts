@@ -305,8 +305,9 @@ TRAIN: citizen ${UNIT_COSTS.citizen}, infantry ${UNIT_COSTS.infantry} (scales wi
 
 CITY DEVELOPMENT (PRIORITY!):
 1. BUILD CITIES when you can afford small_city (${BUILDING_COSTS.small_city}) - more cities = more population cap + territory!
-2. Each city should have a FULL SET of buildings nearby: farm, woodcutters_camp, mine, market, library, barracks, smelter
-3. Spread your cities across the map to claim more territory and resources
+2. Each city should have a FULL SET of buildings NEARBY (within 5-8 tiles): farm, woodcutters_camp, mine, market, library, barracks, smelter
+3. BUILD COMPACT CITIES! Place buildings CLOSE to your city center - use the FIRST suggested location (closest to city)
+4. When expanding, build new small_city in a different area, then build that city's infrastructure around it
 
 ⚠️ WHEN POPULATION CAPPED: STOP building other buildings! SAVE ALL RESOURCES for small_city!
 - Don't build farms/woodcutters/barracks when pop-capped - you're wasting wood needed for city!
@@ -668,10 +669,31 @@ ${(() => {
   
   if (popCapped) {
     result += `⛔ POPULATION CAPPED (${p.population}/${p.populationCap}) - CANNOT TRAIN UNITS!\n`;
-    result += `   Your ONLY goal: Build small_city (need ${BUILDING_COSTS.small_city})\n`;
-    result += `   Have: ${Math.round(p.resources.wood)}w / ${Math.round(p.resources.metal)}m / ${Math.round(p.resources.gold)}g\n`;
     if (canBuildSmallCity) {
-      result += `   🚨 YOU CAN BUILD small_city NOW!\n`;
+      // CRITICAL: AI can build city NOW - make this impossible to miss
+      const firstBuildSpot = condensed.emptyTerritoryTiles[0];
+      result += `\n`;
+      result += `   BUILD small_city RIGHT NOW!\n`;
+      result += `   You have: ${Math.round(p.resources.wood)}w / ${Math.round(p.resources.metal)}m / ${Math.round(p.resources.gold)}g\n`;
+      result += `   Cost: ${BUILDING_COSTS.small_city} - YOU CAN AFFORD IT!\n`;
+      if (firstBuildSpot) {
+        result += `   >>> CALL: build(building_type="small_city", x=${firstBuildSpot.x}, y=${firstBuildSpot.y}) <<<\n`;
+      }
+      result += `\n`;
+    } else {
+      result += `   Your ONLY goal: Build small_city (need ${BUILDING_COSTS.small_city})\n`;
+      result += `   Have: ${Math.round(p.resources.wood)}w / ${Math.round(p.resources.metal)}m / ${Math.round(p.resources.gold)}g\n`;
+      const needWood = Math.max(0, (cityCost.wood || 0) - p.resources.wood);
+      const needMetal = Math.max(0, (cityCost.metal || 0) - p.resources.metal);
+      const needGold = Math.max(0, (cityCost.gold || 0) - p.resources.gold);
+      const needs = [];
+      if (needWood > 0) needs.push(`${Math.round(needWood)}w`);
+      if (needMetal > 0) needs.push(`${Math.round(needMetal)}m`);
+      if (needGold > 0) needs.push(`${Math.round(needGold)}g`);
+      if (needs.length > 0) {
+        result += `   Still need: ${needs.join(' + ')}\n`;
+      }
+      result += `   DO NOT BUILD ANYTHING ELSE - save for city!\n`;
     }
   } else {
     result += `### TRAINING (pop ${p.population}/${p.populationCap}):\n`;
@@ -754,14 +776,18 @@ ${(() => {
   
   // Population status
   if (sa.isPopCapped) {
-    const woodNeeded = Math.max(0, 400 - p.resources.wood);
-    const metalNeeded = Math.max(0, 100 - p.resources.metal);
-    const goldNeeded = Math.max(0, 200 - p.resources.gold);
     lines.push(`Population: CAPPED at ${p.population}/${p.populationCap}`);
     if (sa.canAffordSmallCity) {
-      lines.push(`small_city cost: 400w/100m/200g - CAN AFFORD`);
+      lines.push(`🚨 BUILD small_city NOW! You can afford 400w/100m/200g!`);
     } else {
-      lines.push(`small_city cost: 400w/100m/200g - Need ${woodNeeded > 0 ? `${woodNeeded}w ` : ''}${metalNeeded > 0 ? `${metalNeeded}m ` : ''}${goldNeeded > 0 ? `${goldNeeded}g` : ''}`);
+      const woodNeeded = Math.max(0, 400 - p.resources.wood);
+      const metalNeeded = Math.max(0, 100 - p.resources.metal);
+      const goldNeeded = Math.max(0, 200 - p.resources.gold);
+      const needs = [];
+      if (woodNeeded > 0) needs.push(`${Math.round(woodNeeded)}w`);
+      if (metalNeeded > 0) needs.push(`${Math.round(metalNeeded)}m`);
+      if (goldNeeded > 0) needs.push(`${Math.round(goldNeeded)}g`);
+      lines.push(`small_city: need ${needs.join(' + ')} more`);
     }
   }
   
