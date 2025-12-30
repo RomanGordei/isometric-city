@@ -322,7 +322,8 @@ export interface CondensedGameState {
   }>;
   territoryTiles: Array<{ x: number; y: number }>;
   territoryBounds: { minX: number; maxX: number; minY: number; maxY: number }; // Your territory boundaries
-  emptyTerritoryTiles: Array<{ x: number; y: number }>; // Empty tiles you can build on
+  emptyTerritoryTiles: Array<{ x: number; y: number }>; // Empty tiles you can build on (closest to city first)
+  tilesForCityExpansion: Array<{ x: number; y: number }>; // Tiles for new cities (FARTHEST from existing cities!)
   tilesNearForest: Array<{ x: number; y: number }>; // Good for woodcutters_camp
   tilesNearMetal: Array<{ x: number; y: number }>; // Good for mine
   tilesNearOil: Array<{ x: number; y: number }>; // Good for oil_well (industrial age+)
@@ -578,6 +579,68 @@ export function generateCondensedGameState(
       }
       
       // Return tiles sorted by distance to city - closest first for compact cities
+      return spaced;
+    })(),
+    // Find tiles for NEW CITY expansion - sorted FARTHEST from existing cities!
+    // Cities should be spread out across the map, not adjacent to each other
+    tilesForCityExpansion: (() => {
+      // Check if a tile can be built on - uses isTileOccupiedByBuilding for multi-tile buildings!
+      const canBuildable = (x: number, y: number): boolean => {
+        const tile = state.grid[y]?.[x];
+        if (!tile) return false;
+        if (isTileOccupiedByBuilding(state.grid, x, y, state.gridSize)) return false;
+        if (tile.terrain === 'water' || tile.terrain === 'forest' || tile.terrain === 'mountain') return false;
+        if (tile.forestDensity > 0) return false;
+        if (tile.hasMetalDeposit) return false;
+        if (tile.hasOilDeposit) return false;
+        return true;
+      };
+      
+      // Find existing city centers
+      const myCityCenters = myBuildings.filter(b => 
+        b.type === 'city_center' || b.type === 'small_city' || b.type === 'large_city' || b.type === 'major_city'
+      );
+      
+      // Get distance to NEAREST city center
+      const distToNearestCity = (x: number, y: number): number => {
+        if (myCityCenters.length === 0) {
+          return Math.sqrt((x - state.gridSize / 2) ** 2 + (y - state.gridSize / 2) ** 2);
+        }
+        return Math.min(...myCityCenters.map(c => 
+          Math.sqrt((x - c.x) ** 2 + (y - c.y) ** 2)
+        ));
+      };
+      
+      // Filter tiles that can fit a 3x3 city
+      const empty = territoryTiles.filter(t => {
+        if (!canBuildable(t.x, t.y)) return false;
+        // Check 3x3 footprint for small_city
+        for (let dy = 0; dy < 3; dy++) {
+          for (let dx = 0; dx < 3; dx++) {
+            if (!canBuildable(t.x + dx, t.y + dy)) return false;
+          }
+        }
+        return true;
+      });
+      
+      // SORT BY DISTANCE - FARTHEST FIRST (opposite of emptyTerritoryTiles!)
+      empty.sort((a, b) => distToNearestCity(b.x, b.y) - distToNearestCity(a.x, a.y));
+      
+      // Filter out tiles that are too close to existing cities (at least 15 tiles away)
+      const MIN_CITY_DISTANCE = 15;
+      const farEnough = empty.filter(t => distToNearestCity(t.x, t.y) >= MIN_CITY_DISTANCE);
+      
+      // If none are far enough, fall back to all tiles (sorted farthest first)
+      const candidates = farEnough.length > 0 ? farEnough : empty;
+      
+      // Space out suggestions
+      const spaced: typeof empty = [];
+      for (const t of candidates) {
+        const tooClose = spaced.some(s => Math.abs(s.x - t.x) < 5 && Math.abs(s.y - t.y) < 5);
+        if (!tooClose) spaced.push(t);
+        if (spaced.length >= 5) break;
+      }
+      
       return spaced;
     })(),
     // Find tiles ADJACENT to forests (good for woodcutters_camp)

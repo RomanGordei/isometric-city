@@ -529,6 +529,10 @@ export const AGE_VERTICAL_OFFSETS: Partial<Record<Age, Partial<Record<RoNBuildin
   },
   modern: {
     market: -0.8,       // Needs grey base + lower cropping
+    city_center: -1.0,  // Full tile shift up - bottom cropped too tight
+    small_city: -1.0,   // Full tile shift up - bottom cropped too tight
+    large_city: -1.0,   // Full tile shift up - bottom cropped too tight
+    major_city: -1.0,   // Full tile shift up - bottom cropped too tight
   },
 };
 

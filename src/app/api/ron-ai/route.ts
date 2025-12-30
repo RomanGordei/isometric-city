@@ -609,7 +609,8 @@ ${condensed.myBuildings.map(b => `- ${b.type} at (${b.x},${b.y})`).join('\n') ||
 ⚠️ You can ONLY build within these coordinates! Building outside will FAIL.
 
 ## BUILDABLE TILES (all within your territory, NOT on water/forest/resources):
-General: ${(condensed.emptyTerritoryTiles || []).slice(0, 5).map(t => `(${t.x},${t.y})`).join(', ') || 'NO VALID TILES'}
+General (near city): ${(condensed.emptyTerritoryTiles || []).slice(0, 5).map(t => `(${t.x},${t.y})`).join(', ') || 'NO VALID TILES'}
+🏙️ For small_city (FAR from cities!): ${(condensed.tilesForCityExpansion || []).slice(0, 4).map(t => `(${t.x},${t.y})`).join(', ') || 'none available'}
 🌲 For woodcutters_camp (near forest): ${(condensed.tilesNearForest || []).slice(0, 4).map(t => `(${t.x},${t.y})`).join(', ') || 'none in territory'}
 ⛏️ For mine (near metal): ${(condensed.tilesNearMetal || []).slice(0, 4).map(t => `(${t.x},${t.y})`).join(', ') || 'none in territory'}
 🛢️ For oil_well (near oil): ${(condensed.tilesNearOil || []).slice(0, 4).map(t => `(${t.x},${t.y})`).join(', ') || 'none in territory'}
@@ -670,14 +671,15 @@ ${(() => {
   if (popCapped) {
     result += `⛔ POPULATION CAPPED (${p.population}/${p.populationCap}) - CANNOT TRAIN UNITS!\n`;
     if (canBuildSmallCity) {
-      // CRITICAL: AI can build city NOW - make this impossible to miss
-      const firstBuildSpot = condensed.emptyTerritoryTiles[0];
+      // CRITICAL: AI can build city NOW - use expansion tiles (far from existing cities!)
+      const expansionSpot = condensed.tilesForCityExpansion?.[0] || condensed.emptyTerritoryTiles?.[0];
       result += `\n`;
       result += `   BUILD small_city RIGHT NOW!\n`;
       result += `   You have: ${Math.round(p.resources.wood)}w / ${Math.round(p.resources.metal)}m / ${Math.round(p.resources.gold)}g\n`;
       result += `   Cost: ${BUILDING_COSTS.small_city} - YOU CAN AFFORD IT!\n`;
-      if (firstBuildSpot) {
-        result += `   >>> CALL: build(building_type="small_city", x=${firstBuildSpot.x}, y=${firstBuildSpot.y}) <<<\n`;
+      if (expansionSpot) {
+        result += `   >>> CALL: build(building_type="small_city", x=${expansionSpot.x}, y=${expansionSpot.y}) <<<\n`;
+        result += `   (This location is FAR from your existing cities for optimal territory spread)\n`;
       }
       result += `\n`;
     } else {
