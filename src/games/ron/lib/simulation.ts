@@ -1780,7 +1780,29 @@ function updateUnits(state: RoNGameState): RoNGameState {
           console.log(`[BUILDING DAMAGE] ${tile.building.type} at (${gx},${gy}) took ${damageInfo.damage} damage from ${damageInfo.attackerId}, hp: ${tile.building.health} -> ${newHealth}`);
           
           if (newHealth <= 0) {
-            // Building destroyed - clear the tile
+            // Check if this is a city building - cities get conquered, not destroyed
+            const buildingType = tile.building.type as RoNBuildingType;
+            if (CITY_CENTER_TYPES.includes(buildingType)) {
+              // City conquered! Reset to construction state and transfer ownership
+              const buildingStats = BUILDING_STATS[buildingType];
+              console.log(`[CITY CONQUERED] ${buildingType} at (${gx},${gy}) conquered by ${damageInfo.attackerId}! Now under construction for new owner.`);
+              return {
+                ...tile,
+                ownerId: damageInfo.attackerId, // Territory now belongs to conqueror
+                building: {
+                  ...tile.building,
+                  ownerId: damageInfo.attackerId, // Building ownership transferred
+                  health: buildingStats?.maxHealth || tile.building.maxHealth, // Reset health
+                  constructionProgress: 0, // Back to construction state
+                  queuedUnits: [], // Clear any production queue
+                  productionProgress: 0,
+                  garrisonedUnits: [], // Clear garrison
+                  lastAttackerId: undefined, // Clear attack tracker
+                }
+              };
+            }
+            
+            // Non-city building destroyed - clear the tile
             console.log(`[BUILDING DESTROYED] ${tile.building.type} at (${gx},${gy}) by ${damageInfo.attackerId}`);
             return { ...tile, building: null, ownerId: null };
           }
