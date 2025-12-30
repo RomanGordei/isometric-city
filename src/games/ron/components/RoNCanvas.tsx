@@ -2302,8 +2302,8 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
             const spritePos = getAgeSpritePosition(buildingType, buildingOwnerAge);
 
             if (spritePos) {
-              const tileWidth = spriteSheet.width / spritePack.cols;
-              const tileHeight = spriteSheet.height / spritePack.rows;
+              const tileWidth = buildingSpriteSheet.width / buildingSpritePack.cols;
+              const tileHeight = buildingSpriteSheet.height / buildingSpritePack.rows;
               
               const sx = spritePos.col * tileWidth;
               const sy = spritePos.row * tileHeight;
@@ -2330,7 +2330,7 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
               // Scale based on building size (with age-specific scale)
               const buildingBaseScale = BUILDING_SCALES[buildingType] || 1;
               const ageScale = AGE_BUILDING_SCALES[buildingOwnerAge]?.[buildingType] || 1;
-              const baseScale = buildingBaseScale * ageScale * spritePack.globalScale;
+              const baseScale = buildingBaseScale * ageScale * buildingSpritePack.globalScale;
               const sizeScale = isMultiTile ? Math.max(buildingSize.width, buildingSize.height) : 1;
               const scaleMultiplier = baseScale * sizeScale;
               
@@ -2419,7 +2419,7 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
                 );
               } else {
                 // Draw completed building with optional age-specific cropping
-                const ageCrop = AGE_BUILDING_CROP[playerAge]?.[buildingType];
+                const ageCrop = AGE_BUILDING_CROP[buildingOwnerAge]?.[buildingType];
                 if (ageCrop) {
                   const cropTopPx = tileHeight * (ageCrop.cropTop || 0);
                   const cropBottomPx = tileHeight * (ageCrop.cropBottom || 0);
@@ -2429,13 +2429,13 @@ export function RoNCanvas({ navigationTarget, onNavigationComplete, onViewportCh
                   const croppedDrawY = drawY + (destHeight - croppedDestHeight);
                   
                   ctx.drawImage(
-                    spriteSheet,
+                    buildingSpriteSheet,
                     sx, sy + cropTopPx, tileWidth, croppedSrcHeight,
                     drawX, croppedDrawY, destWidth, croppedDestHeight
                   );
                 } else {
                   ctx.drawImage(
-                    spriteSheet,
+                    buildingSpriteSheet,
                     sx, sy, tileWidth, tileHeight,
                     drawX, drawY, destWidth, destHeight
                   );
