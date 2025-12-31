@@ -826,7 +826,8 @@ export function executeBuildBuilding(
     }
   }
 
-  // Check minimum distance between resource gathering buildings (3 tiles)
+  // Check minimum distance between SAME TYPE of resource gathering buildings (3 tiles)
+  // Different types can be adjacent (e.g., farm next to woodcutters_camp is fine)
   const RESOURCE_GATHERING_BUILDINGS: RoNBuildingType[] = [
     'farm', 'woodcutters_camp', 'lumber_mill', 'mine', 'smelter',
     'oil_well', 'oil_platform', 'refinery', 'granary', 'market'
@@ -834,7 +835,7 @@ export function executeBuildBuilding(
   const RESOURCE_BUILDING_MIN_DISTANCE = 3;
   
   if (RESOURCE_GATHERING_BUILDINGS.includes(bType)) {
-    // Search for other resource buildings within minimum distance
+    // Search for other buildings of the SAME TYPE within minimum distance
     for (let dy = -RESOURCE_BUILDING_MIN_DISTANCE; dy <= RESOURCE_BUILDING_MIN_DISTANCE; dy++) {
       for (let dx = -RESOURCE_BUILDING_MIN_DISTANCE; dx <= RESOURCE_BUILDING_MIN_DISTANCE; dx++) {
         if (dx === 0 && dy === 0) continue;
@@ -847,14 +848,15 @@ export function executeBuildBuilding(
         if (!checkTile?.building) continue;
         
         const existingBuildingType = checkTile.building.type as RoNBuildingType;
-        if (RESOURCE_GATHERING_BUILDINGS.includes(existingBuildingType)) {
+        // Only check against the SAME building type
+        if (existingBuildingType === bType) {
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < RESOURCE_BUILDING_MIN_DISTANCE) {
             return { 
               newState: state, 
               result: { 
                 success: false, 
-                message: `${bType} at (${x},${y}) is too close to ${existingBuildingType} at (${checkX},${checkY})! Resource buildings must be at least 3 tiles apart.` 
+                message: `${bType} at (${x},${y}) is too close to another ${bType} at (${checkX},${checkY})! Same type of resource building must be at least 3 tiles apart.` 
               } 
             };
           }

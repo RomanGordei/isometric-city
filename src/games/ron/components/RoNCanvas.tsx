@@ -205,8 +205,11 @@ const RESOURCE_GATHERING_BUILDINGS: RoNBuildingType[] = [
 const RESOURCE_BUILDING_MIN_DISTANCE = 3;
 
 /**
- * Check if placing a resource building would be too close to another resource building.
+ * Check if placing a resource building would be too close to another building of the SAME type.
  * Returns true if placement is TOO CLOSE (invalid), false if OK.
+ * 
+ * Only applies to: farms, mines, oil_wells - you can't stack multiple of the same resource extractor.
+ * Different types CAN be adjacent (e.g., farm next to woodcutters_camp is fine).
  */
 function isResourceBuildingTooClose(
   buildingType: RoNBuildingType,
@@ -215,39 +218,39 @@ function isResourceBuildingTooClose(
   grid: import('../types/game').RoNTile[][],
   gridSize: number
 ): boolean {
-  // Only check for resource gathering buildings
+  // Only check for resource extraction buildings (not processing buildings like lumber_mill/smelter)
   if (!RESOURCE_GATHERING_BUILDINGS.includes(buildingType)) {
     return false; // Not a resource building, no distance check needed
   }
-  
+
   // Search in a square around the placement position
   const searchRadius = RESOURCE_BUILDING_MIN_DISTANCE;
   for (let dy = -searchRadius; dy <= searchRadius; dy++) {
     for (let dx = -searchRadius; dx <= searchRadius; dx++) {
       if (dx === 0 && dy === 0) continue; // Skip the placement tile itself
-      
+
       const checkX = gridX + dx;
       const checkY = gridY + dy;
-      
+
       if (checkX < 0 || checkX >= gridSize || checkY < 0 || checkY >= gridSize) continue;
-      
+
       const tile = grid[checkY]?.[checkX];
       if (!tile?.building) continue;
-      
+
       const existingBuildingType = tile.building.type as RoNBuildingType;
-      
-      // Check if the existing building is also a resource gathering building
-      if (RESOURCE_GATHERING_BUILDINGS.includes(existingBuildingType)) {
+
+      // Only check against the SAME building type - different resource types can be adjacent
+      if (existingBuildingType === buildingType) {
         // Calculate actual distance (Euclidean)
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < RESOURCE_BUILDING_MIN_DISTANCE) {
-          return true; // Too close!
+          return true; // Too close to another building of the same type!
         }
       }
     }
   }
-  
-  return false; // No nearby resource buildings - placement is OK
+
+  return false; // No nearby buildings of the same type - placement is OK
 }
 
 /**

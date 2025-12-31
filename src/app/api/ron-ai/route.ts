@@ -439,7 +439,7 @@ ECONOMY BUILDINGS:
 - library ${BUILDING_COSTS.library} → knowledge (REQUIRED for age advancement!)
 - oil_well (Industrial age) → oil
 
-RESOURCE BUILDING SPACING: Resource gathering buildings (farms, woodcutters_camp, lumber_mill, mine, smelter, market, granary, oil_well, refinery) must be placed at least 3 tiles apart from each other! Placements too close will FAIL.
+RESOURCE BUILDING SPACING: You cannot place two buildings of the SAME type within 3 tiles of each other (e.g., no two farms within 3 tiles, no two mines within 3 tiles). Different types CAN be adjacent (farm next to woodcutters_camp is fine).
 
 MILITARY BUILDINGS:
 - barracks ${BUILDING_COSTS.barracks} → infantry, ranged
@@ -505,7 +505,7 @@ interface AIResponseBody {
 
 export async function POST(request: NextRequest): Promise<NextResponse<AIResponseBody>> {
   try {
-    const { gameState, aiPlayerId, previousResponseId } = await request.json();
+    const { gameState, aiPlayerId, previousTurnSummary } = await request.json();
 
     if (!gameState || !aiPlayerId) {
       return NextResponse.json({ newState: gameState, messages: [], error: 'Missing data' }, { status: 400 });
@@ -678,11 +678,16 @@ export async function POST(request: NextRequest): Promise<NextResponse<AIRespons
     const initialState = formatGameStateForAI(initialCondensed);
     
     // Include full state in prompt so AI can act immediately
-    const turnPrompt = `Turn ${gameState.tick}. You are ${aiPlayer.name}.${threatInfo}
+    // Add previous turn summary if available for context
+    const prevTurnContext = previousTurnSummary 
+      ? `\nLAST TURN: ${previousTurnSummary}\n` 
+      : '';
+    
+    const turnPrompt = `Turn ${gameState.tick}. You are ${aiPlayer.name}.${threatInfo}${prevTurnContext}
 
 ${initialState}
 
-Take actions now based on the state above. You can call get_game_state later if you need to refresh after taking actions.`;
+Take actions now based on the state above.`;
 
     // Log what we're sending to the agent
     console.log('\n' + '-'.repeat(60));
@@ -691,28 +696,15 @@ Take actions now based on the state above. You can call get_game_state later if 
     console.log('[AGENT INPUT] Available tools:', AI_TOOLS.map(t => (t as { name?: string }).name).join(', '));
     console.log('-'.repeat(60));
 
-    // Create initial response - use previous_response_id for conversation continuity if available
+    // Create response - no previous_response_id across turns (causes "No tool output" errors)
     const startTime = Date.now();
-    
-    // Build request params - add previous_response_id if available for conversation continuity
-    const baseParams = {
+    let response = await client.responses.create({
       model: AI_MODEL,
       instructions: SYSTEM_PROMPT,
       input: turnPrompt,
       tools: AI_TOOLS,
-      tool_choice: 'auto' as const,
-    };
-    
-    let response;
-    if (previousResponseId) {
-      console.log(`[AGENT] Using previous response ID for context: ${previousResponseId}`);
-      response = await client.responses.create({
-        ...baseParams,
-        previous_response_id: previousResponseId,
-      });
-    } else {
-      response = await client.responses.create(baseParams);
-    }
+      tool_choice: 'auto',
+    });
     const responseTime = Date.now() - startTime;
 
     console.log(`[AGENT OUTPUT] Initial response in ${responseTime}ms, ${response.output?.length || 0} outputs`);

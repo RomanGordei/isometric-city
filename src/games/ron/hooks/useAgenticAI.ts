@@ -65,7 +65,7 @@ const STAGGER_DELAY_MS = 1500;  // Stagger AI calls by 1.5 seconds
 
 // Per-AI state stored in refs
 interface AIPlayerState {
-  responseId?: string;
+  lastTurnSummary?: string;
   isProcessing: boolean;
   lastCallTime: number;
 }
@@ -232,7 +232,7 @@ export function useAgenticAI(
         body: JSON.stringify({
           gameState: state,
           aiPlayerId: aiPlayerId,
-          previousResponseId: aiState.responseId,
+          previousTurnSummary: aiState.lastTurnSummary,
         }),
       });
 
@@ -247,16 +247,21 @@ export function useAgenticAI(
           type: 'message',
           content: `Error: ${result.error}`,
         });
-        // Reset response ID on errors to start fresh
+        // Reset summary on errors to start fresh
         if (result.error.includes('400') || result.error.includes('invalid')) {
-          aiState.responseId = undefined;
+          aiState.lastTurnSummary = undefined;
         }
       } else {
         setLastError(null);
         
-        // Save response ID for conversation continuity
-        if (result.responseId) {
-          aiState.responseId = result.responseId;
+        // Build summary of this turn's actions for next turn's context
+        if (result.toolCalls && result.toolCalls.length > 0) {
+          const actionSummary = result.toolCalls.map((tc: { name: string; result?: string }) => 
+            `${tc.name}: ${tc.result?.substring(0, 80) || 'done'}`
+          ).join('; ');
+          aiState.lastTurnSummary = actionSummary;
+        } else {
+          aiState.lastTurnSummary = undefined;
         }
         
         // Update prompt with full details from API response if available
@@ -516,7 +521,7 @@ export function useAgenticAI(
     
     // Clear all AI conversation histories
     aiStatesRef.current.forEach((state) => {
-      state.responseId = undefined;
+      state.lastTurnSummary = undefined;
       state.isProcessing = false;
       state.lastCallTime = 0;
     });
