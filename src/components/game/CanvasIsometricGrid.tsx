@@ -39,6 +39,11 @@ import {
   WATER_ASSET_PATH,
   AIRPLANE_SPRITE_SRC,
   TRAIN_MIN_ZOOM,
+  WATER_SIMPLE_RENDER_ZOOM,
+  WATER_ULTRA_SIMPLE_ZOOM,
+  BEACH_MIN_ZOOM,
+  GRID_LINES_MIN_ZOOM,
+  ZONE_BORDER_MIN_ZOOM,
 } from '@/components/game/constants';
 import {
   gridToScreen,
@@ -1194,8 +1199,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         ctx.closePath();
         ctx.fill();
         
-        // Draw grid lines only when zoomed in (hide when zoom < 0.6)
-        if (currentZoom >= 0.6) {
+        // Draw grid lines only when zoomed in (hide when zoom < GRID_LINES_MIN_ZOOM)
+        if (currentZoom >= GRID_LINES_MIN_ZOOM) {
           ctx.strokeStyle = strokeColor;
           ctx.lineWidth = 0.5;
           ctx.stroke();
@@ -1203,7 +1208,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         
         // Draw zone border with dashed line (hide when zoomed out, only on grass/empty tiles - not on roads or buildings)
         if (tile.zone !== 'none' && 
-            currentZoom >= 0.95 &&
+            currentZoom >= ZONE_BORDER_MIN_ZOOM &&
             (tile.building.type === 'grass' || tile.building.type === 'empty')) {
           ctx.strokeStyle = tile.zone === 'residential' ? '#22c55e' : 
                             tile.zone === 'commercial' ? '#3b82f6' : '#f59e0b';
@@ -1408,9 +1413,17 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
             const jitterX = (seedX - 0.5) * w * 0.3;
             const jitterY = (seedY - 0.5) * h * 0.3;
             
-            // PERF: When zoomed out (zoom < 0.5), use single pass water rendering to reduce draw calls
-            // At low zoom, the blending detail is not visible anyway
-            if (zoom < 0.5) {
+            // PERF: Multi-level LOD for water rendering based on zoom level
+            // Ultra-simple: solid color only (fastest, for very zoomed out views)
+            // Simple: single-pass texture (fast, for moderately zoomed out views)
+            // Full: multi-pass blending (detailed, for zoomed in views)
+            if (zoom < WATER_ULTRA_SIMPLE_ZOOM) {
+              // Ultra-simple: skip texture entirely, just fill with solid color
+              // This is the fastest path for very zoomed out views
+              ctx.globalAlpha = 1;
+              ctx.fillStyle = '#2563eb';
+              ctx.fill(); // Fill the already-defined clipping path
+            } else if (zoom < WATER_SIMPLE_RENDER_ZOOM) {
               // Simplified single-pass water at low zoom
               const destWidth = w * 1.15;
               const destHeight = destWidth * aspectRatio;
@@ -1776,7 +1789,7 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     // Draw beaches on water tiles (after water, outside clipping region)
     // Note: waterQueue is already sorted from above
     // PERF: Skip beach rendering when zoomed out - detail is not visible
-    if (zoom >= 0.4) {
+    if (zoom >= BEACH_MIN_ZOOM) {
       // PERF: Use for loop instead of forEach
       for (let i = 0; i < waterQueue.length; i++) {
         const { tile, screenX, screenY } = waterQueue[i];
