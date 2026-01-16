@@ -1,4 +1,5 @@
 import { CardinalDirection, GridPosition } from '@/core/types';
+import { CoasterBuildingType } from './tiles';
 
 export type GuestState =
   | 'entering'
@@ -65,6 +66,7 @@ export type Guest = {
   thoughts: GuestThought[];
   currentRideId: string | null;
   targetRideId: string | null;
+  targetShop: { position: GridPosition; type: CoasterBuildingType } | null;
   path: GridPosition[];
   pathIndex: number;
   age: number;

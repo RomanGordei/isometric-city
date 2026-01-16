@@ -1,5 +1,5 @@
 import { CardinalDirection } from '@/core/types';
-import { CoasterParkState, CoasterTile, Finance, Guest, ParkStats, PathInfo, Research, WeatherState } from '@/games/coaster/types';
+import { CoasterBuildingType, CoasterParkState, CoasterTile, Finance, Guest, ParkStats, PathInfo, Research, WeatherState } from '@/games/coaster/types';
 import { findPath } from '@/lib/coasterPathfinding';
 
 export const DEFAULT_COASTER_GRID_SIZE = 50;
@@ -81,6 +81,7 @@ function createGuest(id: number, tileX: number, tileY: number): Guest {
     thoughts: [],
     currentRideId: null,
     targetRideId: null,
+    targetShop: null,
     path: [],
     pathIndex: 0,
     age: 0,
@@ -92,6 +93,65 @@ function createGuest(id: number, tileX: number, tileY: number): Guest {
       hat: Math.random() > 0.6 ? pickColor() : undefined,
     },
     hasItem: null,
+  };
+}
+
+function clamp(value: number, min = 0, max = 255): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function updateGuestNeeds(guest: Guest): Guest {
+  const nextNeeds = {
+    hunger: clamp(guest.needs.hunger - 1.2),
+    thirst: clamp(guest.needs.thirst - 1.5),
+    bathroom: clamp(guest.needs.bathroom - 0.6),
+    happiness: guest.needs.happiness,
+    nausea: clamp(guest.needs.nausea - 0.8),
+    energy: clamp(guest.needs.energy - 0.7),
+  };
+
+  let happiness = guest.happiness;
+  if (nextNeeds.hunger < 80 || nextNeeds.thirst < 80) {
+    happiness = clamp(happiness - 1);
+  }
+  if (nextNeeds.energy < 60) {
+    happiness = clamp(happiness - 1);
+  }
+
+  return {
+    ...guest,
+    needs: { ...nextNeeds, happiness },
+    happiness,
+  };
+}
+
+const SHOP_EFFECTS: Record<CoasterBuildingType, { hunger?: number; thirst?: number; bathroom?: number; happiness?: number; cost: number }> = {
+  food_stall: { hunger: 100, happiness: 6, cost: 5 },
+  drink_stall: { thirst: 110, happiness: 4, cost: 3 },
+  ice_cream_stall: { hunger: 80, happiness: 8, cost: 4 },
+  souvenir_shop: { happiness: 10, cost: 6 },
+  info_kiosk: { happiness: 2, cost: 2 },
+  toilets: { bathroom: 140, happiness: 4, cost: 0 },
+  atm: { happiness: 2, cost: 0 },
+  first_aid: { happiness: 6, cost: 0 },
+  staff_room: { happiness: 0, cost: 0 },
+};
+
+function applyShopEffects(guest: Guest, shopType: CoasterBuildingType): Guest {
+  const effect = SHOP_EFFECTS[shopType];
+  if (!effect) return guest;
+  const needs = {
+    ...guest.needs,
+    hunger: clamp(guest.needs.hunger + (effect.hunger ?? 0)),
+    thirst: clamp(guest.needs.thirst + (effect.thirst ?? 0)),
+    bathroom: clamp(guest.needs.bathroom + (effect.bathroom ?? 0)),
+  };
+  const happiness = clamp(guest.happiness + (effect.happiness ?? 0));
+  return {
+    ...guest,
+    needs: { ...needs, happiness },
+    happiness,
+    money: Math.max(0, guest.money - effect.cost),
   };
 }
 
@@ -127,6 +187,25 @@ function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
     return { ...guest, stateTimer: nextTimer, age: nextAge };
   }
 
+  if (guest.state === 'at_shop') {
+    const nextTimer = guest.stateTimer - 1;
+    if (nextTimer <= 0) {
+      const shopType = guest.targetShop?.type;
+      const updatedGuest = shopType ? applyShopEffects(guest, shopType) : guest;
+      return {
+        ...updatedGuest,
+        state: 'wandering',
+        stateTimer: 0,
+        targetShop: null,
+        path: [],
+        pathIndex: 0,
+        progress: 0,
+        age: nextAge,
+      };
+    }
+    return { ...guest, stateTimer: nextTimer, age: nextAge };
+  }
+
   if (guest.path.length > 1 && guest.pathIndex < guest.path.length - 1) {
     const nextTarget = guest.path[guest.pathIndex + 1];
     const dx = nextTarget.x - guest.tileX;
@@ -137,7 +216,11 @@ function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
       return { ...guest, progress: nextProgress, direction, age: nextAge };
     }
     const reachedEnd = guest.pathIndex + 1 >= guest.path.length - 1;
-    const nextState = reachedEnd && guest.targetRideId ? 'on_ride' : guest.state;
+    const nextState = reachedEnd && guest.targetRideId
+      ? 'on_ride'
+      : reachedEnd && guest.targetShop
+        ? 'at_shop'
+        : guest.state;
     return {
       ...guest,
       tileX: nextTarget.x,
@@ -146,7 +229,7 @@ function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
       progress: 0,
       pathIndex: guest.pathIndex + 1,
       state: nextState,
-      stateTimer: nextState === 'on_ride' ? 6 : guest.stateTimer,
+      stateTimer: nextState === 'on_ride' ? 6 : nextState === 'at_shop' ? 4 : guest.stateTimer,
       currentRideId: nextState === 'on_ride' ? guest.targetRideId : guest.currentRideId,
       age: nextAge,
     };
@@ -188,10 +271,96 @@ function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
   };
 }
 
+type ShopTarget = { position: { x: number; y: number }; type: CoasterBuildingType };
+
+function findShopTargets(grid: CoasterTile[][]): ShopTarget[] {
+  const targets: ShopTarget[] = [];
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y].length; x++) {
+      const building = grid[y][x].building;
+      if (building) {
+        targets.push({ position: { x, y }, type: building.type });
+      }
+    }
+  }
+  return targets;
+}
+
+function findClosestShop(guest: Guest, targets: ShopTarget[], types: CoasterBuildingType[]): ShopTarget | null {
+  let closest: ShopTarget | null = null;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  targets.forEach((target) => {
+    if (!types.includes(target.type)) return;
+    const distance = Math.abs(target.position.x - guest.tileX) + Math.abs(target.position.y - guest.tileY);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closest = target;
+    }
+  });
+  return closest;
+}
+
 function updateGuests(state: CoasterParkState): CoasterParkState {
-  let nextGuests = state.guests.map((guest) => updateGuestMovement(guest, state));
+  let nextGuests = state.guests.map((guest) => updateGuestNeeds(guest));
+  nextGuests = nextGuests.map((guest) => updateGuestMovement(guest, state));
   nextGuests = nextGuests.filter((guest) => guest.age < guest.maxAge);
   let totalGuests = state.stats.totalGuests;
+
+  const shopTargets = findShopTargets(state.grid);
+  if (shopTargets.length > 0) {
+    nextGuests = nextGuests.map((guest) => {
+      if (guest.state !== 'wandering' || guest.targetRideId || guest.targetShop) return guest;
+      if (guest.needs.hunger < 110) {
+        const shop = findClosestShop(guest, shopTargets, ['food_stall', 'ice_cream_stall']);
+        if (shop) {
+          const path = findPath({ x: guest.tileX, y: guest.tileY }, shop.position, state.grid);
+          if (path && path.length > 1) {
+            return {
+              ...guest,
+              state: 'heading_to_shop',
+              targetShop: shop,
+              path,
+              pathIndex: 0,
+              progress: 0,
+            };
+          }
+        }
+      }
+      if (guest.needs.thirst < 110) {
+        const shop = findClosestShop(guest, shopTargets, ['drink_stall']);
+        if (shop) {
+          const path = findPath({ x: guest.tileX, y: guest.tileY }, shop.position, state.grid);
+          if (path && path.length > 1) {
+            return {
+              ...guest,
+              state: 'heading_to_shop',
+              targetShop: shop,
+              path,
+              pathIndex: 0,
+              progress: 0,
+            };
+          }
+        }
+      }
+      if (guest.needs.bathroom < 80) {
+        const shop = findClosestShop(guest, shopTargets, ['toilets']);
+        if (shop) {
+          const path = findPath({ x: guest.tileX, y: guest.tileY }, shop.position, state.grid);
+          if (path && path.length > 1) {
+            return {
+              ...guest,
+              state: 'heading_to_shop',
+              targetShop: shop,
+              path,
+              pathIndex: 0,
+              progress: 0,
+            };
+          }
+        }
+      }
+      return guest;
+    });
+  }
 
   const availableRides = state.rides.filter((ride) => ride.status === 'open');
   if (availableRides.length > 0) {
@@ -233,6 +402,17 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
     });
   }
 
+  const shopEntries = nextGuests.filter(
+    (guest) => guest.state === 'at_shop' && guest.stateTimer === 4 && guest.targetShop
+  );
+  let shopRevenue = 0;
+  if (shopEntries.length > 0) {
+    shopEntries.forEach((guest) => {
+      const effect = SHOP_EFFECTS[guest.targetShop?.type ?? 'food_stall'];
+      shopRevenue += effect?.cost ?? 0;
+    });
+  }
+
   if (rideEntries.length > 0) {
     nextGuests = nextGuests.map((guest) => {
       if (guest.state !== 'on_ride' || guest.stateTimer !== 6 || !guest.currentRideId) return guest;
@@ -242,6 +422,10 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
         ...guest,
         money: Math.max(0, guest.money - ride.price),
         happiness: Math.min(255, guest.happiness + Math.round(ride.excitement / 12)),
+        needs: {
+          ...guest.needs,
+          nausea: clamp(guest.needs.nausea + Math.round(ride.nausea / 8)),
+        },
       };
     });
   }
@@ -259,11 +443,12 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
     ...state,
     guests: nextGuests,
     rides: updatedRides,
-    finance: rideRevenue > 0 ? {
+    finance: rideRevenue > 0 || shopRevenue > 0 ? {
       ...state.finance,
-      cash: state.finance.cash + rideRevenue,
+      cash: state.finance.cash + rideRevenue + shopRevenue,
       rideRevenue: state.finance.rideRevenue + rideRevenue,
-      income: state.finance.income + rideRevenue,
+      shopRevenue: state.finance.shopRevenue + shopRevenue,
+      income: state.finance.income + rideRevenue + shopRevenue,
     } : state.finance,
     stats: {
       ...state.stats,
