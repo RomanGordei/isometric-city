@@ -378,7 +378,11 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
         ];
         for (const neighbor of neighbors) {
           const rideId = grid[neighbor.y]?.[neighbor.x]?.rideId;
-          if (rideId) return rideId;
+          if (rideId) return { rideId, isDirect: true };
+        }
+        for (const neighbor of neighbors) {
+          const queueRideId = grid[neighbor.y]?.[neighbor.x]?.path?.queueRideId;
+          if (queueRideId) return { rideId: queueRideId, isDirect: false };
         }
         return null;
       };
@@ -411,6 +415,48 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
         isBridge: false,
       });
 
+      const propagateQueueRideId = (startX: number, startY: number, queueRideId: string) => {
+        const stack = [{ x: startX, y: startY }];
+        const visited = new Set<string>();
+        while (stack.length > 0) {
+          const current = stack.pop();
+          if (!current) continue;
+          const key = `${current.x},${current.y}`;
+          if (visited.has(key)) continue;
+          visited.add(key);
+          const currentTile = grid[current.y]?.[current.x];
+          if (!currentTile?.path || currentTile.path.style !== 'queue') continue;
+          if (currentTile.path.queueRideId && currentTile.path.queueRideId !== queueRideId) {
+            continue;
+          }
+          if (currentTile.path.queueRideId !== queueRideId) {
+            updateTile(current.x, current.y, {
+              path: {
+                ...currentTile.path,
+                queueRideId,
+              },
+            });
+          }
+          const edges = currentTile.path.edges;
+          (Object.keys(edges) as Array<keyof PathInfo['edges']>).forEach((direction) => {
+            if (!edges[direction]) return;
+            const delta = direction === 'north'
+              ? { dx: 0, dy: -1 }
+              : direction === 'east'
+                ? { dx: 1, dy: 0 }
+                : direction === 'south'
+                  ? { dx: 0, dy: 1 }
+                  : { dx: -1, dy: 0 };
+            const nx = current.x + delta.dx;
+            const ny = current.y + delta.dy;
+            const neighbor = grid[ny]?.[nx];
+            if (neighbor?.path?.style === 'queue') {
+              stack.push({ x: nx, y: ny });
+            }
+          });
+        }
+      };
+
       const applyCost = (nextState: CoasterParkState) => (
         toolCost > 0
           ? {
@@ -424,7 +470,8 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
       );
 
       if (selectedTool === 'path' || selectedTool === 'queue_path') {
-        const queueRideId = selectedTool === 'queue_path' ? findAdjacentRideId(x, y) : null;
+        const adjacentRide = selectedTool === 'queue_path' ? findAdjacentRideId(x, y) : null;
+        const queueRideId = adjacentRide?.rideId ?? null;
         const newPath = createPath(selectedTool === 'queue_path' ? 'queue' : 'concrete', selectedTool === 'queue_path', queueRideId);
         if (tile.terrain === 'water' || tile.rideId || tile.building) {
           return prev;
@@ -434,6 +481,9 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
         }
         updateTile(x, y, { path: newPath });
         syncNeighborEdges(x, y, newPath.edges);
+        if (queueRideId) {
+          propagateQueueRideId(x, y, queueRideId);
+        }
         const rides = queueRideId
           ? prev.rides.map((ride) =>
             ride.id === queueRideId ? { ...ride, queue: { ...ride.queue, entry: { x, y } } } : ride

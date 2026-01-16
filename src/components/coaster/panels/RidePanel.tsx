@@ -62,7 +62,9 @@ export default function RidePanel({ ride, onClose, onToggleStatus, onPriceChange
           </div>
           <div className="flex items-center justify-between">
             <span>Queue</span>
-            <span>{queueLength} guests</span>
+            <span>
+              {queueLength} / {ride.queue.maxLength} guests
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <span>Estimated Wait</span>

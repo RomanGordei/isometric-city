@@ -62,6 +62,10 @@ const SECURITY_RADIUS = 3;
 const MECHANIC_UPTIME_BOOST = 0.0012;
 const RIDE_UPTIME_DECAY = 0.0005;
 const PAYROLL_INTERVAL_DAYS = 7;
+const QUEUE_GUESTS_PER_TILE = 4;
+const MIN_QUEUE_LENGTH = 8;
+const MAX_QUEUE_LENGTH = 80;
+const DEFAULT_QUEUE_LENGTH = 30;
 
 function createGuest(id: number, tileX: number, tileY: number): Guest {
   const colors = ['#60a5fa', '#f87171', '#facc15', '#34d399', '#a78bfa'];
@@ -434,6 +438,29 @@ function applyStaffMoodEffects(guest: Guest, entertainers: Staff[], securityStaf
   };
 }
 
+function calculateQueueCapacities(state: CoasterParkState): Map<string, number> {
+  const queueTileCounts = new Map<string, number>();
+  for (let y = 0; y < state.grid.length; y++) {
+    for (let x = 0; x < state.grid[y].length; x++) {
+      const path = state.grid[y][x].path;
+      if (!path?.isQueue || !path.queueRideId) continue;
+      queueTileCounts.set(path.queueRideId, (queueTileCounts.get(path.queueRideId) ?? 0) + 1);
+    }
+  }
+
+  const queueCapacities = new Map<string, number>();
+  state.rides.forEach((ride) => {
+    const tileCount = queueTileCounts.get(ride.id) ?? 0;
+    if (tileCount === 0) {
+      queueCapacities.set(ride.id, DEFAULT_QUEUE_LENGTH);
+      return;
+    }
+    const capacity = Math.max(MIN_QUEUE_LENGTH, Math.min(MAX_QUEUE_LENGTH, tileCount * QUEUE_GUESTS_PER_TILE));
+    queueCapacities.set(ride.id, capacity);
+  });
+  return queueCapacities;
+}
+
 function updateStaff(state: CoasterParkState): CoasterParkState {
   const updatedStaff = state.staff.map((member) => updateStaffMovement(member, state.grid));
   const handymanCount = updatedStaff.filter((member) => member.type === 'handyman').length;
@@ -561,6 +588,14 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
     nextGuests = nextGuests.map((guest) => applyStaffMoodEffects(guest, entertainers, securityStaff));
   }
 
+  const queueCapacityByRide = calculateQueueCapacities(state);
+  const queueCounts = new Map<string, number>();
+  nextGuests.forEach((guest) => {
+    if ((guest.state === 'queuing' || guest.state === 'heading_to_ride') && guest.targetRideId) {
+      queueCounts.set(guest.targetRideId, (queueCounts.get(guest.targetRideId) ?? 0) + 1);
+    }
+  });
+
 
   nextGuests = nextGuests.map((guest) => {
     if ((guest.state === 'queuing' || guest.state === 'heading_to_ride') && guest.targetRideId) {
@@ -639,12 +674,17 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
   if (availableRides.length > 0) {
     nextGuests = nextGuests.map((guest) => {
       if (guest.state !== 'wandering' || guest.targetRideId || guest.targetShop) return guest;
-      const ride = availableRides[Math.floor(Math.random() * availableRides.length)];
+      const rideOptions = availableRides.filter((ride) => {
+        const capacity = queueCapacityByRide.get(ride.id) ?? ride.queue.maxLength;
+        return (queueCounts.get(ride.id) ?? 0) < capacity;
+      });
+      if (rideOptions.length === 0) return guest;
+      const ride = rideOptions[Math.floor(Math.random() * rideOptions.length)];
       const accessTile = findRideAccessTile(ride, state.grid);
       if (!accessTile) return guest;
-      const queuePath = state.grid[accessTile.y]?.[accessTile.x]?.path;
       const path = findPath({ x: guest.tileX, y: guest.tileY }, accessTile, state.grid);
       if (!path || path.length < 2) return guest;
+      queueCounts.set(ride.id, (queueCounts.get(ride.id) ?? 0) + 1);
       return {
         ...guest,
         state: 'heading_to_ride',
@@ -663,18 +703,38 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
     queueGuests.push(guest);
     queueMap.set(guest.targetRideId, queueGuests);
   });
+  const guestUpdates = new Map<number, Partial<Guest>>();
   queueMap.forEach((queueGuests, rideId) => {
     queueGuests.sort((a, b) => (a.queueJoinTick ?? 0) - (b.queueJoinTick ?? 0));
-    queueMap.set(rideId, queueGuests);
+    const maxLength = queueCapacityByRide.get(rideId)
+      ?? state.rides.find((ride) => ride.id === rideId)?.queue.maxLength
+      ?? DEFAULT_QUEUE_LENGTH;
+    if (queueGuests.length > maxLength) {
+      const overflow = queueGuests.slice(maxLength);
+      overflow.forEach((guest) => {
+        guestUpdates.set(guest.id, {
+          state: 'wandering',
+          targetRideId: null,
+          queueJoinTick: null,
+          path: [],
+          pathIndex: 0,
+        });
+      });
+      queueMap.set(rideId, queueGuests.slice(0, maxLength));
+    } else {
+      queueMap.set(rideId, queueGuests);
+    }
   });
 
   let updatedRides = state.rides.map((ride) => ({
     ...ride,
-    queue: { ...ride.queue, guestIds: (queueMap.get(ride.id) ?? []).map((guest) => guest.id) },
+    queue: {
+      ...ride.queue,
+      guestIds: (queueMap.get(ride.id) ?? []).map((guest) => guest.id),
+      maxLength: queueCapacityByRide.get(ride.id) ?? ride.queue.maxLength,
+    },
   }));
   let rideRevenue = 0;
-
-  const guestUpdates = new Map<number, Partial<Guest>>();
   updatedRides = updatedRides.map((ride) => {
     if (ride.status !== 'open') {
       return { ...ride, cycleTimer: 0 };
