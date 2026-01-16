@@ -57,6 +57,7 @@ export type Guest = {
   direction: CardinalDirection;
   progress: number;
   state: GuestState;
+  stateTimer: number;
   needs: GuestNeeds;
   happiness: number;
   energy: number;

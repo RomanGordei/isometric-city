@@ -1,5 +1,6 @@
 import { CardinalDirection } from '@/core/types';
 import { CoasterParkState, CoasterTile, Finance, Guest, ParkStats, PathInfo, Research, WeatherState } from '@/games/coaster/types';
+import { findPath } from '@/lib/coasterPathfinding';
 
 export const DEFAULT_COASTER_GRID_SIZE = 50;
 
@@ -65,6 +66,7 @@ function createGuest(id: number, tileX: number, tileY: number): Guest {
     direction: 'south',
     progress: 0,
     state: 'wandering',
+    stateTimer: 0,
     needs: {
       hunger: 200,
       thirst: 200,
@@ -93,9 +95,61 @@ function createGuest(id: number, tileX: number, tileY: number): Guest {
   };
 }
 
-function updateGuestMovement(guest: Guest, grid: CoasterTile[][]): Guest {
+function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
+  const grid = state.grid;
   const speed = 0.4;
   const nextAge = guest.age + 1;
+
+  if (guest.state === 'on_ride') {
+    const nextTimer = guest.stateTimer - 1;
+    if (nextTimer <= 0) {
+      const exitOptions = (Object.keys(DIRECTION_VECTORS) as CardinalDirection[])
+        .map((direction) => {
+          const delta = DIRECTION_VECTORS[direction];
+          return { x: guest.tileX + delta.dx, y: guest.tileY + delta.dy };
+        })
+        .filter((pos) => grid[pos.y]?.[pos.x]?.path);
+      const exitTile = exitOptions.length > 0 ? exitOptions[Math.floor(Math.random() * exitOptions.length)] : { x: guest.tileX, y: guest.tileY };
+      return {
+        ...guest,
+        state: 'wandering',
+        stateTimer: 0,
+        targetRideId: null,
+        path: [],
+        pathIndex: 0,
+        tileX: exitTile.x,
+        tileY: exitTile.y,
+        progress: 0,
+        age: nextAge,
+      };
+    }
+    return { ...guest, stateTimer: nextTimer, age: nextAge };
+  }
+
+  if (guest.path.length > 1 && guest.pathIndex < guest.path.length - 1) {
+    const nextTarget = guest.path[guest.pathIndex + 1];
+    const dx = nextTarget.x - guest.tileX;
+    const dy = nextTarget.y - guest.tileY;
+    const direction = dx > 0 ? 'east' : dx < 0 ? 'west' : dy > 0 ? 'south' : 'north';
+    const nextProgress = guest.progress + speed;
+    if (nextProgress < 1) {
+      return { ...guest, progress: nextProgress, direction, age: nextAge };
+    }
+    const reachedEnd = guest.pathIndex + 1 >= guest.path.length - 1;
+    const nextState = reachedEnd && guest.targetRideId ? 'on_ride' : guest.state;
+    return {
+      ...guest,
+      tileX: nextTarget.x,
+      tileY: nextTarget.y,
+      direction,
+      progress: 0,
+      pathIndex: guest.pathIndex + 1,
+      state: nextState,
+      stateTimer: nextState === 'on_ride' ? 6 : guest.stateTimer,
+      age: nextAge,
+    };
+  }
+
   const nextProgress = guest.progress + speed;
   if (nextProgress < 1) {
     return { ...guest, progress: nextProgress, age: nextAge };
@@ -133,9 +187,27 @@ function updateGuestMovement(guest: Guest, grid: CoasterTile[][]): Guest {
 }
 
 function updateGuests(state: CoasterParkState): CoasterParkState {
-  let nextGuests = state.guests.map((guest) => updateGuestMovement(guest, state.grid));
+  let nextGuests = state.guests.map((guest) => updateGuestMovement(guest, state));
   nextGuests = nextGuests.filter((guest) => guest.age < guest.maxAge);
   let totalGuests = state.stats.totalGuests;
+
+  const availableRides = state.rides.filter((ride) => ride.status === 'open');
+  if (availableRides.length > 0) {
+    nextGuests = nextGuests.map((guest) => {
+      if (guest.state !== 'wandering' || guest.targetRideId) return guest;
+      const ride = availableRides[Math.floor(Math.random() * availableRides.length)];
+      const path = findPath({ x: guest.tileX, y: guest.tileY }, ride.entrance, state.grid);
+      if (!path || path.length < 2) return guest;
+      return {
+        ...guest,
+        state: 'heading_to_ride',
+        targetRideId: ride.id,
+        path,
+        pathIndex: 0,
+        progress: 0,
+      };
+    });
+  }
 
   if (state.tick % GUEST_SPAWN_INTERVAL === 0 && nextGuests.length < MAX_GUESTS) {
     const entranceTile = state.grid[state.parkEntrance.y]?.[state.parkEntrance.x];
