@@ -115,6 +115,7 @@ function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
         state: 'wandering',
         stateTimer: 0,
         targetRideId: null,
+        currentRideId: null,
         path: [],
         pathIndex: 0,
         tileX: exitTile.x,
@@ -146,6 +147,7 @@ function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
       pathIndex: guest.pathIndex + 1,
       state: nextState,
       stateTimer: nextState === 'on_ride' ? 6 : guest.stateTimer,
+      currentRideId: nextState === 'on_ride' ? guest.targetRideId : guest.currentRideId,
       age: nextAge,
     };
   }
@@ -209,6 +211,41 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
     });
   }
 
+  const rideEntries = nextGuests.filter(
+    (guest) => guest.state === 'on_ride' && guest.stateTimer === 6 && guest.currentRideId
+  );
+  let updatedRides = state.rides;
+  let rideRevenue = 0;
+  if (rideEntries.length > 0) {
+    updatedRides = state.rides.map((ride) => {
+      const entries = rideEntries.filter((guest) => guest.currentRideId === ride.id).length;
+      if (entries === 0) return ride;
+      const revenue = entries * ride.price;
+      rideRevenue += revenue;
+      return {
+        ...ride,
+        stats: {
+          ...ride.stats,
+          totalRiders: ride.stats.totalRiders + entries,
+          totalRevenue: ride.stats.totalRevenue + revenue,
+        },
+      };
+    });
+  }
+
+  if (rideEntries.length > 0) {
+    nextGuests = nextGuests.map((guest) => {
+      if (guest.state !== 'on_ride' || guest.stateTimer !== 6 || !guest.currentRideId) return guest;
+      const ride = state.rides.find((item) => item.id === guest.currentRideId);
+      if (!ride) return guest;
+      return {
+        ...guest,
+        money: Math.max(0, guest.money - ride.price),
+        happiness: Math.min(255, guest.happiness + Math.round(ride.excitement / 12)),
+      };
+    });
+  }
+
   if (state.tick % GUEST_SPAWN_INTERVAL === 0 && nextGuests.length < MAX_GUESTS) {
     const entranceTile = state.grid[state.parkEntrance.y]?.[state.parkEntrance.x];
     if (entranceTile?.path) {
@@ -221,6 +258,13 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
   return {
     ...state,
     guests: nextGuests,
+    rides: updatedRides,
+    finance: rideRevenue > 0 ? {
+      ...state.finance,
+      cash: state.finance.cash + rideRevenue,
+      rideRevenue: state.finance.rideRevenue + rideRevenue,
+      income: state.finance.income + rideRevenue,
+    } : state.finance,
     stats: {
       ...state.stats,
       guestsInPark: nextGuests.length,

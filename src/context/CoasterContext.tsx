@@ -369,6 +369,9 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
 
       if (selectedTool === 'path' || selectedTool === 'queue_path') {
         const newPath = createPath(selectedTool === 'queue_path' ? 'queue' : 'concrete', selectedTool === 'queue_path');
+        if (tile.terrain === 'water' || tile.rideId || tile.building) {
+          return prev;
+        }
         if (tile.path && tile.path.style === newPath.style && tile.path.isQueue === newPath.isQueue) {
           return prev;
         }
