@@ -19,11 +19,13 @@ export function findPath(
 ): GridPosition[] | null {
   const startTile = grid[start.y]?.[start.x];
   const endTile = grid[end.y]?.[end.x];
-  if (!startTile?.path || !endTile) {
+  if (!startTile || !endTile) {
     return null;
   }
-  const endWalkable = Boolean(endTile.path || endTile.rideId || endTile.building);
-  if (!endWalkable) {
+  if (startTile.terrain === 'water') {
+    return null;
+  }
+  if (endTile.terrain === 'water') {
     return null;
   }
 
@@ -46,8 +48,8 @@ export function findPath(
 
     for (const dir of DIRECTIONS) {
       const next = { x: current.x + dir.dx, y: current.y + dir.dy };
-      const isEnd = next.x === end.x && next.y === end.y;
-      if (!grid[next.y]?.[next.x]?.path && !isEnd) continue;
+      const nextTile = grid[next.y]?.[next.x];
+      if (!nextTile || nextTile.terrain === 'water') continue;
       const nextKey = key(next);
       if (cameFrom.has(nextKey)) continue;
       cameFrom.set(nextKey, current);

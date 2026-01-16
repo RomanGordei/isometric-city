@@ -316,6 +316,29 @@ function findClosestShop(guest: Guest, targets: ShopTarget[], types: CoasterBuil
   return closest;
 }
 
+function findRideAccessTile(ride: CoasterParkState['rides'][number], grid: CoasterTile[][]): { x: number; y: number } | null {
+  const queueEntry = ride.queue.entry;
+  const queuePath = grid[queueEntry.y]?.[queueEntry.x]?.path;
+  const queueConnected = queuePath?.isQueue && Object.values(queuePath.edges).some(Boolean);
+  if (queueConnected) {
+    return queueEntry;
+  }
+
+  const { x: rideX, y: rideY } = ride.position;
+  const { width, height } = ride.size;
+  const candidates: { x: number; y: number }[] = [];
+  for (let dx = 0; dx < width; dx++) {
+    candidates.push({ x: rideX + dx, y: rideY - 1 });
+    candidates.push({ x: rideX + dx, y: rideY + height });
+  }
+  for (let dy = 0; dy < height; dy++) {
+    candidates.push({ x: rideX - 1, y: rideY + dy });
+    candidates.push({ x: rideX + width, y: rideY + dy });
+  }
+  const accessTile = candidates.find((pos) => grid[pos.y]?.[pos.x]?.path);
+  return accessTile ?? ride.entrance;
+}
+
 function updateTrains(state: CoasterParkState): CoasterParkState {
   const trackTiles: { x: number; y: number }[] = [];
   for (let y = 0; y < state.grid.length; y++) {
@@ -384,6 +407,7 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
   nextGuests = nextGuests.map((guest) => updateGuestMovement(guest, state));
   nextGuests = nextGuests.filter((guest) => guest.age < guest.maxAge);
   let totalGuests = state.stats.totalGuests;
+
 
   nextGuests = nextGuests.map((guest) => {
     if ((guest.state === 'queuing' || guest.state === 'heading_to_ride') && guest.targetRideId) {
@@ -463,10 +487,10 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
     nextGuests = nextGuests.map((guest) => {
       if (guest.state !== 'wandering' || guest.targetRideId || guest.targetShop) return guest;
       const ride = availableRides[Math.floor(Math.random() * availableRides.length)];
-      const queueEntry = ride.queue.entry;
-      const queuePath = state.grid[queueEntry.y]?.[queueEntry.x]?.path;
-      const target = queuePath && queuePath.isQueue ? queueEntry : ride.entrance;
-      const path = findPath({ x: guest.tileX, y: guest.tileY }, target, state.grid);
+      const accessTile = findRideAccessTile(ride, state.grid);
+      if (!accessTile) return guest;
+      const queuePath = state.grid[accessTile.y]?.[accessTile.x]?.path;
+      const path = findPath({ x: guest.tileX, y: guest.tileY }, accessTile, state.grid);
       if (!path || path.length < 2) return guest;
       return {
         ...guest,
