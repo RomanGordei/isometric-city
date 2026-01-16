@@ -18,9 +18,8 @@ interface CoasterMiniMapProps {
 
 export default function CoasterMiniMap({ onNavigate, viewport }: CoasterMiniMapProps) {
   const { state } = useCoaster();
-  const { grid, gridSize, parkEntrance } = state;
+  const { grid, gridSize, parkEntrance, staff } = state;
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const lastGridRef = useRef<typeof grid | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const colorMap = useMemo(() => ({
@@ -31,6 +30,13 @@ export default function CoasterMiniMap({ onNavigate, viewport }: CoasterMiniMapP
     water: '#0ea5e9',
   }), []);
 
+  const staffColors = useMemo(() => ({
+    handyman: '#38bdf8',
+    mechanic: '#f97316',
+    security: '#facc15',
+    entertainer: '#a855f7',
+  }), []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -38,42 +44,59 @@ export default function CoasterMiniMap({ onNavigate, viewport }: CoasterMiniMapP
     if (!ctx) return;
 
     const scale = MINIMAP_SIZE / gridSize;
-    const gridChanged = lastGridRef.current !== grid;
-    lastGridRef.current = grid;
+    ctx.fillStyle = '#0b1723';
+    ctx.fillRect(0, 0, MINIMAP_SIZE, MINIMAP_SIZE);
 
-    if (gridChanged) {
-      ctx.fillStyle = '#0b1723';
-      ctx.fillRect(0, 0, MINIMAP_SIZE, MINIMAP_SIZE);
+    for (let y = 0; y < gridSize; y++) {
+      for (let x = 0; x < gridSize; x++) {
+        const tile = grid[y][x];
+        let color = colorMap[tile.terrain] ?? '#2d5a3d';
 
-      for (let y = 0; y < gridSize; y++) {
-        for (let x = 0; x < gridSize; x++) {
-          const tile = grid[y][x];
-          let color = colorMap[tile.terrain] ?? '#2d5a3d';
-
-          if (tile.path) {
-            color = tile.path.style === 'queue' ? '#f4b400' : '#7c8894';
-          }
-          if (tile.track) {
-            color = '#f97316';
-          }
-          if (tile.rideId) {
-            color = '#f97316';
-          }
-          if (tile.scenery) {
-            color = '#22c55e';
-          }
-          if (tile.building) {
-            color = '#f59e0b';
-          }
-          if (x === parkEntrance.x && y === parkEntrance.y) {
-            color = '#facc15';
-          }
-
-          ctx.fillStyle = color;
-          ctx.fillRect(x * scale, y * scale, Math.ceil(scale), Math.ceil(scale));
+        if (tile.path) {
+          color = tile.path.style === 'queue' ? '#f4b400' : '#7c8894';
         }
+        if (tile.track) {
+          color = '#f97316';
+        }
+        if (tile.rideId) {
+          color = '#f97316';
+        }
+        if (tile.scenery) {
+          color = '#22c55e';
+        }
+        if (tile.building) {
+          color = '#f59e0b';
+        }
+        if (x === parkEntrance.x && y === parkEntrance.y) {
+          color = '#facc15';
+        }
+
+        ctx.fillStyle = color;
+        ctx.fillRect(x * scale, y * scale, Math.ceil(scale), Math.ceil(scale));
       }
     }
+
+    staff.forEach((member) => {
+      if (!member.patrolArea) return;
+      const { minX, minY, maxX, maxY } = member.patrolArea;
+      ctx.save();
+      ctx.strokeStyle = staffColors[member.type] ?? '#e2e8f0';
+      ctx.globalAlpha = 0.6;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(
+        minX * scale,
+        minY * scale,
+        (maxX - minX + 1) * scale,
+        (maxY - minY + 1) * scale
+      );
+      ctx.restore();
+    });
+
+    staff.forEach((member) => {
+      const size = Math.max(2, Math.floor(scale));
+      ctx.fillStyle = staffColors[member.type] ?? '#e2e8f0';
+      ctx.fillRect(member.tileX * scale, member.tileY * scale, size, size);
+    });
 
     if (viewport) {
       const { offset, zoom, canvasSize } = viewport;
@@ -100,7 +123,7 @@ export default function CoasterMiniMap({ onNavigate, viewport }: CoasterMiniMapP
       ctx.closePath();
       ctx.stroke();
     }
-  }, [grid, gridSize, viewport, colorMap, parkEntrance]);
+  }, [grid, gridSize, viewport, colorMap, parkEntrance, staff, staffColors]);
 
   const navigateToPosition = useCallback((event: React.MouseEvent<HTMLCanvasElement> | MouseEvent) => {
     if (!onNavigate) return;

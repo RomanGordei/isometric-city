@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useCoaster } from '@/context/CoasterContext';
 import CoasterCanvas from './CoasterCanvas';
@@ -12,10 +12,21 @@ import RidePanel from './panels/RidePanel';
 import StaffPanel from './panels/StaffPanel';
 
 export default function CoasterGame() {
-  const { state, setSpeed, newGame, setRidePrice, toggleRideStatus, setActivePanel, hireStaff } = useCoaster();
+  const {
+    state,
+    setSpeed,
+    newGame,
+    setRidePrice,
+    toggleRideStatus,
+    setActivePanel,
+    hireStaff,
+    setStaffPatrolArea,
+    clearStaffPatrolArea,
+  } = useCoaster();
   const [navigationTarget, setNavigationTarget] = useState<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState<{ offset: { x: number; y: number }; zoom: number; canvasSize: { width: number; height: number } } | null>(null);
   const [selectedRideId, setSelectedRideId] = useState<string | null>(null);
+  const [staffAssignmentId, setStaffAssignmentId] = useState<number | null>(null);
 
   const selectedRide = useMemo(
     () => state.rides.find((ride) => ride.id === selectedRideId) ?? null,
@@ -27,6 +38,17 @@ export default function CoasterGame() {
       setSelectedRideId(null);
     }
   }, [selectedRideId, selectedRide]);
+
+  const handleAssignPatrol = useCallback((position: { x: number; y: number }) => {
+    if (staffAssignmentId === null) return;
+    setStaffPatrolArea(staffAssignmentId, position);
+    setStaffAssignmentId(null);
+  }, [setStaffPatrolArea, staffAssignmentId]);
+
+  const handleClosePanel = useCallback(() => {
+    setActivePanel('none');
+    setStaffAssignmentId(null);
+  }, [setActivePanel]);
 
   return (
     <div className="w-full h-full flex bg-background text-foreground">
@@ -68,6 +90,8 @@ export default function CoasterGame() {
             onNavigationComplete={() => setNavigationTarget(null)}
             onViewportChange={setViewport}
             onSelectRide={setSelectedRideId}
+            patrolAssignmentId={staffAssignmentId}
+            onAssignPatrol={handleAssignPatrol}
           />
           <CoasterMiniMap onNavigate={(x, y) => setNavigationTarget({ x, y })} viewport={viewport} />
           {selectedRide && (
@@ -86,21 +110,28 @@ export default function CoasterGame() {
               income={state.finance.income}
               expenses={state.finance.expenses}
               loan={state.finance.loan}
-              onClose={() => setActivePanel('none')}
+              onClose={handleClosePanel}
             />
           )}
           {state.activePanel === 'guests' && (
             <GuestPanel
               guests={state.guests}
-              onClose={() => setActivePanel('none')}
+              onClose={handleClosePanel}
             />
           )}
           {state.activePanel === 'staff' && (
             <StaffPanel
               staff={state.staff}
               cash={state.finance.cash}
-              onClose={() => setActivePanel('none')}
+              assignmentId={staffAssignmentId}
+              onClose={handleClosePanel}
               onHire={hireStaff}
+              onStartPatrol={(staffId) => setStaffAssignmentId(staffId)}
+              onClearPatrol={(staffId) => {
+                clearStaffPatrolArea(staffId);
+                setStaffAssignmentId((current) => (current === staffId ? null : current));
+              }}
+              onCancelPatrol={() => setStaffAssignmentId(null)}
             />
           )}
         </div>

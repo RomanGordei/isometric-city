@@ -1,4 +1,4 @@
-import { CardinalDirection } from '@/core/types';
+import { CardinalDirection, isInBounds } from '@/core/types';
 import { CoasterBuildingType, CoasterParkState, CoasterTile, Finance, Guest, ParkStats, PathInfo, Research, Staff, WeatherState } from '@/games/coaster/types';
 import { findPath } from '@/lib/coasterPathfinding';
 
@@ -317,8 +317,18 @@ function updateStaffMovement(staff: Staff, grid: CoasterTile[][]): Staff {
     return { ...staff, progress: 0, state: 'idle', fatigue: nextFatigue };
   }
 
-  const preferredOptions = options.filter((direction) => direction !== OPPOSITE_DIRECTION[staff.direction]);
-  const choices = preferredOptions.length > 0 ? preferredOptions : options;
+  const patrolOptions = staff.patrolArea
+    ? options.filter((direction) => {
+      const vector = DIRECTION_VECTORS[direction];
+      return isInBounds({ x: staff.tileX + vector.dx, y: staff.tileY + vector.dy }, staff.patrolArea);
+    })
+    : options;
+  if (patrolOptions.length === 0) {
+    return { ...staff, progress: 0, state: 'idle', fatigue: nextFatigue };
+  }
+
+  const preferredOptions = patrolOptions.filter((direction) => direction !== OPPOSITE_DIRECTION[staff.direction]);
+  const choices = preferredOptions.length > 0 ? preferredOptions : patrolOptions;
   const nextDirection = choices[Math.floor(Math.random() * choices.length)];
   const vector = DIRECTION_VECTORS[nextDirection];
   const nextX = staff.tileX + vector.dx;

@@ -240,9 +240,18 @@ export type CoasterCanvasProps = {
   onNavigationComplete?: () => void;
   onViewportChange?: (viewport: { offset: { x: number; y: number }; zoom: number; canvasSize: { width: number; height: number } }) => void;
   onSelectRide?: (rideId: string | null) => void;
+  patrolAssignmentId?: number | null;
+  onAssignPatrol?: (position: { x: number; y: number }) => void;
 };
 
-export default function CoasterCanvas({ navigationTarget, onNavigationComplete, onViewportChange, onSelectRide }: CoasterCanvasProps) {
+export default function CoasterCanvas({
+  navigationTarget,
+  onNavigationComplete,
+  onViewportChange,
+  onSelectRide,
+  patrolAssignmentId,
+  onAssignPatrol,
+}: CoasterCanvasProps) {
   const { state, placeAtTile } = useCoaster();
   const { grid, gridSize, rides, guests, coasterTrains, selectedTool, staff } = state;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -413,6 +422,10 @@ export default function CoasterCanvas({ navigationTarget, onNavigationComplete, 
       const screenY = (event.clientY - rect.top - offset.y) / zoom;
       const gridPos = screenToGrid(screenX, screenY, TILE_WIDTH, TILE_HEIGHT);
       if (isInGrid(gridPos, gridSize)) {
+        if (patrolAssignmentId !== undefined && patrolAssignmentId !== null) {
+          onAssignPatrol?.(gridPos);
+          return;
+        }
         if (selectedTool === 'select') {
           const rideId = grid[gridPos.y]?.[gridPos.x]?.rideId ?? null;
           onSelectRide?.(rideId);
@@ -421,7 +434,7 @@ export default function CoasterCanvas({ navigationTarget, onNavigationComplete, 
         placeAtTile(gridPos.x, gridPos.y);
       }
     }
-  }, [grid, gridSize, offset, onSelectRide, placeAtTile, selectedTool, zoom]);
+  }, [grid, gridSize, offset, onAssignPatrol, onSelectRide, patrolAssignmentId, placeAtTile, selectedTool, zoom]);
 
   const handleWheel = useCallback((event: React.WheelEvent<HTMLCanvasElement>) => {
     event.preventDefault();

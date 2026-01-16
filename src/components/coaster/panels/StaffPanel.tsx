@@ -10,11 +10,26 @@ import { STAFF_DEFINITIONS } from '@/lib/coasterStaff';
 interface StaffPanelProps {
   staff: Staff[];
   cash: number;
+  assignmentId: number | null;
   onClose: () => void;
   onHire: (type: 'handyman' | 'mechanic' | 'security' | 'entertainer') => void;
+  onStartPatrol: (staffId: number) => void;
+  onClearPatrol: (staffId: number) => void;
+  onCancelPatrol: () => void;
 }
 
-export default function StaffPanel({ staff, cash, onClose, onHire }: StaffPanelProps) {
+export default function StaffPanel({
+  staff,
+  cash,
+  assignmentId,
+  onClose,
+  onHire,
+  onStartPatrol,
+  onClearPatrol,
+  onCancelPatrol,
+}: StaffPanelProps) {
+  const assignmentTarget = assignmentId ? staff.find((member) => member.id === assignmentId) : null;
+
   return (
     <div className="absolute top-20 right-6 z-50 w-80">
       <Card className="bg-card/95 border-border/70 shadow-xl">
@@ -46,18 +61,52 @@ export default function StaffPanel({ staff, cash, onClose, onHire }: StaffPanelP
             ))}
           </div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Team</div>
+          {assignmentTarget && (
+            <div className="rounded-md border border-border/60 bg-muted/40 p-2 text-xs flex items-center justify-between">
+              <span>
+                Click a tile to set patrol area for <span className="font-semibold">{assignmentTarget.name}</span>.
+              </span>
+              <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={onCancelPatrol}>
+                Cancel
+              </Button>
+            </div>
+          )}
           <ScrollArea className="h-48 rounded-md border border-border/50">
             <div className="p-3 space-y-2">
               {staff.length === 0 && (
                 <div className="text-xs text-muted-foreground">No staff hired yet.</div>
               )}
               {staff.map((member) => (
-                <div key={member.id} className="flex items-center justify-between text-sm">
+                <div key={member.id} className="flex items-start justify-between gap-2 text-sm">
                   <div>
                     <div className="font-medium">{member.name}</div>
-                    <div className="text-xs text-muted-foreground capitalize">{member.type}</div>
+                    <div className="text-xs text-muted-foreground capitalize">
+                      {member.type} · {member.patrolArea ? 'Patrol area' : 'Park-wide'}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">${member.wage}/wk</div>
+                  <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
+                    <div>${member.wage}/wk</div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant={assignmentId === member.id ? 'default' : 'outline'}
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => onStartPatrol(member.id)}
+                      >
+                        {assignmentId === member.id ? 'Click Map' : 'Assign'}
+                      </Button>
+                      {member.patrolArea && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-[10px]"
+                          onClick={() => onClearPatrol(member.id)}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

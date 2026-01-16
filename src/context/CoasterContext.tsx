@@ -104,6 +104,8 @@ type CoasterContextValue = {
   setRidePrice: (rideId: string, price: number) => void;
   toggleRideStatus: (rideId: string) => void;
   hireStaff: (type: 'handyman' | 'mechanic' | 'security' | 'entertainer') => void;
+  setStaffPatrolArea: (staffId: number, center: { x: number; y: number }) => void;
+  clearStaffPatrolArea: (staffId: number) => void;
   newGame: (name?: string, size?: number) => void;
   loadState: (stateString: string) => boolean;
   exportState: () => string;
@@ -622,6 +624,40 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
     });
   }, []);
 
+  const setStaffPatrolArea = useCallback((staffId: number, center: { x: number; y: number }) => {
+    const radius = 4;
+    setState((prev) => {
+      const minX = Math.max(0, center.x - radius);
+      const minY = Math.max(0, center.y - radius);
+      const maxX = Math.min(prev.gridSize - 1, center.x + radius);
+      const maxY = Math.min(prev.gridSize - 1, center.y + radius);
+      return {
+        ...prev,
+        staff: prev.staff.map((member) => (
+          member.id === staffId
+            ? {
+              ...member,
+              patrolArea: { minX, minY, maxX, maxY },
+              target: null,
+              state: 'walking',
+            }
+            : member
+        )),
+      };
+    });
+  }, []);
+
+  const clearStaffPatrolArea = useCallback((staffId: number) => {
+    setState((prev) => ({
+      ...prev,
+      staff: prev.staff.map((member) => (
+        member.id === staffId
+          ? { ...member, patrolArea: null, target: null }
+          : member
+      )),
+    }));
+  }, []);
+
   const newGame = useCallback((name?: string, size?: number) => {
     const fresh = createInitialCoasterState(size ?? DEFAULT_COASTER_GRID_SIZE, name ?? 'Coaster Park');
     skipNextSaveRef.current = true;
@@ -725,6 +761,8 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
     setRidePrice,
     toggleRideStatus,
     hireStaff,
+    setStaffPatrolArea,
+    clearStaffPatrolArea,
     newGame,
     loadState,
     exportState,
