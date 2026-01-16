@@ -111,7 +111,13 @@ function drawScenery(
   }
 }
 
-export default function CoasterCanvas() {
+export type CoasterCanvasProps = {
+  navigationTarget?: { x: number; y: number } | null;
+  onNavigationComplete?: () => void;
+  onViewportChange?: (viewport: { offset: { x: number; y: number }; zoom: number; canvasSize: { width: number; height: number } }) => void;
+};
+
+export default function CoasterCanvas({ navigationTarget, onNavigationComplete, onViewportChange }: CoasterCanvasProps) {
   const { state, placeAtTile } = useCoaster();
   const { grid, gridSize } = state;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -147,6 +153,21 @@ export default function CoasterCanvas() {
       y: canvasSize.height / 2 - gridCenter.y * zoom,
     });
   }, [canvasSize, gridSize, zoom]);
+
+  useEffect(() => {
+    if (!navigationTarget) return;
+    const targetIso = gridToScreen(navigationTarget.x, navigationTarget.y, TILE_WIDTH, TILE_HEIGHT);
+    setOffset({
+      x: canvasSize.width / 2 - targetIso.x * zoom,
+      y: canvasSize.height / 2 - targetIso.y * zoom,
+    });
+    onNavigationComplete?.();
+  }, [canvasSize.width, canvasSize.height, navigationTarget, onNavigationComplete, zoom]);
+
+  useEffect(() => {
+    if (!onViewportChange) return;
+    onViewportChange({ offset, zoom, canvasSize });
+  }, [canvasSize, offset, onViewportChange, zoom]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

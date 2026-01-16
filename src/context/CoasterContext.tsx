@@ -309,6 +309,14 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
       gridSize: state.gridSize,
       savedAt: Date.now(),
     };
+    if (typeof window !== 'undefined') {
+      try {
+        const compressed = compressToUTF16(JSON.stringify(state));
+        localStorage.setItem(`coaster-park-${state.id}`, compressed);
+      } catch (error) {
+        console.error('Failed to save park state:', error);
+      }
+    }
     setSavedParks((prev) => {
       const existingIndex = prev.findIndex((park) => park.id === state.id);
       const next = [...prev];
