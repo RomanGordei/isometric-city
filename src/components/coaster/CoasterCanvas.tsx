@@ -185,6 +185,13 @@ const GUEST_VECTORS: Record<CardinalDirection, { dx: number; dy: number }> = {
   west: { dx: -1, dy: 0 },
 };
 
+const STAFF_COLORS: Record<string, string> = {
+  handyman: '#38bdf8',
+  mechanic: '#f97316',
+  security: '#facc15',
+  entertainer: '#a855f7',
+};
+
 function drawGuest(
   ctx: CanvasRenderingContext2D,
   screenX: number,
@@ -196,6 +203,21 @@ function drawGuest(
   ctx.beginPath();
   ctx.arc(screenX, screenY, size, 0, Math.PI * 2);
   ctx.fill();
+}
+
+function drawStaff(
+  ctx: CanvasRenderingContext2D,
+  screenX: number,
+  screenY: number,
+  size: number,
+  color: string
+) {
+  const half = size / 2;
+  ctx.fillStyle = color;
+  ctx.fillRect(screenX - half, screenY - half, size, size);
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(screenX - half, screenY - half, size, size);
 }
 
 function drawTrain(
@@ -222,7 +244,7 @@ export type CoasterCanvasProps = {
 
 export default function CoasterCanvas({ navigationTarget, onNavigationComplete, onViewportChange, onSelectRide }: CoasterCanvasProps) {
   const { state, placeAtTile } = useCoaster();
-  const { grid, gridSize, rides, guests, coasterTrains, selectedTool } = state;
+  const { grid, gridSize, rides, guests, coasterTrains, selectedTool, staff } = state;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -333,6 +355,17 @@ export default function CoasterCanvas({ navigationTarget, onNavigationComplete, 
       const centerY = baseY + tileHeight / 2 - tileHeight * 0.12;
       drawGuest(ctx, centerX, centerY, tileWidth * 0.08, guest.colors.shirt);
     });
+    staff.forEach((member) => {
+      const vector = GUEST_VECTORS[member.direction];
+      const staffX = member.tileX + vector.dx * member.progress;
+      const staffY = member.tileY + vector.dy * member.progress;
+      const iso = gridToScreen(staffX, staffY, TILE_WIDTH, TILE_HEIGHT);
+      const baseX = offset.x + iso.x * zoom;
+      const baseY = offset.y + iso.y * zoom;
+      const centerX = baseX + tileWidth / 2;
+      const centerY = baseY + tileHeight / 2 - tileHeight * 0.1;
+      drawStaff(ctx, centerX, centerY, tileWidth * 0.09, STAFF_COLORS[member.type] ?? '#e2e8f0');
+    });
     coasterTrains.forEach((train) => {
       const vector = GUEST_VECTORS[train.direction];
       const trainX = train.tileX + vector.dx * train.progress;
@@ -344,7 +377,7 @@ export default function CoasterCanvas({ navigationTarget, onNavigationComplete, 
       const centerY = baseY + tileHeight / 2 - tileHeight * 0.2;
       drawTrain(ctx, centerX, centerY, tileWidth * 0.1);
     });
-  }, [canvasSize, grid, gridSize, offset, rideColors, guests, coasterTrains, tileHeight, tileWidth, zoom]);
+  }, [canvasSize, grid, gridSize, offset, rideColors, guests, staff, coasterTrains, tileHeight, tileWidth, zoom]);
 
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDragging(true);

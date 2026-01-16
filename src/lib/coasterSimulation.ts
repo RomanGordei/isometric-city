@@ -1,5 +1,5 @@
 import { CardinalDirection } from '@/core/types';
-import { CoasterBuildingType, CoasterParkState, CoasterTile, Finance, Guest, ParkStats, PathInfo, Research, WeatherState } from '@/games/coaster/types';
+import { CoasterBuildingType, CoasterParkState, CoasterTile, Finance, Guest, ParkStats, PathInfo, Research, Staff, WeatherState } from '@/games/coaster/types';
 import { findPath } from '@/lib/coasterPathfinding';
 
 export const DEFAULT_COASTER_GRID_SIZE = 50;
@@ -54,6 +54,14 @@ const OPPOSITE_DIRECTION: Record<CardinalDirection, CardinalDirection> = {
 
 const GUEST_SPAWN_INTERVAL = 8;
 const MAX_GUESTS = 120;
+const STAFF_SPEED = 0.32;
+const CLEANLINESS_DECAY_PER_GUEST = 0.006;
+const HANDYMAN_CLEANLINESS_BOOST = 0.25;
+const ENTERTAINER_RADIUS = 4;
+const SECURITY_RADIUS = 3;
+const MECHANIC_UPTIME_BOOST = 0.0012;
+const RIDE_UPTIME_DECAY = 0.0005;
+const PAYROLL_INTERVAL_DAYS = 7;
 
 function createGuest(id: number, tileX: number, tileY: number): Guest {
   const colors = ['#60a5fa', '#f87171', '#facc15', '#34d399', '#a78bfa'];
@@ -98,6 +106,10 @@ function createGuest(id: number, tileX: number, tileY: number): Guest {
 }
 
 function clamp(value: number, min = 0, max = 255): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function clampFloat(value: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, value));
 }
 
@@ -287,6 +299,45 @@ function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
   };
 }
 
+function updateStaffMovement(staff: Staff, grid: CoasterTile[][]): Staff {
+  const nextFatigue = clamp(staff.fatigue + 0.12);
+  const nextProgress = staff.progress + STAFF_SPEED;
+  if (nextProgress < 1) {
+    return { ...staff, progress: nextProgress, state: 'walking', fatigue: nextFatigue };
+  }
+
+  const currentTile = grid[staff.tileY]?.[staff.tileX];
+  if (!currentTile?.path) {
+    return { ...staff, progress: 0, state: 'idle', fatigue: nextFatigue };
+  }
+
+  const edges = currentTile.path.edges;
+  const options = (Object.keys(edges) as CardinalDirection[]).filter((direction) => edges[direction]);
+  if (options.length === 0) {
+    return { ...staff, progress: 0, state: 'idle', fatigue: nextFatigue };
+  }
+
+  const preferredOptions = options.filter((direction) => direction !== OPPOSITE_DIRECTION[staff.direction]);
+  const choices = preferredOptions.length > 0 ? preferredOptions : options;
+  const nextDirection = choices[Math.floor(Math.random() * choices.length)];
+  const vector = DIRECTION_VECTORS[nextDirection];
+  const nextX = staff.tileX + vector.dx;
+  const nextY = staff.tileY + vector.dy;
+  if (!grid[nextY]?.[nextX]?.path) {
+    return { ...staff, progress: 0, state: 'idle', fatigue: nextFatigue };
+  }
+
+  return {
+    ...staff,
+    tileX: nextX,
+    tileY: nextY,
+    direction: nextDirection,
+    progress: 0,
+    state: 'walking',
+    fatigue: nextFatigue,
+  };
+}
+
 type ShopTarget = { position: { x: number; y: number }; type: CoasterBuildingType };
 
 function findShopTargets(grid: CoasterTile[][]): ShopTarget[] {
@@ -337,6 +388,92 @@ function findRideAccessTile(ride: CoasterParkState['rides'][number], grid: Coast
   }
   const accessTile = candidates.find((pos) => grid[pos.y]?.[pos.x]?.path);
   return accessTile ?? ride.entrance;
+}
+
+function isStaffNearby(guest: Guest, staffMembers: Staff[], radius: number): boolean {
+  return staffMembers.some((member) => (
+    Math.abs(member.tileX - guest.tileX) + Math.abs(member.tileY - guest.tileY) <= radius
+  ));
+}
+
+function applyStaffMoodEffects(guest: Guest, entertainers: Staff[], securityStaff: Staff[]): Guest {
+  let happiness = guest.happiness;
+  let nausea = guest.needs.nausea;
+
+  if (entertainers.length > 0 && isStaffNearby(guest, entertainers, ENTERTAINER_RADIUS)) {
+    happiness = clamp(happiness + 0.6);
+  }
+
+  if (securityStaff.length > 0 && isStaffNearby(guest, securityStaff, SECURITY_RADIUS)) {
+    happiness = clamp(happiness + 0.3);
+    nausea = clamp(nausea - 0.5);
+  }
+
+  if (happiness === guest.happiness && nausea === guest.needs.nausea) {
+    return guest;
+  }
+
+  return {
+    ...guest,
+    happiness,
+    needs: {
+      ...guest.needs,
+      happiness,
+      nausea,
+    },
+  };
+}
+
+function updateStaff(state: CoasterParkState): CoasterParkState {
+  const updatedStaff = state.staff.map((member) => updateStaffMovement(member, state.grid));
+  const handymanCount = updatedStaff.filter((member) => member.type === 'handyman').length;
+  const mechanicCount = updatedStaff.filter((member) => member.type === 'mechanic').length;
+  const cleanlinessDecay = state.guests.length * CLEANLINESS_DECAY_PER_GUEST;
+  const cleanlinessBoost = handymanCount * HANDYMAN_CLEANLINESS_BOOST;
+  const nextCleanliness = clamp(state.stats.cleanliness - cleanlinessDecay + cleanlinessBoost);
+
+  const mechanicBoost = mechanicCount * MECHANIC_UPTIME_BOOST;
+  const updatedRides = state.rides.map((ride) => {
+    const wear = ride.status === 'open' ? RIDE_UPTIME_DECAY : RIDE_UPTIME_DECAY * 0.4;
+    const uptime = clampFloat(ride.stats.uptime - wear + mechanicBoost, 0.6, 1);
+    const reliability = clampFloat(ride.stats.reliability - wear * 0.6 + mechanicBoost * 0.8, 0.6, 1);
+    return {
+      ...ride,
+      stats: {
+        ...ride.stats,
+        uptime,
+        reliability,
+      },
+    };
+  });
+
+  const payrollDue = updatedStaff.length > 0
+    && state.hour === 0
+    && state.tick % 60 === 0
+    && state.day % PAYROLL_INTERVAL_DAYS === 0;
+  let finance = state.finance;
+  if (payrollDue) {
+    const payrollTotal = updatedStaff.reduce((sum, member) => sum + member.wage, 0);
+    if (payrollTotal > 0) {
+      finance = {
+        ...state.finance,
+        cash: state.finance.cash - payrollTotal,
+        staffCost: state.finance.staffCost + payrollTotal,
+        expenses: state.finance.expenses + payrollTotal,
+      };
+    }
+  }
+
+  return {
+    ...state,
+    staff: updatedStaff,
+    rides: updatedRides,
+    finance,
+    stats: {
+      ...state.stats,
+      cleanliness: nextCleanliness,
+    },
+  };
 }
 
 function updateTrains(state: CoasterParkState): CoasterParkState {
@@ -407,6 +544,12 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
   nextGuests = nextGuests.map((guest) => updateGuestMovement(guest, state));
   nextGuests = nextGuests.filter((guest) => guest.age < guest.maxAge);
   let totalGuests = state.stats.totalGuests;
+
+  const entertainers = state.staff.filter((member) => member.type === 'entertainer');
+  const securityStaff = state.staff.filter((member) => member.type === 'security');
+  if (entertainers.length > 0 || securityStaff.length > 0) {
+    nextGuests = nextGuests.map((guest) => applyStaffMoodEffects(guest, entertainers, securityStaff));
+  }
 
 
   nextGuests = nextGuests.map((guest) => {
@@ -758,6 +901,7 @@ export function simulateCoasterTick(state: CoasterParkState): CoasterParkState {
     year,
   };
 
-  const withGuests = updateGuests(nextState);
+  const withStaff = updateStaff(nextState);
+  const withGuests = updateGuests(withStaff);
   return updateTrains(withGuests);
 }

@@ -616,8 +616,7 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
         finance: {
           ...prev.finance,
           cash: prev.finance.cash - definition.hiringFee,
-          staffCost: prev.finance.staffCost + definition.wage,
-          expenses: prev.finance.expenses + definition.wage,
+          expenses: prev.finance.expenses + definition.hiringFee,
         },
       };
     });
