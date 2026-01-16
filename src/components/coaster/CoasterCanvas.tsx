@@ -217,11 +217,12 @@ export type CoasterCanvasProps = {
   navigationTarget?: { x: number; y: number } | null;
   onNavigationComplete?: () => void;
   onViewportChange?: (viewport: { offset: { x: number; y: number }; zoom: number; canvasSize: { width: number; height: number } }) => void;
+  onSelectRide?: (rideId: string | null) => void;
 };
 
-export default function CoasterCanvas({ navigationTarget, onNavigationComplete, onViewportChange }: CoasterCanvasProps) {
+export default function CoasterCanvas({ navigationTarget, onNavigationComplete, onViewportChange, onSelectRide }: CoasterCanvasProps) {
   const { state, placeAtTile } = useCoaster();
-  const { grid, gridSize, rides, guests, coasterTrains } = state;
+  const { grid, gridSize, rides, guests, coasterTrains, selectedTool } = state;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -379,10 +380,15 @@ export default function CoasterCanvas({ navigationTarget, onNavigationComplete, 
       const screenY = (event.clientY - rect.top - offset.y) / zoom;
       const gridPos = screenToGrid(screenX, screenY, TILE_WIDTH, TILE_HEIGHT);
       if (isInGrid(gridPos, gridSize)) {
+        if (selectedTool === 'select') {
+          const rideId = grid[gridPos.y]?.[gridPos.x]?.rideId ?? null;
+          onSelectRide?.(rideId);
+          return;
+        }
         placeAtTile(gridPos.x, gridPos.y);
       }
     }
-  }, [gridSize, offset, placeAtTile, zoom]);
+  }, [grid, gridSize, offset, onSelectRide, placeAtTile, selectedTool, zoom]);
 
   const handleWheel = useCallback((event: React.WheelEvent<HTMLCanvasElement>) => {
     event.preventDefault();

@@ -101,6 +101,7 @@ type CoasterContextValue = {
   buildRide: (rideType: RideType, x: number, y: number) => boolean;
   buildPath: (x: number, y: number) => void;
   setRidePrice: (rideId: string, price: number) => void;
+  toggleRideStatus: (rideId: string) => void;
   newGame: (name?: string, size?: number) => void;
   loadState: (stateString: string) => boolean;
   exportState: () => string;
@@ -561,8 +562,29 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
     // Placeholder - path placement logic will be added in Phase 2
   }, []);
 
-  const setRidePrice = useCallback((_rideId: string, _price: number) => {
-    // Placeholder - ride pricing logic will be added in Phase 4
+  const setRidePrice = useCallback((rideId: string, price: number) => {
+    const clampedPrice = Math.max(0, Math.min(10, Math.round(price)));
+    setState((prev) => ({
+      ...prev,
+      rides: prev.rides.map((ride) =>
+        ride.id === rideId ? { ...ride, price: clampedPrice } : ride
+      ),
+    }));
+  }, []);
+
+  const toggleRideStatus = useCallback((rideId: string) => {
+    setState((prev) => ({
+      ...prev,
+      rides: prev.rides.map((ride) => {
+        if (ride.id !== rideId) return ride;
+        const nextStatus = ride.status === 'open' ? 'closed' : 'open';
+        return {
+          ...ride,
+          status: nextStatus,
+          cycleTimer: nextStatus === 'closed' ? 0 : ride.cycleTimer,
+        };
+      }),
+    }));
   }, []);
 
   const newGame = useCallback((name?: string, size?: number) => {
@@ -666,6 +688,7 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
     buildRide,
     buildPath,
     setRidePrice,
+    toggleRideStatus,
     newGame,
     loadState,
     exportState,

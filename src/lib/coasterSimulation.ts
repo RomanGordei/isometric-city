@@ -411,8 +411,8 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
 
   nextGuests = nextGuests.map((guest) => {
     if ((guest.state === 'queuing' || guest.state === 'heading_to_ride') && guest.targetRideId) {
-      const rideExists = state.rides.some((ride) => ride.id === guest.targetRideId);
-      if (!rideExists) {
+      const ride = state.rides.find((item) => item.id === guest.targetRideId);
+      if (!ride || ride.status !== 'open') {
         return {
           ...guest,
           state: 'wandering',
@@ -523,6 +523,9 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
 
   const guestUpdates = new Map<number, Partial<Guest>>();
   updatedRides = updatedRides.map((ride) => {
+    if (ride.status !== 'open') {
+      return { ...ride, cycleTimer: 0 };
+    }
     const queueGuests = queueMap.get(ride.id) ?? [];
     const cycleTicks = Math.max(4, Math.round(ride.stats.rideTime / 10));
     const nextTimer = Math.max(0, ride.cycleTimer - 1);
