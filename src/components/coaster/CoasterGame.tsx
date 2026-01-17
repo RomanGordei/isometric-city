@@ -126,6 +126,7 @@ export default function CoasterGame() {
               expenses={state.finance.expenses}
               staffCost={state.finance.staffCost}
               maintenanceCost={state.finance.maintenanceCost}
+              researchCost={state.finance.researchCost}
               loan={state.finance.loan}
               onLoanChange={(amount, action) => {
                 if (action === 'take') {

@@ -90,6 +90,7 @@ const WEATHER_CHANGE_HOURS = 2;
 const LOAN_INTEREST_HOUR = 6;
 const BASE_ENTRANCE_FEE = 10;
 const RESEARCH_RATE = 8;
+const RESEARCH_COST_RATE = 18;
 
 function createGuest(id: number, tileX: number, tileY: number, entranceFee: number): Guest {
   const colors = ['#60a5fa', '#f87171', '#facc15', '#34d399', '#a78bfa'];
@@ -680,6 +681,10 @@ function applyQueuePatience(guest: Guest, tick: number): Guest {
 function updateResearch(state: CoasterParkState): CoasterParkState {
   const { activeResearchId, funding, items } = state.research;
   if (!activeResearchId || funding <= 0) return state;
+  const researchCost = Math.round(funding * RESEARCH_COST_RATE);
+  if (researchCost > 0 && state.finance.cash < researchCost) {
+    return state;
+  }
   const updatedItems = items.map((item) => {
     if (item.id !== activeResearchId || item.unlocked) return item;
     const nextProgress = Math.min(item.cost, item.progress + funding * RESEARCH_RATE);
@@ -694,6 +699,12 @@ function updateResearch(state: CoasterParkState): CoasterParkState {
   const nextActiveId = activeItem && !activeItem.unlocked ? activeResearchId : null;
   return {
     ...state,
+    finance: researchCost > 0 ? {
+      ...state.finance,
+      cash: state.finance.cash - researchCost,
+      researchCost: state.finance.researchCost + researchCost,
+      expenses: state.finance.expenses + researchCost,
+    } : state.finance,
     research: {
       ...state.research,
       activeResearchId: nextActiveId,
