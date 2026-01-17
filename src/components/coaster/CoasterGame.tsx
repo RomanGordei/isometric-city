@@ -23,6 +23,7 @@ export default function CoasterGame() {
     hireStaff,
     setStaffPatrolArea,
     clearStaffPatrolArea,
+    setEntranceFee,
   } = useCoaster();
   const [navigationTarget, setNavigationTarget] = useState<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState<{ offset: { x: number; y: number }; zoom: number; canvasSize: { width: number; height: number } } | null>(null);
@@ -108,11 +109,13 @@ export default function CoasterGame() {
             <FinancePanel
               cash={state.finance.cash}
               entranceRevenue={state.finance.entranceRevenue}
+              entranceFee={state.finance.entranceFee}
               rideRevenue={state.finance.rideRevenue}
               shopRevenue={state.finance.shopRevenue}
               income={state.finance.income}
               expenses={state.finance.expenses}
               loan={state.finance.loan}
+              onEntranceFeeChange={setEntranceFee}
               onClose={handleClosePanel}
             />
           )}

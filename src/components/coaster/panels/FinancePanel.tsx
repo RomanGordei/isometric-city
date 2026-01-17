@@ -3,26 +3,31 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 
 interface FinancePanelProps {
   cash: number;
   entranceRevenue: number;
+  entranceFee: number;
   rideRevenue: number;
   shopRevenue: number;
   income: number;
   expenses: number;
   loan: number;
+  onEntranceFeeChange: (fee: number) => void;
   onClose: () => void;
 }
 
 export default function FinancePanel({
   cash,
   entranceRevenue,
+  entranceFee,
   rideRevenue,
   shopRevenue,
   income,
   expenses,
   loan,
+  onEntranceFeeChange,
   onClose,
 }: FinancePanelProps) {
   return (
@@ -47,6 +52,19 @@ export default function FinancePanel({
             <div className="flex items-center justify-between">
               <span>Admissions</span>
               <span>${entranceRevenue.toLocaleString()}</span>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Entrance Fee</span>
+                <span>${entranceFee}</span>
+              </div>
+              <Slider
+                value={[entranceFee]}
+                min={0}
+                max={20}
+                step={1}
+                onValueChange={(value) => onEntranceFeeChange(value[0])}
+              />
             </div>
             <div className="flex items-center justify-between">
               <span>Ride Tickets</span>

@@ -110,6 +110,7 @@ type CoasterContextValue = {
   hireStaff: (type: 'handyman' | 'mechanic' | 'security' | 'entertainer') => void;
   setStaffPatrolArea: (staffId: number, center: { x: number; y: number }, radius?: number) => void;
   clearStaffPatrolArea: (staffId: number) => void;
+  setEntranceFee: (fee: number) => void;
   newGame: (name?: string, size?: number) => void;
   loadState: (stateString: string) => boolean;
   exportState: () => string;
@@ -711,6 +712,17 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
     }));
   }, []);
 
+  const setEntranceFee = useCallback((fee: number) => {
+    const clampedFee = Math.max(0, Math.min(20, Math.round(fee)));
+    setState((prev) => ({
+      ...prev,
+      finance: {
+        ...prev.finance,
+        entranceFee: clampedFee,
+      },
+    }));
+  }, []);
+
   const newGame = useCallback((name?: string, size?: number) => {
     const fresh = createInitialCoasterState(size ?? DEFAULT_COASTER_GRID_SIZE, name ?? 'Coaster Park');
     skipNextSaveRef.current = true;
@@ -816,6 +828,7 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
     hireStaff,
     setStaffPatrolArea,
     clearStaffPatrolArea,
+    setEntranceFee,
     newGame,
     loadState,
     exportState,
