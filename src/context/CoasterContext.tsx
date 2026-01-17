@@ -326,6 +326,7 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
       let staff = prev.staff;
       let lastRideId = prev.lastRideId;
       let lastStaffId = prev.lastStaffId;
+      let additionalCost = 0;
 
       if (tool === 'bulldoze') {
         if (tile.path || tile.track || tile.rideId || tile.facility || tile.scenery.length) {
@@ -398,6 +399,48 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
             },
           ];
           lastRideId = prev.lastRideId + 1;
+
+          const starterLoop = [
+            { dx: 1, dy: 0 },
+            { dx: 2, dy: 0, special: 'lift' as const },
+            { dx: 3, dy: 0 },
+            { dx: 3, dy: 1, special: 'loop' as const },
+            { dx: 3, dy: 2 },
+            { dx: 2, dy: 2, special: 'corkscrew' as const },
+            { dx: 1, dy: 2 },
+            { dx: 0, dy: 2, special: 'brakes' as const },
+            { dx: -1, dy: 2 },
+            { dx: -1, dy: 1, special: 'booster' as const },
+            { dx: -1, dy: 0 },
+          ];
+
+          const trackCost = COASTER_TOOL_INFO.coaster_track.cost;
+          const loopCost = trackCost * starterLoop.length;
+          const canAffordLoop = prev.finance.money - toolInfo.cost >= loopCost;
+          const canPlaceLoop = starterLoop.every((segment) => {
+            const tx = x + segment.dx;
+            const ty = y + segment.dy;
+            const targetTile = grid[ty]?.[tx];
+            return (
+              targetTile &&
+              !targetTile.track &&
+              !targetTile.rideId &&
+              !targetTile.facility &&
+              !targetTile.path
+            );
+          });
+
+          if (canAffordLoop && canPlaceLoop) {
+            starterLoop.forEach((segment) => {
+              const tx = x + segment.dx;
+              const ty = y + segment.dy;
+              const targetTile = { ...grid[ty][tx], scenery: [...grid[ty][tx].scenery] };
+              targetTile.track = createTrackSegment(nextRideId, segment.special ?? null);
+              grid[ty][tx] = targetTile;
+            });
+            additionalCost += loopCost;
+          }
+
           updated = true;
           tileUpdated = true;
         }
@@ -554,7 +597,7 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
         lastStaffId,
         finance: {
           ...prev.finance,
-          money: prev.finance.money - toolInfo.cost,
+          money: prev.finance.money - toolInfo.cost - additionalCost,
         },
       };
     });
