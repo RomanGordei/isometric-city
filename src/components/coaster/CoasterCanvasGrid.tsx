@@ -1,7 +1,6 @@
-/* eslint-disable no-param-reassign */
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useCoaster } from '@/context/CoasterContext';
 import { TILE_WIDTH, TILE_HEIGHT } from '@/components/game/types';
 import { gridToScreen, screenToGrid } from '@/components/game/utils';
@@ -493,7 +492,7 @@ export function CoasterCanvasGrid({
     });
   }, [canvasSize, offset, onViewportChange, zoom]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!navigationTarget) return;
     const { screenX, screenY } = gridToScreen(navigationTarget.x, navigationTarget.y, 0, 0);
     setOffset({

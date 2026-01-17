@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { msg, useMessages } from 'gt-next';
+import { msg, useMessages, useGT } from 'gt-next';
 import { useCoaster } from '@/context/CoasterContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -19,12 +19,14 @@ const UI_LABELS = {
   waitTime: msg('Wait'),
   guests: msg('Guests'),
   revenue: msg('Revenue'),
+  noRides: msg('Build some rides to manage pricing and status.'),
 };
 
 export function RidesPanel() {
   const { state, setActivePanel, updateRide } = useCoaster();
   const { rides } = state;
   const m = useMessages();
+  const gt = useGT();
 
   return (
     <Dialog open={true} onOpenChange={() => setActivePanel('none')}>
@@ -35,7 +37,7 @@ export function RidesPanel() {
 
         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
           {rides.length === 0 && (
-            <div className="text-sm text-muted-foreground">Build some rides to manage pricing and status.</div>
+            <div className="text-sm text-muted-foreground">{m(UI_LABELS.noRides)}</div>
           )}
 
           {rides.map((ride) => (
@@ -87,7 +89,7 @@ export function RidesPanel() {
               </div>
               <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
                 <span>
-                  {m(UI_LABELS.waitTime)}: {ride.performance.waitTime.toFixed(1)}m
+                  {m(UI_LABELS.waitTime)}: {gt('{minutes}m', { minutes: ride.performance.waitTime.toFixed(1) })}
                 </span>
                 <span>
                   {m(UI_LABELS.guests)}: {ride.performance.guestsToday}
