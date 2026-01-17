@@ -1,5 +1,5 @@
 import { CardinalDirection, isInBounds } from '@/core/types';
-import { CoasterBuildingType, CoasterParkState, CoasterTile, Finance, Guest, GuestThoughtType, ParkStats, PathInfo, Research, Staff, WeatherState } from '@/games/coaster/types';
+import { CoasterBuildingType, CoasterParkState, CoasterTile, Finance, Guest, GuestThoughtType, ParkStats, PathInfo, Research, Staff, WeatherState, WeatherType } from '@/games/coaster/types';
 import { findPath } from '@/lib/coasterPathfinding';
 import { estimateQueueWaitMinutes, getRideDispatchCapacity } from '@/lib/coasterQueue';
 
@@ -85,6 +85,7 @@ const QUEUE_PATIENCE_LOW_PENALTY = 0.2;
 const QUEUE_PATIENCE_MEDIUM_PENALTY = 0.35;
 const QUEUE_PATIENCE_HIGH_PENALTY = 0.5;
 const QUEUE_THOUGHT_TICKS = 10;
+const WEATHER_CHANGE_HOURS = 2;
 
 function createGuest(id: number, tileX: number, tileY: number, entranceFee: number): Guest {
   const colors = ['#60a5fa', '#f87171', '#facc15', '#34d399', '#a78bfa'];
@@ -138,6 +139,58 @@ function clampFloat(value: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function randomBetween(min: number, max: number): number {
+  return Math.round(min + Math.random() * (max - min));
+}
+
+function createWeather(type: WeatherType): WeatherState {
+  switch (type) {
+    case 'sunny':
+      return {
+        type,
+        temperature: randomBetween(22, 30),
+        rainLevel: 0,
+        windSpeed: randomBetween(3, 6),
+      };
+    case 'cloudy':
+      return {
+        type,
+        temperature: randomBetween(18, 24),
+        rainLevel: 0.2,
+        windSpeed: randomBetween(6, 10),
+      };
+    case 'rainy':
+      return {
+        type,
+        temperature: randomBetween(14, 20),
+        rainLevel: 0.7,
+        windSpeed: randomBetween(10, 16),
+      };
+    case 'stormy':
+      return {
+        type,
+        temperature: randomBetween(12, 18),
+        rainLevel: 0.95,
+        windSpeed: randomBetween(16, 22),
+      };
+    default:
+      return {
+        type: 'sunny',
+        temperature: 22,
+        rainLevel: 0,
+        windSpeed: 5,
+      };
+  }
+}
+
+function getNextWeather(current: WeatherState): WeatherState {
+  const options: WeatherType[] = ['sunny', 'cloudy', 'rainy', 'stormy'].filter(
+    (option) => option !== current.type
+  );
+  const nextType = options[Math.floor(Math.random() * options.length)] ?? current.type;
+  return createWeather(nextType);
+}
+
 function updateGuestNeeds(guest: Guest): Guest {
   const nextNeeds = {
     hunger: clamp(guest.needs.hunger - 1.2),
@@ -160,6 +213,28 @@ function updateGuestNeeds(guest: Guest): Guest {
     ...guest,
     needs: { ...nextNeeds, happiness },
     happiness,
+  };
+}
+
+function applyWeatherMood(guest: Guest, weather: WeatherState): Guest {
+  let delta = 0;
+  if (weather.type === 'sunny') {
+    delta = 0.2;
+  } else if (weather.type === 'rainy') {
+    delta = -0.3;
+  } else if (weather.type === 'stormy') {
+    delta = -0.6;
+  }
+  if (delta === 0) return guest;
+  const happiness = clamp(guest.happiness + delta);
+  if (happiness === guest.happiness) return guest;
+  return {
+    ...guest,
+    happiness,
+    needs: {
+      ...guest.needs,
+      happiness,
+    },
   };
 }
 
@@ -733,6 +808,7 @@ function updateTrains(state: CoasterParkState): CoasterParkState {
 
 function updateGuests(state: CoasterParkState): CoasterParkState {
   let nextGuests = state.guests.map((guest) => updateGuestNeeds(guest));
+  nextGuests = nextGuests.map((guest) => applyWeatherMood(guest, state.weather));
   nextGuests = nextGuests.map((guest) => updateGuestMovement(guest, state));
   nextGuests = nextGuests.filter((guest) => guest.age < guest.maxAge);
   let totalGuests = state.stats.totalGuests;
@@ -1097,12 +1173,7 @@ function createDefaultResearch(): Research {
 }
 
 function createDefaultWeather(): WeatherState {
-  return {
-    type: 'sunny',
-    temperature: 22,
-    rainLevel: 0,
-    windSpeed: 5,
-  };
+  return createWeather('sunny');
 }
 
 function createPathInfo(edges: PathInfo['edges']): PathInfo {
@@ -1168,7 +1239,7 @@ export function createInitialCoasterState(
 
 export function simulateCoasterTick(state: CoasterParkState): CoasterParkState {
   const nextTick = state.tick + 1;
-  let { hour, day, month, year } = state;
+  let { hour, day, month, year, weather } = state;
 
   if (nextTick % 60 === 0) {
     hour = (hour + 1) % 24;
@@ -1183,6 +1254,9 @@ export function simulateCoasterTick(state: CoasterParkState): CoasterParkState {
         }
       }
     }
+    if (hour % WEATHER_CHANGE_HOURS === 0) {
+      weather = getNextWeather(weather);
+    }
   }
 
   const nextState: CoasterParkState = {
@@ -1192,6 +1266,7 @@ export function simulateCoasterTick(state: CoasterParkState): CoasterParkState {
     day,
     month,
     year,
+    weather,
   };
 
   const withStaff = updateStaff(nextState);
