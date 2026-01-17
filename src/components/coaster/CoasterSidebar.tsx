@@ -15,10 +15,20 @@ export default function CoasterSidebar() {
   const { state, setTool, setActivePanel } = useCoaster();
   const { selectedTool, finance, activePanel } = state;
 
+  const researchUnlocks = useMemo(
+    () => new Map(state.research.items.map((item) => [item.id, item.unlocked])),
+    [state.research.items]
+  );
+
+  const toolUnlocks = useMemo<Partial<Record<CoasterTool, string>>>(() => ({
+    ride_coaster_wooden: 'coaster_wooden',
+    ride_coaster_steel: 'coaster_steel',
+  }), []);
+
   const toolGroups = useMemo<ToolGroup[]>(() => [
     { label: 'Tools', tools: ['select', 'path', 'queue_path', 'coaster_track', 'bulldoze', 'water'] },
     { label: 'Scenery', tools: ['scenery_tree', 'scenery_flower'] },
-    { label: 'Rides', tools: ['ride_carousel', 'ride_ferris_wheel', 'ride_bumper_cars', 'ride_swing', 'ride_haunted_house', 'ride_spiral_slide'] },
+    { label: 'Rides', tools: ['ride_carousel', 'ride_ferris_wheel', 'ride_bumper_cars', 'ride_swing', 'ride_haunted_house', 'ride_spiral_slide', 'ride_coaster_wooden', 'ride_coaster_steel'] },
     { label: 'Shops', tools: ['shop_food', 'shop_drink', 'shop_toilet'] },
   ], []);
 
@@ -39,19 +49,23 @@ export default function CoasterSidebar() {
                 const info = TOOL_INFO[tool];
                 const isSelected = selectedTool === tool;
                 const canAfford = finance.cash >= info.cost;
+                const unlockKey = toolUnlocks[tool];
+                const isUnlocked = unlockKey ? researchUnlocks.get(unlockKey) : true;
+                const isDisabled = (!canAfford && info.cost > 0) || !isUnlocked;
+                const costLabel = !isUnlocked ? 'Research' : info.cost > 0 ? `$${info.cost}` : '';
                 return (
                   <Button
                     key={tool}
                     onClick={() => setTool(tool)}
-                    disabled={!canAfford && info.cost > 0}
+                    disabled={isDisabled}
                     variant={isSelected ? 'default' : 'ghost'}
                     className={`w-full justify-start gap-2 px-3 py-2 h-auto text-sm ${
                       isSelected ? 'bg-primary text-primary-foreground' : ''
                     }`}
                   >
                     <span className="flex-1 text-left truncate">{info.name}</span>
-                    {info.cost > 0 && (
-                      <span className="text-xs opacity-60">${info.cost}</span>
+                    {costLabel && (
+                      <span className="text-xs opacity-60">{costLabel}</span>
                     )}
                   </Button>
                 );
@@ -98,6 +112,13 @@ export default function CoasterSidebar() {
               onClick={() => setActivePanel(activePanel === 'staff' ? 'none' : 'staff')}
             >
               Staff
+            </Button>
+            <Button
+              variant={activePanel === 'research' ? 'default' : 'ghost'}
+              className="w-full justify-start"
+              onClick={() => setActivePanel(activePanel === 'research' ? 'none' : 'research')}
+            >
+              Research
             </Button>
           </div>
         </div>

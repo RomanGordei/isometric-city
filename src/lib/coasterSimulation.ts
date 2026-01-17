@@ -2,6 +2,7 @@ import { CardinalDirection, isInBounds } from '@/core/types';
 import { CoasterBuildingType, CoasterParkState, CoasterTile, Finance, Guest, GuestThoughtType, ParkStats, PathInfo, Research, Staff, WeatherState, WeatherType } from '@/games/coaster/types';
 import { findPath } from '@/lib/coasterPathfinding';
 import { estimateQueueWaitMinutes, getRideDispatchCapacity } from '@/lib/coasterQueue';
+import { createResearchItems } from '@/lib/coasterResearch';
 
 export const DEFAULT_COASTER_GRID_SIZE = 50;
 
@@ -88,6 +89,7 @@ const QUEUE_THOUGHT_TICKS = 10;
 const WEATHER_CHANGE_HOURS = 2;
 const LOAN_INTEREST_HOUR = 6;
 const BASE_ENTRANCE_FEE = 10;
+const RESEARCH_RATE = 8;
 
 function createGuest(id: number, tileX: number, tileY: number, entranceFee: number): Guest {
   const colors = ['#60a5fa', '#f87171', '#facc15', '#34d399', '#a78bfa'];
@@ -675,6 +677,31 @@ function applyQueuePatience(guest: Guest, tick: number): Guest {
   };
 }
 
+function updateResearch(state: CoasterParkState): CoasterParkState {
+  const { activeResearchId, funding, items } = state.research;
+  if (!activeResearchId || funding <= 0) return state;
+  const updatedItems = items.map((item) => {
+    if (item.id !== activeResearchId || item.unlocked) return item;
+    const nextProgress = Math.min(item.cost, item.progress + funding * RESEARCH_RATE);
+    return {
+      ...item,
+      progress: nextProgress,
+      unlocked: nextProgress >= item.cost,
+    };
+  });
+
+  const activeItem = updatedItems.find((item) => item.id === activeResearchId);
+  const nextActiveId = activeItem && !activeItem.unlocked ? activeResearchId : null;
+  return {
+    ...state,
+    research: {
+      ...state.research,
+      activeResearchId: nextActiveId,
+      items: updatedItems,
+    },
+  };
+}
+
 function updateStaff(state: CoasterParkState): CoasterParkState {
   const updatedStaff = state.staff.map((member) => updateStaffMovement(member, state.grid));
   const handymanCount = updatedStaff.filter((member) => member.type === 'handyman').length;
@@ -1186,7 +1213,7 @@ function createDefaultResearch(): Research {
   return {
     activeResearchId: null,
     funding: 0.2,
-    items: [],
+    items: createResearchItems(),
   };
 }
 
@@ -1297,7 +1324,8 @@ export function simulateCoasterTick(state: CoasterParkState): CoasterParkState {
     finance,
   };
 
-  const withStaff = updateStaff(nextState);
+  const withResearch = updateResearch(nextState);
+  const withStaff = updateStaff(withResearch);
   const withGuests = updateGuests(withStaff);
   return updateTrains(withGuests);
 }

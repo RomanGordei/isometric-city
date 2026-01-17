@@ -9,6 +9,7 @@ import CoasterMiniMap from './CoasterMiniMap';
 import FinancePanel from './panels/FinancePanel';
 import GuestPanel from './panels/GuestPanel';
 import ParkPanel from './panels/ParkPanel';
+import ResearchPanel from './panels/ResearchPanel';
 import RidesPanel from './panels/RidesPanel';
 import RidePanel from './panels/RidePanel';
 import StaffPanel from './panels/StaffPanel';
@@ -28,6 +29,8 @@ export default function CoasterGame() {
     setParkName,
     takeLoan,
     repayLoan,
+    setResearchFunding,
+    setActiveResearch,
   } = useCoaster();
   const [navigationTarget, setNavigationTarget] = useState<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState<{ offset: { x: number; y: number }; zoom: number; canvasSize: { width: number; height: number } } | null>(null);
@@ -142,6 +145,14 @@ export default function CoasterGame() {
               weather={state.weather}
               onNameChange={setParkName}
               onClose={handleClosePanel}
+            />
+          )}
+          {state.activePanel === 'research' && (
+            <ResearchPanel
+              research={state.research}
+              onClose={handleClosePanel}
+              onFundingChange={setResearchFunding}
+              onStartResearch={setActiveResearch}
             />
           )}
           {state.activePanel === 'rides' && (

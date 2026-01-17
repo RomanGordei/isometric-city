@@ -52,6 +52,8 @@ export type CoasterTool =
   | 'ride_swing'
   | 'ride_haunted_house'
   | 'ride_spiral_slide'
+  | 'ride_coaster_wooden'
+  | 'ride_coaster_steel'
   | 'shop_food'
   | 'shop_drink'
   | 'shop_toilet'
@@ -86,6 +88,8 @@ export const TOOL_INFO: Record<CoasterTool, ToolInfo> = {
   ride_swing: { name: 'Swing Ride', cost: 900, description: 'Classic swing ride', size: 1 },
   ride_haunted_house: { name: 'Haunted House', cost: 1400, description: 'Spooky dark ride', size: 2 },
   ride_spiral_slide: { name: 'Spiral Slide', cost: 700, description: 'Small spiral slide', size: 1 },
+  ride_coaster_wooden: { name: 'Wooden Coaster', cost: 6000, description: 'Classic wooden roller coaster', size: 4 },
+  ride_coaster_steel: { name: 'Steel Coaster', cost: 8000, description: 'High-speed steel coaster', size: 4 },
   shop_food: { name: 'Food Stall', cost: 400, description: 'Serve meals to guests', size: 1 },
   shop_drink: { name: 'Drink Stall', cost: 350, description: 'Serve drinks to guests', size: 1 },
   shop_toilet: { name: 'Toilets', cost: 200, description: 'Restrooms for guests', size: 1 },

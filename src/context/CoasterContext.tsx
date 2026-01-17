@@ -28,6 +28,7 @@ import {
 } from '@/lib/coasterSimulation';
 import { RIDE_DEFINITIONS } from '@/lib/coasterRides';
 import { STAFF_DEFINITIONS } from '@/lib/coasterStaff';
+import { isResearchUnlocked, mergeResearchItems } from '@/lib/coasterResearch';
 
 const STORAGE_KEY = 'coaster-game-state';
 const SAVED_PARKS_INDEX_KEY = 'coaster-saved-parks-index';
@@ -39,6 +40,8 @@ const TOOL_RIDE_MAP: Partial<Record<CoasterTool, RideType>> = {
   ride_swing: 'swing_ride',
   ride_haunted_house: 'haunted_house',
   ride_spiral_slide: 'spiral_slide',
+  ride_coaster_wooden: 'coaster_wooden',
+  ride_coaster_steel: 'coaster_steel',
 };
 
 const TOOL_SHOP_MAP: Partial<Record<CoasterTool, CoasterBuildingType>> = {
@@ -65,6 +68,12 @@ function normalizeCoasterState(state: CoasterParkState): CoasterParkState {
     finance: {
       ...state.finance,
       entranceRevenue: state.finance.entranceRevenue ?? 0,
+    },
+    research: {
+      ...state.research,
+      activeResearchId: state.research?.activeResearchId ?? null,
+      funding: state.research?.funding ?? 0.2,
+      items: mergeResearchItems(state.research?.items ?? []),
     },
     coasterTrains: state.coasterTrains ?? [],
     rides: state.rides.map((ride) => ({
@@ -114,6 +123,8 @@ type CoasterContextValue = {
   setParkName: (name: string) => void;
   takeLoan: (amount: number) => void;
   repayLoan: (amount: number) => void;
+  setResearchFunding: (funding: number) => void;
+  setActiveResearch: (researchId: string | null) => void;
   newGame: (name?: string, size?: number) => void;
   loadState: (stateString: string) => boolean;
   exportState: () => string;
@@ -252,6 +263,14 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
   const applyRidePlacement = useCallback((prev: CoasterParkState, rideType: RideType, x: number, y: number) => {
     const definition = RIDE_DEFINITIONS[rideType];
     if (!definition) return prev;
+    const researchRequirement = rideType === 'coaster_wooden'
+      ? 'coaster_wooden'
+      : rideType === 'coaster_steel'
+        ? 'coaster_steel'
+        : null;
+    if (researchRequirement && !isResearchUnlocked(prev.research.items, researchRequirement)) {
+      return prev;
+    }
 
     const { width, height } = definition.size;
     if (x < 0 || y < 0 || x + width > prev.gridSize || y + height > prev.gridSize) {
@@ -738,6 +757,34 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
     }));
   }, []);
 
+  const setResearchFunding = useCallback((funding: number) => {
+    const clampedFunding = Math.max(0, Math.min(1, funding));
+    setState((prev) => ({
+      ...prev,
+      research: {
+        ...prev.research,
+        funding: clampedFunding,
+      },
+    }));
+  }, []);
+
+  const setActiveResearch = useCallback((researchId: string | null) => {
+    setState((prev) => {
+      if (!researchId) {
+        return { ...prev, research: { ...prev.research, activeResearchId: null } };
+      }
+      const target = prev.research.items.find((item) => item.id === researchId);
+      if (!target || target.unlocked) return prev;
+      return {
+        ...prev,
+        research: {
+          ...prev.research,
+          activeResearchId: researchId,
+        },
+      };
+    });
+  }, []);
+
   const takeLoan = useCallback((amount: number) => {
     const nextAmount = Math.max(0, Math.round(amount));
     if (nextAmount <= 0) return;
@@ -877,6 +924,8 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
     setParkName,
     takeLoan,
     repayLoan,
+    setResearchFunding,
+    setActiveResearch,
     newGame,
     loadState,
     exportState,
