@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { T, Var, Num, Currency, useGT } from 'gt-next';
 import { Button } from '@/components/ui/button';
 import { useCoaster } from '@/context/CoasterContext';
 import CoasterCanvas from './CoasterCanvas';
@@ -14,6 +15,7 @@ import RidePanel from './panels/RidePanel';
 import StaffPanel from './panels/StaffPanel';
 
 export default function CoasterGame() {
+  const gt = useGT();
   const {
     state,
     setSpeed,
@@ -62,17 +64,23 @@ export default function CoasterGame() {
           <div className="flex items-center gap-4">
             <div className="text-lg font-semibold tracking-wide">{state.parkName}</div>
             <div className="text-xs text-muted-foreground">
-              Year {state.year} · Day {state.day} · {state.hour.toString().padStart(2, '0')}:00
+              <T>
+                Year <Var>{state.year}</Var> · Day <Var>{state.day}</Var> · <Var>{state.hour.toString().padStart(2, '0')}:00</Var>
+              </T>
             </div>
           </div>
           <div className="flex items-center gap-4 text-sm">
-            <div>Guests: {state.stats.guestsInPark}</div>
-            <div>Rating: {state.stats.rating}</div>
-            <div className="font-medium">${state.finance.cash.toLocaleString()}</div>
+            <T>
+              <div>Guests: <Num>{state.stats.guestsInPark}</Num></div>
+            </T>
+            <T>
+              <div>Rating: <Num>{state.stats.rating}</Num></div>
+            </T>
+            <div className="font-medium"><Currency currency="USD">{state.finance.cash}</Currency></div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant={state.speed === 0 ? 'default' : 'ghost'} size="sm" onClick={() => setSpeed(0)}>
-              Pause
+              {gt('Pause')}
             </Button>
             <Button variant={state.speed === 1 ? 'default' : 'ghost'} size="sm" onClick={() => setSpeed(1)}>
               1x
@@ -84,7 +92,7 @@ export default function CoasterGame() {
               3x
             </Button>
             <Button variant="outline" size="sm" onClick={() => newGame()}>
-              New Park
+              {gt('New Park')}
             </Button>
           </div>
         </div>
