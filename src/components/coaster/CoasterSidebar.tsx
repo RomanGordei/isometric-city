@@ -65,6 +65,13 @@ export default function CoasterSidebar() {
           </div>
           <div className="px-2 flex flex-col gap-1">
             <Button
+              variant={activePanel === 'park' ? 'default' : 'ghost'}
+              className="w-full justify-start"
+              onClick={() => setActivePanel(activePanel === 'park' ? 'none' : 'park')}
+            >
+              Park Overview
+            </Button>
+            <Button
               variant={activePanel === 'rides' ? 'default' : 'ghost'}
               className="w-full justify-start"
               onClick={() => setActivePanel(activePanel === 'rides' ? 'none' : 'rides')}

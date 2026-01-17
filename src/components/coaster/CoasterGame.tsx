@@ -8,6 +8,7 @@ import CoasterSidebar from './CoasterSidebar';
 import CoasterMiniMap from './CoasterMiniMap';
 import FinancePanel from './panels/FinancePanel';
 import GuestPanel from './panels/GuestPanel';
+import ParkPanel from './panels/ParkPanel';
 import RidesPanel from './panels/RidesPanel';
 import RidePanel from './panels/RidePanel';
 import StaffPanel from './panels/StaffPanel';
@@ -118,6 +119,14 @@ export default function CoasterGame() {
               maintenanceCost={state.finance.maintenanceCost}
               loan={state.finance.loan}
               onEntranceFeeChange={setEntranceFee}
+              onClose={handleClosePanel}
+            />
+          )}
+          {state.activePanel === 'park' && (
+            <ParkPanel
+              parkName={state.parkName}
+              stats={state.stats}
+              weather={state.weather}
               onClose={handleClosePanel}
             />
           )}
