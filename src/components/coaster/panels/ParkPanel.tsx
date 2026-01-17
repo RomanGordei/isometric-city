@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { ParkStats, WeatherState } from '@/games/coaster/types';
+import { T, Var, useGT } from 'gt-next';
 
 interface ParkPanelProps {
   parkName: string;
@@ -16,6 +17,7 @@ interface ParkPanelProps {
 }
 
 export default function ParkPanel({ parkName, stats, weather, onNameChange, onClose }: ParkPanelProps) {
+  const gt = useGT();
   const ratingPercent = Math.round((stats.rating / 999) * 100);
   const cleanlinessPercent = Math.round((stats.cleanliness / 255) * 100);
   const sceneryPercent = Math.round((stats.scenery / 255) * 100);
@@ -27,16 +29,20 @@ export default function ParkPanel({ parkName, stats, weather, onNameChange, onCl
       <Card className="bg-card/95 border-border/70 shadow-xl">
         <div className="flex items-start justify-between p-4 border-b border-border/60">
           <div>
-            <div className="text-sm text-muted-foreground uppercase tracking-[0.2em]">Park</div>
+            <T>
+              <div className="text-sm text-muted-foreground uppercase tracking-[0.2em]">Park</div>
+            </T>
             <div className="text-lg font-semibold">{parkName}</div>
           </div>
-          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label="Close park panel">
+          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label={gt('Close park panel')}>
             ✕
           </Button>
         </div>
         <div className="p-4 space-y-4 text-sm">
           <div className="space-y-2">
-            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Park Name</div>
+            <T>
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Park Name</div>
+            </T>
             <Input
               value={parkName}
               onChange={(event) => onNameChange(event.target.value)}
@@ -45,51 +51,51 @@ export default function ParkPanel({ parkName, stats, weather, onNameChange, onCl
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Park Rating</span>
-              <span>{stats.rating} / 999</span>
+              <span>{gt('Park Rating')}</span>
+              <span>{gt('{rating} / 999', { rating: stats.rating })}</span>
             </div>
             <Progress value={ratingPercent} className="h-2" />
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Cleanliness</span>
-              <span>{cleanlinessPercent}%</span>
+              <span>{gt('Cleanliness')}</span>
+              <span>{gt('{percent}%', { percent: cleanlinessPercent })}</span>
             </div>
             <Progress value={cleanlinessPercent} className="h-2" />
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Scenery</span>
-              <span>{sceneryPercent}%</span>
+              <span>{gt('Scenery')}</span>
+              <span>{gt('{percent}%', { percent: sceneryPercent })}</span>
             </div>
             <Progress value={sceneryPercent} className="h-2" />
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Excitement</span>
-              <span>{excitementPercent}%</span>
+              <span>{gt('Excitement')}</span>
+              <span>{gt('{percent}%', { percent: excitementPercent })}</span>
             </div>
             <Progress value={excitementPercent} className="h-2" />
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Nausea</span>
-              <span>{nauseaPercent}%</span>
+              <span>{gt('Nausea')}</span>
+              <span>{gt('{percent}%', { percent: nauseaPercent })}</span>
             </div>
             <Progress value={nauseaPercent} className="h-2" />
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span>Guests in Park</span>
+            <span>{gt('Guests in Park')}</span>
             <span className="font-semibold">{stats.guestsInPark}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span>Total Visitors</span>
+            <span>{gt('Total Visitors')}</span>
             <span className="font-semibold">{stats.totalGuests}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span>Weather</span>
+            <span>{gt('Weather')}</span>
             <span className="capitalize text-muted-foreground">
-              {weather.type} · {weather.temperature}°C
+              {weather.type} · {gt('{temp}°C', { temp: weather.temperature })}
             </span>
           </div>
         </div>
