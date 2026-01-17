@@ -25,6 +25,7 @@ export default function CoasterGame() {
     setStaffPatrolArea,
     clearStaffPatrolArea,
     setEntranceFee,
+    setParkName,
   } = useCoaster();
   const [navigationTarget, setNavigationTarget] = useState<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState<{ offset: { x: number; y: number }; zoom: number; canvasSize: { width: number; height: number } } | null>(null);
