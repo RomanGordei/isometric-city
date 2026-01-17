@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Slider } from '@/components/ui/slider';
 import { CoasterBuildingType } from '@/games/coaster/types';
+import { T, useGT } from 'gt-next';
 
 type ShopEntry = {
   id: string;
@@ -24,22 +25,25 @@ interface ShopPanelProps {
 const PRICE_RANGE = [0, 20];
 
 export default function ShopPanel({ shops, onClose, onPriceChange }: ShopPanelProps) {
+  const gt = useGT();
   return (
     <div className="absolute top-20 right-6 z-50 w-96">
       <Card className="space-y-4 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Shop Ops</div>
-            <h2 className="text-lg font-semibold">Stall Pricing</h2>
+            <T><div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Shop Ops</div></T>
+            <T><h2 className="text-lg font-semibold">Stall Pricing</h2></T>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
+          <Button variant="ghost" size="sm" onClick={onClose}><T>Close</T></Button>
         </div>
 
         <ScrollArea className="h-64 pr-3">
           {shops.length === 0 && (
-            <div className="rounded-md border border-dashed p-4 text-xs text-muted-foreground">
-              No shops built yet. Place a stall to set its pricing.
-            </div>
+            <T>
+              <div className="rounded-md border border-dashed p-4 text-xs text-muted-foreground">
+                No shops built yet. Place a stall to set its pricing.
+              </div>
+            </T>
           )}
           <div className="space-y-4">
             {shops.map((shop) => (
@@ -48,7 +52,7 @@ export default function ShopPanel({ shops, onClose, onPriceChange }: ShopPanelPr
                   <div>
                     <div className="font-medium">{shop.name}</div>
                     <div className="text-xs text-muted-foreground capitalize">
-                      {shop.type.replaceAll('_', ' ')} · ({shop.position.x}, {shop.position.y})
+                      {gt('{shopType} · ({x}, {y})', { shopType: shop.type.replaceAll('_', ' '), x: shop.position.x, y: shop.position.y })}
                     </div>
                   </div>
                   <div className="text-sm font-semibold">${shop.price}</div>
@@ -62,7 +66,7 @@ export default function ShopPanel({ shops, onClose, onPriceChange }: ShopPanelPr
                     onValueChange={(value) => onPriceChange(shop.position, value[0] ?? shop.price)}
                   />
                   <div className="text-xs text-muted-foreground">
-                    Adjust pricing between ${PRICE_RANGE[0]} and ${PRICE_RANGE[1]}.
+                    {gt('Adjust pricing between ${minPrice} and ${maxPrice}.', { minPrice: PRICE_RANGE[0], maxPrice: PRICE_RANGE[1] })}
                   </div>
                 </div>
               </div>
