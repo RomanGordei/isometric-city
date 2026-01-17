@@ -1216,6 +1216,7 @@ function createDefaultFinance(): Finance {
     staffCost: 0,
     maintenanceCost: 0,
     researchCost: 0,
+    loanInterestCost: 0,
     transactions: [],
   };
 }
@@ -1314,11 +1315,12 @@ export function simulateCoasterTick(state: CoasterParkState): CoasterParkState {
     if (hour % WEATHER_CHANGE_HOURS === 0) {
       weather = getNextWeather(weather);
     }
-    if (hour === LOAN_INTEREST_HOUR && finance.loan > 0) {
+    if (hour % LOAN_INTEREST_HOUR === 0 && finance.loan > 0) {
       const interest = Math.round(finance.loan * finance.loanInterestRate);
       finance = {
         ...finance,
         cash: finance.cash - interest,
+        loanInterestCost: finance.loanInterestCost + interest,
         expenses: finance.expenses + interest,
       };
     }

@@ -31,6 +31,7 @@ export type Finance = {
   staffCost: number;
   maintenanceCost: number;
   researchCost: number;
+  loanInterestCost: number;
   transactions: Transaction[];
 };
 

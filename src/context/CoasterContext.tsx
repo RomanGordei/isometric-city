@@ -71,6 +71,7 @@ function normalizeCoasterState(state: CoasterParkState): CoasterParkState {
       staffCost: state.finance.staffCost ?? 0,
       maintenanceCost: state.finance.maintenanceCost ?? 0,
       researchCost: state.finance.researchCost ?? 0,
+      loanInterestCost: state.finance.loanInterestCost ?? 0,
     },
     research: {
       ...state.research,

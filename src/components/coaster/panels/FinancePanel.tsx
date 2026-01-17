@@ -16,6 +16,7 @@ interface FinancePanelProps {
   staffCost: number;
   maintenanceCost: number;
   researchCost: number;
+  loanInterestCost: number;
   loan: number;
   onLoanChange: (amount: number, action: 'take' | 'repay') => void;
   onEntranceFeeChange: (fee: number) => void;
@@ -33,6 +34,7 @@ export default function FinancePanel({
   staffCost,
   maintenanceCost,
   researchCost,
+  loanInterestCost,
   loan,
   onLoanChange,
   onEntranceFeeChange,
@@ -106,6 +108,10 @@ export default function FinancePanel({
             <div className="flex items-center justify-between">
               <span>Research</span>
               <span>${researchCost.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Loan Interest</span>
+              <span>${loanInterestCost.toLocaleString()}</span>
             </div>
             <div className="flex items-center justify-between font-semibold">
               <span>Total Expenses</span>
