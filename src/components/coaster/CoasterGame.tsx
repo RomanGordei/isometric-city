@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { CoasterBuildingType } from '@/games/coaster/types';
 import { useCoaster } from '@/context/CoasterContext';
+import { T, Var, Num, Branch, useMessages, useGT } from 'gt-next';
 import CoasterCanvas from './CoasterCanvas';
 import CoasterSidebar from './CoasterSidebar';
 import CoasterMiniMap from './CoasterMiniMap';
@@ -36,6 +37,8 @@ export default function CoasterGame() {
     setResearchFunding,
     setActiveResearch,
   } = useCoaster();
+  const m = useMessages();
+  const gt = useGT();
   const [navigationTarget, setNavigationTarget] = useState<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState<{ offset: { x: number; y: number }; zoom: number; canvasSize: { width: number; height: number } } | null>(null);
   const [selectedRideId, setSelectedRideId] = useState<string | null>(null);
@@ -120,34 +123,44 @@ export default function CoasterGame() {
       <div className="flex-1 flex flex-col">
         <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-slate-900/70">
           <div className="flex items-center gap-4">
-            <div className="text-lg font-semibold tracking-wide">{state.parkName}</div>
-            <div className="text-xs text-muted-foreground">
-              Year {state.year} · Day {state.day} · {state.hour.toString().padStart(2, '0')}:00
-            </div>
+            <div className="text-lg font-semibold tracking-wide">{m(state.parkName)}</div>
+            <T>
+              <div className="text-xs text-muted-foreground">
+                Year <Var>{state.year}</Var> · Day <Var>{state.day}</Var> · <Var>{state.hour.toString().padStart(2, '0')}</Var>:00
+              </div>
+            </T>
           </div>
           <div className="flex items-center gap-4 text-sm">
-            <div>Guests: {state.stats.guestsInPark}</div>
-            <div>Rating: {state.stats.rating}</div>
-            <div className="capitalize text-muted-foreground">
-              {state.weather.type} · {state.weather.temperature}°C
-            </div>
+            <T><div>Guests: <Num>{state.stats.guestsInPark}</Num></div></T>
+            <T><div>Rating: <Num>{state.stats.rating}</Num></div></T>
+            <T>
+              <div className="capitalize text-muted-foreground">
+                <Branch
+                  branch={state.weather.type}
+                  sunny={<>Sunny</>}
+                  cloudy={<>Cloudy</>}
+                  rainy={<>Rainy</>}
+                  stormy={<>Stormy</>}
+                /> · <Var>{state.weather.temperature}</Var>°C
+              </div>
+            </T>
             <div className="font-medium">${state.finance.cash.toLocaleString()}</div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant={state.speed === 0 ? 'default' : 'ghost'} size="sm" onClick={() => setSpeed(0)}>
-              Pause
+              {gt('Pause')}
             </Button>
             <Button variant={state.speed === 1 ? 'default' : 'ghost'} size="sm" onClick={() => setSpeed(1)}>
-              1x
+              {gt('1x')}
             </Button>
             <Button variant={state.speed === 2 ? 'default' : 'ghost'} size="sm" onClick={() => setSpeed(2)}>
-              2x
+              {gt('2x')}
             </Button>
             <Button variant={state.speed === 3 ? 'default' : 'ghost'} size="sm" onClick={() => setSpeed(3)}>
-              3x
+              {gt('3x')}
             </Button>
             <Button variant="outline" size="sm" onClick={() => newGame()}>
-              New Park
+              {gt('New Park')}
             </Button>
           </div>
         </div>
