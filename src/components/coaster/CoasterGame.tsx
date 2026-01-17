@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { T, Var, Num, Currency } from 'gt-next';
 import { Button } from '@/components/ui/button';
 import { CoasterBuildingType } from '@/games/coaster/types';
 import { useCoaster } from '@/context/CoasterContext';
@@ -107,32 +108,36 @@ export default function CoasterGame() {
           <div className="flex items-center gap-4">
             <div className="text-lg font-semibold tracking-wide">{state.parkName}</div>
             <div className="text-xs text-muted-foreground">
-              Year {state.year} · Day {state.day} · {state.hour.toString().padStart(2, '0')}:00
+              <T>
+                Year <Num>{state.year}</Num> · Day <Num>{state.day}</Num> · <Var>{state.hour.toString().padStart(2, '0')}</Var>:00
+              </T>
             </div>
           </div>
           <div className="flex items-center gap-4 text-sm">
-            <div>Guests: {state.stats.guestsInPark}</div>
-            <div>Rating: {state.stats.rating}</div>
+            <T><div>Guests: <Num>{state.stats.guestsInPark}</Num></div></T>
+            <T><div>Rating: <Num>{state.stats.rating}</Num></div></T>
             <div className="capitalize text-muted-foreground">
-              {state.weather.type} · {state.weather.temperature}°C
+              <T>
+                <Var>{state.weather.type}</Var> · <Num>{state.weather.temperature}</Num>°C
+              </T>
             </div>
-            <div className="font-medium">${state.finance.cash.toLocaleString()}</div>
+            <div className="font-medium"><Currency currency="USD">{state.finance.cash}</Currency></div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant={state.speed === 0 ? 'default' : 'ghost'} size="sm" onClick={() => setSpeed(0)}>
-              Pause
+              <T>Pause</T>
             </Button>
             <Button variant={state.speed === 1 ? 'default' : 'ghost'} size="sm" onClick={() => setSpeed(1)}>
-              1x
+              <T>1x</T>
             </Button>
             <Button variant={state.speed === 2 ? 'default' : 'ghost'} size="sm" onClick={() => setSpeed(2)}>
-              2x
+              <T>2x</T>
             </Button>
             <Button variant={state.speed === 3 ? 'default' : 'ghost'} size="sm" onClick={() => setSpeed(3)}>
-              3x
+              <T>3x</T>
             </Button>
             <Button variant="outline" size="sm" onClick={() => newGame()}>
-              New Park
+              <T>New Park</T>
             </Button>
           </div>
         </div>

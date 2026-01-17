@@ -4,6 +4,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { T, Currency, useGT } from 'gt-next';
 
 interface FinancePanelProps {
   cash: number;
@@ -40,6 +41,7 @@ export default function FinancePanel({
   onEntranceFeeChange,
   onClose,
 }: FinancePanelProps) {
+  const gt = useGT();
   const [loanAmount, setLoanAmount] = React.useState(2000);
 
   const handleLoanAmountChange = (value: number) => {
@@ -51,28 +53,28 @@ export default function FinancePanel({
       <Card className="bg-card/95 border-border/70 shadow-xl">
         <div className="flex items-start justify-between p-4 border-b border-border/60">
           <div>
-            <div className="text-sm text-muted-foreground uppercase tracking-[0.2em]">Finance</div>
-            <div className="text-lg font-semibold">Park Ledger</div>
+            <div className="text-sm text-muted-foreground uppercase tracking-[0.2em]"><T>Finance</T></div>
+            <div className="text-lg font-semibold"><T>Park Ledger</T></div>
           </div>
-          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label="Close finance panel">
+          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label={gt('Close finance panel')}>
             ✕
           </Button>
         </div>
         <div className="p-4 space-y-4 text-sm">
           <div className="flex items-center justify-between">
-            <span>Cash on Hand</span>
-            <span className="font-semibold">${cash.toLocaleString()}</span>
+            <span><T>Cash on Hand</T></span>
+            <span className="font-semibold"><Currency currency="USD">{cash}</Currency></span>
           </div>
           <div className="space-y-2">
-            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Income</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground"><T>Income</T></div>
             <div className="flex items-center justify-between">
-              <span>Admissions</span>
-              <span>${entranceRevenue.toLocaleString()}</span>
+              <span><T>Admissions</T></span>
+              <span><Currency currency="USD">{entranceRevenue}</Currency></span>
             </div>
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Entrance Fee</span>
-                <span>${entranceFee}</span>
+                <span><T>Entrance Fee</T></span>
+                <span><Currency currency="USD">{entranceFee}</Currency></span>
               </div>
               <Slider
                 value={[entranceFee]}
@@ -83,50 +85,50 @@ export default function FinancePanel({
               />
             </div>
             <div className="flex items-center justify-between">
-              <span>Ride Tickets</span>
-              <span>${rideRevenue.toLocaleString()}</span>
+              <span><T>Ride Tickets</T></span>
+              <span><Currency currency="USD">{rideRevenue}</Currency></span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Shops & Stalls</span>
-              <span>${shopRevenue.toLocaleString()}</span>
+              <span><T>Shops & Stalls</T></span>
+              <span><Currency currency="USD">{shopRevenue}</Currency></span>
             </div>
             <div className="flex items-center justify-between font-semibold">
-              <span>Total Income</span>
-              <span>${income.toLocaleString()}</span>
+              <span><T>Total Income</T></span>
+              <span><Currency currency="USD">{income}</Currency></span>
             </div>
           </div>
           <div className="space-y-2">
-            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Expenses</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground"><T>Expenses</T></div>
             <div className="flex items-center justify-between">
-              <span>Staff Wages</span>
-              <span>${staffCost.toLocaleString()}</span>
+              <span><T>Staff Wages</T></span>
+              <span><Currency currency="USD">{staffCost}</Currency></span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Maintenance</span>
-              <span>${maintenanceCost.toLocaleString()}</span>
+              <span><T>Maintenance</T></span>
+              <span><Currency currency="USD">{maintenanceCost}</Currency></span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Research</span>
-              <span>${researchCost.toLocaleString()}</span>
+              <span><T>Research</T></span>
+              <span><Currency currency="USD">{researchCost}</Currency></span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Loan Interest</span>
-              <span>${loanInterestCost.toLocaleString()}</span>
+              <span><T>Loan Interest</T></span>
+              <span><Currency currency="USD">{loanInterestCost}</Currency></span>
             </div>
             <div className="flex items-center justify-between font-semibold">
-              <span>Total Expenses</span>
-              <span>${expenses.toLocaleString()}</span>
+              <span><T>Total Expenses</T></span>
+              <span><Currency currency="USD">{expenses}</Currency></span>
             </div>
           </div>
           <div className="flex items-center justify-between">
-            <span>Outstanding Loan</span>
-            <span>${loan.toLocaleString()}</span>
+            <span><T>Outstanding Loan</T></span>
+            <span><Currency currency="USD">{loan}</Currency></span>
           </div>
           <div className="space-y-2">
-            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Loans</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground"><T>Loans</T></div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Loan Amount</span>
-              <span>${loanAmount}</span>
+              <span><T>Loan Amount</T></span>
+              <span><Currency currency="USD">{loanAmount}</Currency></span>
             </div>
             <Slider
               value={[loanAmount]}
@@ -141,7 +143,7 @@ export default function FinancePanel({
                 className="flex-1"
                 onClick={() => onLoanChange(loanAmount, 'take')}
               >
-                Take Loan
+                <T>Take Loan</T>
               </Button>
               <Button
                 size="sm"
@@ -150,7 +152,7 @@ export default function FinancePanel({
                 disabled={loan === 0}
                 onClick={() => onLoanChange(loanAmount, 'repay')}
               >
-                Repay
+                <T>Repay</T>
               </Button>
             </div>
           </div>
