@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Research } from '@/games/coaster/types';
+import { T, Var, useGT } from 'gt-next';
 
 interface ResearchPanelProps {
   research: Research;
@@ -21,27 +22,38 @@ export default function ResearchPanel({
   onFundingChange,
   onStartResearch,
 }: ResearchPanelProps) {
+  const gt = useGT();
   const fundingPercent = Math.round(research.funding * 100);
+
+  const getButtonLabel = (item: Research['items'][0], isActive: boolean) => {
+    if (item.unlocked) return gt('Unlocked');
+    if (isActive) return gt('Active');
+    return gt('Research');
+  };
 
   return (
     <div className="absolute top-20 right-6 z-50 w-80">
       <Card className="bg-card/95 border-border/70 shadow-xl">
         <div className="flex items-start justify-between p-4 border-b border-border/60">
           <div>
-            <div className="text-sm text-muted-foreground uppercase tracking-[0.2em]">Research</div>
-            <div className="text-lg font-semibold">Innovation Lab</div>
+            <T>
+              <div className="text-sm text-muted-foreground uppercase tracking-[0.2em]">Research</div>
+              <div className="text-lg font-semibold">Innovation Lab</div>
+            </T>
           </div>
-          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label="Close research panel">
+          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label={gt('Close research panel')}>
             ✕
           </Button>
         </div>
         <div className="p-4 space-y-4 text-sm">
           <div className="space-y-2">
-            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Funding</div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Budget</span>
-              <span>{fundingPercent}%</span>
-            </div>
+            <T>
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Funding</div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Budget</span>
+                <span><Var>{fundingPercent}</Var>%</span>
+              </div>
+            </T>
             <Slider
               value={[fundingPercent]}
               min={0}
@@ -50,7 +62,9 @@ export default function ResearchPanel({
               onValueChange={(value) => onFundingChange(value[0] / 100)}
             />
           </div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Projects</div>
+          <T>
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Projects</div>
+          </T>
           <ScrollArea className="h-56 rounded-md border border-border/50">
             <div className="p-3 space-y-3">
               {research.items.map((item) => {
@@ -72,12 +86,12 @@ export default function ResearchPanel({
                         disabled={item.unlocked}
                         onClick={() => onStartResearch(item.id)}
                       >
-                        {item.unlocked ? 'Unlocked' : isActive ? 'Active' : 'Research'}
+                        {getButtonLabel(item, isActive)}
                       </Button>
                     </div>
                     <Progress value={percent} className="h-2" />
                     <div className="text-xs text-muted-foreground">
-                      {Math.min(100, percent)}% complete
+                      {gt('{percent}% complete', { percent: Math.min(100, percent) })}
                     </div>
                   </div>
                 );
