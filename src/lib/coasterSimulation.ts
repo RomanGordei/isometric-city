@@ -87,6 +87,7 @@ const QUEUE_PATIENCE_HIGH_PENALTY = 0.5;
 const QUEUE_THOUGHT_TICKS = 10;
 const WEATHER_CHANGE_HOURS = 2;
 const LOAN_INTEREST_HOUR = 6;
+const BASE_ENTRANCE_FEE = 10;
 
 function createGuest(id: number, tileX: number, tileY: number, entranceFee: number): Guest {
   const colors = ['#60a5fa', '#f87171', '#facc15', '#34d399', '#a78bfa'];
@@ -215,6 +216,21 @@ function updateGuestNeeds(guest: Guest): Guest {
     needs: { ...nextNeeds, happiness },
     happiness,
   };
+}
+
+function getGuestSpawnInterval(state: CoasterParkState): number {
+  const ratingFactor = clampFloat(state.stats.rating / 600, 0.5, 1.6);
+  const feeDelta = state.finance.entranceFee - BASE_ENTRANCE_FEE;
+  const feeFactor = clampFloat(1 - feeDelta * 0.05, 0.4, 1.4);
+  const weatherFactor = state.weather.type === 'sunny'
+    ? 1.1
+    : state.weather.type === 'cloudy'
+      ? 1
+      : state.weather.type === 'rainy'
+        ? 0.85
+        : 0.7;
+  const combined = ratingFactor * feeFactor * weatherFactor;
+  return Math.max(3, Math.round(GUEST_SPAWN_INTERVAL / Math.max(0.3, combined)));
 }
 
 function applyWeatherMood(guest: Guest, weather: WeatherState): Guest {
@@ -1093,7 +1109,8 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
     });
   }
 
-  if (state.tick % GUEST_SPAWN_INTERVAL === 0 && nextGuests.length < MAX_GUESTS) {
+  const spawnInterval = getGuestSpawnInterval(state);
+  if (state.tick % spawnInterval === 0 && nextGuests.length < MAX_GUESTS) {
     const entranceTile = state.grid[state.parkEntrance.y]?.[state.parkEntrance.x];
     if (entranceTile?.path) {
       const nextId = state.guests.length > 0 ? Math.max(...state.guests.map((g) => g.id)) + 1 : 1;
