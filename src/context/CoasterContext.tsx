@@ -181,10 +181,19 @@ function saveSavedParks(parks: SavedParkMeta[]): void {
 }
 
 export function CoasterProvider({ children, startFresh = false }: { children: React.ReactNode; startFresh?: boolean }) {
-  const [state, setState] = useState<CoasterParkState>(() =>
-    createInitialCoasterState(DEFAULT_COASTER_GRID_SIZE, 'Coaster Park')
-  );
-  const [hasExistingGame, setHasExistingGame] = useState(false);
+  const [state, setState] = useState<CoasterParkState>(() => {
+    if (!startFresh) {
+      const saved = loadCoasterState();
+      if (saved) {
+        return saved;
+      }
+    }
+    return createInitialCoasterState(DEFAULT_COASTER_GRID_SIZE, 'Coaster Park');
+  });
+  const [hasExistingGame, setHasExistingGame] = useState(() => {
+    if (startFresh) return false;
+    return loadCoasterState() !== null;
+  });
   const [isStateReady, setIsStateReady] = useState(false);
   const [savedParks, setSavedParks] = useState<SavedParkMeta[]>([]);
   const latestStateRef = useRef(state);
@@ -192,21 +201,9 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
   const stateChangedRef = useRef(false);
 
   useEffect(() => {
-    if (!startFresh) {
-      const saved = loadCoasterState();
-      if (saved) {
-        skipNextSaveRef.current = true;
-        setState(saved);
-        setHasExistingGame(true);
-      } else {
-        setHasExistingGame(false);
-      }
-    } else {
-      setHasExistingGame(false);
-    }
     setSavedParks(loadSavedParks());
     setIsStateReady(true);
-  }, [startFresh]);
+  }, []);
 
   useEffect(() => {
     latestStateRef.current = state;
