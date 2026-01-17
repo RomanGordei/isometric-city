@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Staff } from '@/games/coaster/types';
 import { getStaffPatrolColor, STAFF_DEFINITIONS } from '@/lib/coasterStaff';
+import { T, Var, useGT, useMessages } from 'gt-next';
 
 interface StaffPanelProps {
   staff: Staff[];
@@ -38,24 +39,26 @@ export default function StaffPanel({
   onPatrolRadiusChange,
   onFocusStaff,
 }: StaffPanelProps) {
+  const gt = useGT();
+  const m = useMessages();
   const assignmentTarget = assignmentId ? staff.find((member) => member.id === assignmentId) : null;
   const focusTarget = focusId ? staff.find((member) => member.id === focusId) : null;
-  const focusLabel = focusTarget?.patrolArea ? 'patrol area' : 'location';
+  const focusLabel = focusTarget?.patrolArea ? gt('patrol area') : gt('location');
 
   return (
     <div className="absolute top-20 right-6 z-50 w-80">
       <Card className="bg-card/95 border-border/70 shadow-xl">
         <div className="flex items-start justify-between p-4 border-b border-border/60">
           <div>
-            <div className="text-sm text-muted-foreground uppercase tracking-[0.2em]">Staff</div>
-            <div className="text-lg font-semibold">Park Staff</div>
+            <T><div className="text-sm text-muted-foreground uppercase tracking-[0.2em]">Staff</div></T>
+            <T><div className="text-lg font-semibold">Park Staff</div></T>
           </div>
-          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label="Close staff panel">
+          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label={gt('Close staff panel')}>
             ✕
           </Button>
         </div>
         <div className="p-4 space-y-4 text-sm">
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Hire Staff</div>
+          <T><div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Hire Staff</div></T>
           <div className="grid grid-cols-2 gap-2">
             {STAFF_DEFINITIONS.map((definition) => (
               <Button
@@ -66,62 +69,73 @@ export default function StaffPanel({
                 onClick={() => onHire(definition.type)}
               >
                 <div>
-                  <div className="font-semibold">{definition.name}</div>
-                  <div className="text-[10px] text-muted-foreground">${definition.hiringFee} hire</div>
+                  <div className="font-semibold">{m(definition.name)}</div>
+                  <T><div className="text-[10px] text-muted-foreground"><Var>${definition.hiringFee}</Var> hire</div></T>
                 </div>
               </Button>
             ))}
           </div>
           <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            <span>Team</span>
-            <span className="text-[10px] text-muted-foreground">
-              Staff Rooms {staffRoomCount}
-            </span>
+            <T><span>Team</span></T>
+            <T>
+              <span className="text-[10px] text-muted-foreground">
+                Staff Rooms <Var>{staffRoomCount}</Var>
+              </span>
+            </T>
           </div>
           {assignmentTarget && (
             <div className="rounded-md border border-border/60 bg-muted/40 p-2 text-xs space-y-2">
               <div className="flex items-center justify-between">
-                <span>
-                  Click a tile to set patrol area for <span className="font-semibold">{assignmentTarget.name}</span>.
-                </span>
+                <T>
+                  <span>
+                    Click a tile to set patrol area for <span className="font-semibold"><Var>{assignmentTarget.name}</Var></span>.
+                  </span>
+                </T>
                 <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={onCancelPatrol}>
-                  Cancel
+                  <T>Cancel</T>
                 </Button>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                  Patrol Size
-                </span>
+                <T>
+                  <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                    Patrol Size
+                  </span>
+                </T>
                 <div className="flex items-center gap-1">
-                  {[3, 4, 6].map((radius) => (
-                    <Button
-                      key={radius}
-                      size="sm"
-                      variant={patrolRadius === radius ? 'default' : 'outline'}
-                      className="h-6 px-2 text-[10px]"
-                      onClick={() => onPatrolRadiusChange(radius)}
-                    >
-                      {radius * 2 + 1}x{radius * 2 + 1}
-                    </Button>
-                  ))}
+                  {[3, 4, 6].map((radius) => {
+                    const size = radius * 2 + 1;
+                    return (
+                      <Button
+                        key={radius}
+                        size="sm"
+                        variant={patrolRadius === radius ? 'default' : 'outline'}
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => onPatrolRadiusChange(radius)}
+                      >
+                        {gt('{size}x{size}', { size })}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
           )}
           {focusTarget && !assignmentTarget && (
             <div className="rounded-md border border-border/60 bg-muted/40 p-2 text-xs flex items-center justify-between">
-              <span>
-                Highlighting <span className="font-semibold">{focusTarget.name}</span> {focusLabel}.
-              </span>
+              <T>
+                <span>
+                  Highlighting <span className="font-semibold"><Var>{focusTarget.name}</Var></span> <Var>{focusLabel}</Var>.
+                </span>
+              </T>
               <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => onFocusStaff(null)}>
-                Clear
+                <T>Clear</T>
               </Button>
             </div>
           )}
           <ScrollArea className="h-48 rounded-md border border-border/50">
             <div className="p-3 space-y-2">
               {staff.length === 0 && (
-                <div className="text-xs text-muted-foreground">No staff hired yet.</div>
+                <T><div className="text-xs text-muted-foreground">No staff hired yet.</div></T>
               )}
               {staff.map((member) => {
                 const isFocused = focusId === member.id;
@@ -136,12 +150,12 @@ export default function StaffPanel({
                         <span className="font-medium">{member.name}</span>
                       </div>
                       <div className="text-xs text-muted-foreground capitalize">
-                        {member.type} · {member.patrolArea ? 'Patrol area' : 'Park-wide'}
+                        {member.type} · {member.patrolArea ? gt('Patrol area') : gt('Park-wide')}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
-                      <div>${member.wage}/wk</div>
-                      <div>Fatigue {Math.round((member.fatigue / 255) * 100)}%</div>
+                      <T><div><Var>${member.wage}</Var>/wk</div></T>
+                      <T><div>Fatigue <Var>{Math.round((member.fatigue / 255) * 100)}</Var>%</div></T>
                       <div className="flex items-center gap-1">
                         <Button
                           size="sm"
@@ -149,7 +163,7 @@ export default function StaffPanel({
                           className="h-6 px-2 text-[10px]"
                           onClick={() => onFocusStaff(isFocused ? null : member.id)}
                         >
-                          {isFocused ? 'Focused' : 'Focus'}
+                          {isFocused ? gt('Focused') : gt('Focus')}
                         </Button>
                         <Button
                           size="sm"
@@ -157,7 +171,7 @@ export default function StaffPanel({
                           className="h-6 px-2 text-[10px]"
                           onClick={() => onStartPatrol(member.id)}
                         >
-                          {assignmentId === member.id ? 'Click Map' : member.patrolArea ? 'Edit' : 'Assign'}
+                          {assignmentId === member.id ? gt('Click Map') : member.patrolArea ? gt('Edit') : gt('Assign')}
                         </Button>
                         {member.patrolArea && (
                           <Button
@@ -166,7 +180,7 @@ export default function StaffPanel({
                             className="h-6 px-2 text-[10px]"
                             onClick={() => onClearPatrol(member.id)}
                           >
-                            Clear
+                            <T>Clear</T>
                           </Button>
                         )}
                       </div>
