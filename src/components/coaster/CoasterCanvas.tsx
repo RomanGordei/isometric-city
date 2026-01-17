@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useCoaster } from '@/context/CoasterContext';
 import { CardinalDirection, gridToScreen, isInGrid, screenToGrid } from '@/core/types';
 import { TILE_HEIGHT, TILE_WIDTH } from '@/components/game/types';
+import { getStaffPatrolColor, STAFF_TYPE_COLORS } from '@/lib/coasterStaff';
 
 const ZOOM_MIN = 0.45;
 const ZOOM_MAX = 1.6;
@@ -73,13 +74,14 @@ function drawOverlayDiamond(
   y: number,
   width: number,
   height: number,
-  color: string
+  color: string,
+  alpha: number = 0.2
 ) {
   const halfW = width / 2;
   const halfH = height / 2;
 
   ctx.save();
-  ctx.globalAlpha = 0.2;
+  ctx.globalAlpha = alpha;
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.moveTo(x + halfW, y);
@@ -209,13 +211,6 @@ const GUEST_VECTORS: Record<CardinalDirection, { dx: number; dy: number }> = {
   west: { dx: -1, dy: 0 },
 };
 
-const STAFF_COLORS: Record<string, string> = {
-  handyman: '#38bdf8',
-  mechanic: '#f97316',
-  security: '#facc15',
-  entertainer: '#a855f7',
-};
-
 function drawGuest(
   ctx: CanvasRenderingContext2D,
   screenX: number,
@@ -265,6 +260,8 @@ export type CoasterCanvasProps = {
   onViewportChange?: (viewport: { offset: { x: number; y: number }; zoom: number; canvasSize: { width: number; height: number } }) => void;
   onSelectRide?: (rideId: string | null) => void;
   patrolAssignmentId?: number | null;
+  patrolAssignmentRadius?: number;
+  focusedStaffId?: number | null;
   onAssignPatrol?: (position: { x: number; y: number }) => void;
 };
 
@@ -274,6 +271,8 @@ export default function CoasterCanvas({
   onViewportChange,
   onSelectRide,
   patrolAssignmentId,
+  patrolAssignmentRadius,
+  focusedStaffId,
   onAssignPatrol,
 }: CoasterCanvasProps) {
   const { state, placeAtTile } = useCoaster();
@@ -284,6 +283,7 @@ export default function CoasterCanvas({
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
+  const [hoveredTile, setHoveredTile] = useState<{ x: number; y: number } | null>(null);
   const dragRef = useRef({ startX: 0, startY: 0, offsetX: 0, offsetY: 0 });
   const dragMovedRef = useRef(false);
 
@@ -294,7 +294,7 @@ export default function CoasterCanvas({
     const overlay = new Map<string, string>();
     staff.forEach((member) => {
       if (!member.patrolArea) return;
-      const color = STAFF_COLORS[member.type] ?? '#e2e8f0';
+      const color = getStaffPatrolColor(member.id);
       for (let y = member.patrolArea.minY; y <= member.patrolArea.maxY; y++) {
         for (let x = member.patrolArea.minX; x <= member.patrolArea.maxX; x++) {
           overlay.set(`${x},${y}`, color);
@@ -303,6 +303,44 @@ export default function CoasterCanvas({
     });
     return overlay;
   }, [staff]);
+
+  const focusedOverlay = useMemo(() => {
+    if (!focusedStaffId) return null;
+    const member = staff.find((entry) => entry.id === focusedStaffId);
+    if (!member?.patrolArea) return null;
+    const overlay = new Map<string, string>();
+    const color = getStaffPatrolColor(member.id);
+    for (let y = member.patrolArea.minY; y <= member.patrolArea.maxY; y++) {
+      for (let x = member.patrolArea.minX; x <= member.patrolArea.maxX; x++) {
+        overlay.set(`${x},${y}`, color);
+      }
+    }
+    return overlay;
+  }, [focusedStaffId, staff]);
+
+  const previewOverlay = useMemo(() => {
+    if (patrolAssignmentId === undefined || patrolAssignmentId === null) return null;
+    if (!hoveredTile) return null;
+    const radius = patrolAssignmentRadius ?? 4;
+    const minX = Math.max(0, hoveredTile.x - radius);
+    const minY = Math.max(0, hoveredTile.y - radius);
+    const maxX = Math.min(gridSize - 1, hoveredTile.x + radius);
+    const maxY = Math.min(gridSize - 1, hoveredTile.y + radius);
+    const overlay = new Map<string, string>();
+    const color = getStaffPatrolColor(patrolAssignmentId);
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        overlay.set(`${x},${y}`, color);
+      }
+    }
+    return overlay;
+  }, [gridSize, hoveredTile, patrolAssignmentId, patrolAssignmentRadius]);
+
+  useEffect(() => {
+    if (patrolAssignmentId === undefined || patrolAssignmentId === null) {
+      setHoveredTile(null);
+    }
+  }, [patrolAssignmentId]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -363,9 +401,18 @@ export default function CoasterCanvas({
         const screenY = offset.y + iso.y * zoom - heightOffset;
         const colors = TERRAIN_COLORS[tile.terrain] ?? TERRAIN_COLORS.grass;
         drawDiamond(ctx, screenX, screenY, tileWidth, tileHeight, colors);
-        const overlayColor = patrolOverlay.get(`${tile.x},${tile.y}`);
+        const overlayKey = `${tile.x},${tile.y}`;
+        const overlayColor = patrolOverlay.get(overlayKey);
         if (overlayColor) {
-          drawOverlayDiamond(ctx, screenX, screenY, tileWidth, tileHeight, overlayColor);
+          drawOverlayDiamond(ctx, screenX, screenY, tileWidth, tileHeight, overlayColor, focusedStaffId ? 0.12 : 0.2);
+        }
+        const focusedColor = focusedOverlay?.get(overlayKey);
+        if (focusedColor) {
+          drawOverlayDiamond(ctx, screenX, screenY, tileWidth, tileHeight, focusedColor, 0.35);
+        }
+        const previewColor = previewOverlay?.get(overlayKey);
+        if (previewColor) {
+          drawOverlayDiamond(ctx, screenX, screenY, tileWidth, tileHeight, previewColor, 0.35);
         }
         if (tile.path) {
           const pathColor = tile.path.style === 'queue' ? '#f4b400' : '#8b9099';
@@ -414,7 +461,15 @@ export default function CoasterCanvas({
       const baseY = offset.y + iso.y * zoom;
       const centerX = baseX + tileWidth / 2;
       const centerY = baseY + tileHeight / 2 - tileHeight * 0.1;
-      drawStaff(ctx, centerX, centerY, tileWidth * 0.09, STAFF_COLORS[member.type] ?? '#e2e8f0');
+      const staffSize = tileWidth * 0.09;
+      drawStaff(ctx, centerX, centerY, staffSize, STAFF_TYPE_COLORS[member.type] ?? '#e2e8f0');
+      if (focusedStaffId && member.id === focusedStaffId) {
+        ctx.save();
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(centerX - staffSize * 0.6, centerY - staffSize * 0.6, staffSize * 1.2, staffSize * 1.2);
+        ctx.restore();
+      }
     });
     coasterTrains.forEach((train) => {
       const vector = GUEST_VECTORS[train.direction];
@@ -427,7 +482,7 @@ export default function CoasterCanvas({
       const centerY = baseY + tileHeight / 2 - tileHeight * 0.2;
       drawTrain(ctx, centerX, centerY, tileWidth * 0.1);
     });
-  }, [canvasSize, grid, gridSize, offset, patrolOverlay, rideColors, guests, staff, coasterTrains, tileHeight, tileWidth, zoom]);
+  }, [canvasSize, grid, gridSize, offset, patrolOverlay, focusedOverlay, previewOverlay, focusedStaffId, rideColors, guests, staff, coasterTrains, tileHeight, tileWidth, zoom]);
 
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDragging(true);
@@ -440,18 +495,41 @@ export default function CoasterCanvas({
     };
   }, [offset]);
 
-  const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDragging) return;
-    const dx = event.clientX - dragRef.current.startX;
-    const dy = event.clientY - dragRef.current.startY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-      dragMovedRef.current = true;
+  const updateHoverTile = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const screenX = (event.clientX - rect.left - offset.x) / zoom;
+    const screenY = (event.clientY - rect.top - offset.y) / zoom;
+    const gridPos = screenToGrid(screenX, screenY, TILE_WIDTH, TILE_HEIGHT);
+    if (isInGrid(gridPos, gridSize)) {
+      setHoveredTile(gridPos);
+    } else {
+      setHoveredTile(null);
     }
-    setOffset({
-      x: dragRef.current.offsetX + dx,
-      y: dragRef.current.offsetY + dy,
-    });
-  }, [isDragging]);
+  }, [gridSize, offset.x, offset.y, zoom]);
+
+  const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isDragging) {
+      const dx = event.clientX - dragRef.current.startX;
+      const dy = event.clientY - dragRef.current.startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        dragMovedRef.current = true;
+      }
+      setOffset({
+        x: dragRef.current.offsetX + dx,
+        y: dragRef.current.offsetY + dy,
+      });
+      return;
+    }
+    if (patrolAssignmentId !== undefined && patrolAssignmentId !== null) {
+      updateHoverTile(event);
+      return;
+    }
+    if (hoveredTile) {
+      setHoveredTile(null);
+    }
+  }, [hoveredTile, isDragging, patrolAssignmentId, updateHoverTile]);
 
   const handleMouseUp = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDragging(false);
@@ -491,7 +569,10 @@ export default function CoasterCanvas({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={() => setIsDragging(false)}
+        onMouseLeave={() => {
+          setIsDragging(false);
+          setHoveredTile(null);
+        }}
         onWheel={handleWheel}
       />
     </div>

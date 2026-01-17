@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useCoaster } from '@/context/CoasterContext';
 import { Card } from '@/components/ui/card';
 import { TILE_HEIGHT, TILE_WIDTH } from '@/components/game/types';
+import { getStaffPatrolColor, STAFF_TYPE_COLORS } from '@/lib/coasterStaff';
 
 const MINIMAP_SIZE = 140;
 
@@ -14,9 +15,10 @@ interface CoasterMiniMapProps {
     zoom: number;
     canvasSize: { width: number; height: number };
   } | null;
+  focusedStaffId?: number | null;
 }
 
-export default function CoasterMiniMap({ onNavigate, viewport }: CoasterMiniMapProps) {
+export default function CoasterMiniMap({ onNavigate, viewport, focusedStaffId }: CoasterMiniMapProps) {
   const { state } = useCoaster();
   const { grid, gridSize, parkEntrance, staff } = state;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -28,13 +30,6 @@ export default function CoasterMiniMap({ onNavigate, viewport }: CoasterMiniMapP
     sand: '#c8b27a',
     rock: '#6b7280',
     water: '#0ea5e9',
-  }), []);
-
-  const staffColors = useMemo(() => ({
-    handyman: '#38bdf8',
-    mechanic: '#f97316',
-    security: '#facc15',
-    entertainer: '#a855f7',
   }), []);
 
   useEffect(() => {
@@ -79,10 +74,11 @@ export default function CoasterMiniMap({ onNavigate, viewport }: CoasterMiniMapP
     staff.forEach((member) => {
       if (!member.patrolArea) return;
       const { minX, minY, maxX, maxY } = member.patrolArea;
+      const isFocused = focusedStaffId ? member.id === focusedStaffId : false;
       ctx.save();
-      ctx.strokeStyle = staffColors[member.type] ?? '#e2e8f0';
-      ctx.globalAlpha = 0.6;
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = getStaffPatrolColor(member.id);
+      ctx.globalAlpha = focusedStaffId ? (isFocused ? 0.9 : 0.25) : 0.6;
+      ctx.lineWidth = isFocused ? 2 : 1;
       ctx.strokeRect(
         minX * scale,
         minY * scale,
@@ -94,8 +90,15 @@ export default function CoasterMiniMap({ onNavigate, viewport }: CoasterMiniMapP
 
     staff.forEach((member) => {
       const size = Math.max(2, Math.floor(scale));
-      ctx.fillStyle = staffColors[member.type] ?? '#e2e8f0';
+      ctx.fillStyle = STAFF_TYPE_COLORS[member.type] ?? '#e2e8f0';
       ctx.fillRect(member.tileX * scale, member.tileY * scale, size, size);
+      if (focusedStaffId && member.id === focusedStaffId) {
+        ctx.save();
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(member.tileX * scale - 1, member.tileY * scale - 1, size + 2, size + 2);
+        ctx.restore();
+      }
     });
 
     if (viewport) {
@@ -123,7 +126,7 @@ export default function CoasterMiniMap({ onNavigate, viewport }: CoasterMiniMapP
       ctx.closePath();
       ctx.stroke();
     }
-  }, [grid, gridSize, viewport, colorMap, parkEntrance, staff, staffColors]);
+  }, [grid, gridSize, viewport, colorMap, parkEntrance, staff, focusedStaffId]);
 
   const navigateToPosition = useCallback((event: React.MouseEvent<HTMLCanvasElement> | MouseEvent) => {
     if (!onNavigate) return;

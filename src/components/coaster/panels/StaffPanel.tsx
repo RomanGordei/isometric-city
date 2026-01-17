@@ -5,19 +5,21 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Staff } from '@/games/coaster/types';
-import { STAFF_DEFINITIONS } from '@/lib/coasterStaff';
+import { getStaffPatrolColor, STAFF_DEFINITIONS } from '@/lib/coasterStaff';
 
 interface StaffPanelProps {
   staff: Staff[];
   cash: number;
   assignmentId: number | null;
   patrolRadius: number;
+  focusId: number | null;
   onClose: () => void;
   onHire: (type: 'handyman' | 'mechanic' | 'security' | 'entertainer') => void;
   onStartPatrol: (staffId: number) => void;
   onClearPatrol: (staffId: number) => void;
   onCancelPatrol: () => void;
   onPatrolRadiusChange: (radius: number) => void;
+  onFocusStaff: (staffId: number | null) => void;
 }
 
 export default function StaffPanel({
@@ -25,14 +27,18 @@ export default function StaffPanel({
   cash,
   assignmentId,
   patrolRadius,
+  focusId,
   onClose,
   onHire,
   onStartPatrol,
   onClearPatrol,
   onCancelPatrol,
   onPatrolRadiusChange,
+  onFocusStaff,
 }: StaffPanelProps) {
   const assignmentTarget = assignmentId ? staff.find((member) => member.id === assignmentId) : null;
+  const focusTarget = focusId ? staff.find((member) => member.id === focusId) : null;
+  const focusLabel = focusTarget?.patrolArea ? 'patrol area' : 'location';
 
   return (
     <div className="absolute top-20 right-6 z-50 w-80">
@@ -95,44 +101,71 @@ export default function StaffPanel({
               </div>
             </div>
           )}
+          {focusTarget && !assignmentTarget && (
+            <div className="rounded-md border border-border/60 bg-muted/40 p-2 text-xs flex items-center justify-between">
+              <span>
+                Highlighting <span className="font-semibold">{focusTarget.name}</span> {focusLabel}.
+              </span>
+              <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => onFocusStaff(null)}>
+                Clear
+              </Button>
+            </div>
+          )}
           <ScrollArea className="h-48 rounded-md border border-border/50">
             <div className="p-3 space-y-2">
               {staff.length === 0 && (
                 <div className="text-xs text-muted-foreground">No staff hired yet.</div>
               )}
-              {staff.map((member) => (
-                <div key={member.id} className="flex items-start justify-between gap-2 text-sm">
-                  <div>
-                    <div className="font-medium">{member.name}</div>
-                    <div className="text-xs text-muted-foreground capitalize">
-                      {member.type} · {member.patrolArea ? 'Patrol area' : 'Park-wide'}
+              {staff.map((member) => {
+                const isFocused = focusId === member.id;
+                return (
+                  <div key={member.id} className="flex items-start justify-between gap-2 text-sm">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: getStaffPatrolColor(member.id) }}
+                        />
+                        <span className="font-medium">{member.name}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground capitalize">
+                        {member.type} · {member.patrolArea ? 'Patrol area' : 'Park-wide'}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
-                    <div>${member.wage}/wk</div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant={assignmentId === member.id ? 'default' : 'outline'}
-                        className="h-6 px-2 text-[10px]"
-                        onClick={() => onStartPatrol(member.id)}
-                      >
-                        {assignmentId === member.id ? 'Click Map' : 'Assign'}
-                      </Button>
-                      {member.patrolArea && (
+                    <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
+                      <div>${member.wage}/wk</div>
+                      <div className="flex items-center gap-1">
                         <Button
                           size="sm"
-                          variant="ghost"
+                          variant={isFocused ? 'default' : 'outline'}
                           className="h-6 px-2 text-[10px]"
-                          onClick={() => onClearPatrol(member.id)}
+                          onClick={() => onFocusStaff(isFocused ? null : member.id)}
                         >
-                          Clear
+                          {isFocused ? 'Focused' : 'Focus'}
                         </Button>
-                      )}
+                        <Button
+                          size="sm"
+                          variant={assignmentId === member.id ? 'default' : 'outline'}
+                          className="h-6 px-2 text-[10px]"
+                          onClick={() => onStartPatrol(member.id)}
+                        >
+                          {assignmentId === member.id ? 'Click Map' : member.patrolArea ? 'Edit' : 'Assign'}
+                        </Button>
+                        {member.patrolArea && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-[10px]"
+                            onClick={() => onClearPatrol(member.id)}
+                          >
+                            Clear
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
         </div>

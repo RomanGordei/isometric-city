@@ -39,6 +39,7 @@ export default function CoasterGame() {
   const [viewport, setViewport] = useState<{ offset: { x: number; y: number }; zoom: number; canvasSize: { width: number; height: number } } | null>(null);
   const [selectedRideId, setSelectedRideId] = useState<string | null>(null);
   const [staffAssignmentId, setStaffAssignmentId] = useState<number | null>(null);
+  const [focusedStaffId, setFocusedStaffId] = useState<number | null>(null);
   const [patrolRadius, setPatrolRadius] = useState(4);
 
   const selectedRide = useMemo(
@@ -74,15 +75,28 @@ export default function CoasterGame() {
     }
   }, [selectedRideId, selectedRide]);
 
+  useEffect(() => {
+    if (state.activePanel !== 'staff') {
+      if (staffAssignmentId !== null) {
+        setStaffAssignmentId(null);
+      }
+      if (focusedStaffId !== null) {
+        setFocusedStaffId(null);
+      }
+    }
+  }, [focusedStaffId, staffAssignmentId, state.activePanel]);
+
   const handleAssignPatrol = useCallback((position: { x: number; y: number }) => {
     if (staffAssignmentId === null) return;
     setStaffPatrolArea(staffAssignmentId, position, patrolRadius);
     setStaffAssignmentId(null);
+    setFocusedStaffId(staffAssignmentId);
   }, [patrolRadius, setStaffPatrolArea, staffAssignmentId]);
 
   const handleClosePanel = useCallback(() => {
     setActivePanel('none');
     setStaffAssignmentId(null);
+    setFocusedStaffId(null);
   }, [setActivePanel]);
 
   return (
@@ -129,9 +143,15 @@ export default function CoasterGame() {
             onViewportChange={setViewport}
             onSelectRide={setSelectedRideId}
             patrolAssignmentId={staffAssignmentId}
+            patrolAssignmentRadius={patrolRadius}
+            focusedStaffId={focusedStaffId}
             onAssignPatrol={handleAssignPatrol}
           />
-          <CoasterMiniMap onNavigate={(x, y) => setNavigationTarget({ x, y })} viewport={viewport} />
+          <CoasterMiniMap
+            onNavigate={(x, y) => setNavigationTarget({ x, y })}
+            viewport={viewport}
+            focusedStaffId={focusedStaffId}
+          />
           {selectedRide && (
             <RidePanel
               ride={selectedRide}
@@ -212,15 +232,20 @@ export default function CoasterGame() {
               cash={state.finance.cash}
               assignmentId={staffAssignmentId}
               patrolRadius={patrolRadius}
+              focusId={focusedStaffId}
               onClose={handleClosePanel}
               onHire={hireStaff}
-              onStartPatrol={(staffId) => setStaffAssignmentId(staffId)}
+              onStartPatrol={(staffId) => {
+                setStaffAssignmentId(staffId);
+                setFocusedStaffId(staffId);
+              }}
               onClearPatrol={(staffId) => {
                 clearStaffPatrolArea(staffId);
                 setStaffAssignmentId((current) => (current === staffId ? null : current));
               }}
               onCancelPatrol={() => setStaffAssignmentId(null)}
               onPatrolRadiusChange={setPatrolRadius}
+              onFocusStaff={setFocusedStaffId}
             />
           )}
         </div>
