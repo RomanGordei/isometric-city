@@ -109,181 +109,6 @@ export function CoasterCanvas({
     onNavigationComplete?.();
   }, [navigationTarget, zoom, canvasSize, onNavigationComplete]);
 
-  // Main render loop
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas size
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvasSize.width * dpr;
-    canvas.height = canvasSize.height * dpr;
-    canvas.style.width = `${canvasSize.width}px`;
-    canvas.style.height = `${canvasSize.height}px`;
-    ctx.scale(dpr, dpr);
-
-    // Clear canvas
-    ctx.fillStyle = '#1a472a'; // Dark green background
-    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
-
-    const { grid, gridSize, guests } = latestStateRef.current;
-
-    // Calculate visible bounds
-    const topLeft = screenToGrid(0, 0, offset.x, offset.y, zoom);
-    const bottomRight = screenToGrid(canvasSize.width, canvasSize.height, offset.x, offset.y, zoom);
-    
-    const minX = Math.max(0, topLeft.x - 2);
-    const maxX = Math.min(gridSize - 1, bottomRight.x + 2);
-    const minY = Math.max(0, topLeft.y - 2);
-    const maxY = Math.min(gridSize - 1, bottomRight.y + 2);
-
-    // Draw tiles in isometric order (back to front)
-    for (let sum = minX + minY; sum <= maxX + maxY; sum++) {
-      for (let x = Math.max(minX, sum - maxY); x <= Math.min(maxX, sum - minY); x++) {
-        const y = sum - x;
-        if (y < 0 || y >= gridSize || x < 0 || x >= gridSize) continue;
-
-        const tile = grid[y]?.[x];
-        if (!tile) continue;
-
-        const screen = gridToScreen(x, y, offset.x, offset.y, zoom);
-        drawTile(ctx, tile, screen.x, screen.y, zoom, hoveredTile?.x === x && hoveredTile?.y === y, selectedTile?.x === x && selectedTile?.y === y, x, y, grid, gridSize);
-      }
-    }
-
-    // Draw ride tracks
-    const { rides } = latestStateRef.current;
-    for (const ride of rides) {
-      if (ride.track && ride.track.length > 0) {
-        drawRideTrack(ctx, ride, offset.x, offset.y, zoom);
-      }
-    }
-
-    // Draw guests
-    for (const guest of guests) {
-      const screen = gridToScreen(guest.x, guest.y, offset.x, offset.y, zoom);
-      drawGuest(ctx, guest, screen.x, screen.y, zoom);
-    }
-  }, [state, offset, zoom, canvasSize, hoveredTile, selectedTile, latestStateRef]);
-
-  // Draw a single tile
-  function drawTile(
-    ctx: CanvasRenderingContext2D, 
-    tile: ParkTile, 
-    screenX: number, 
-    screenY: number, 
-    zoom: number,
-    isHovered: boolean,
-    isSelected: boolean,
-    gridX: number,
-    gridY: number,
-    grid: ParkTile[][],
-    gridSize: number
-  ) {
-    const w = TILE_WIDTH * zoom;
-    const h = TILE_HEIGHT * zoom;
-    const halfW = w / 2;
-    const halfH = h / 2;
-
-    // Height offset
-    const heightOffset = tile.height * 4 * zoom;
-
-    ctx.save();
-    ctx.translate(screenX, screenY - heightOffset);
-
-    // Draw height sides first if elevated
-    if (tile.height > 0) {
-      const sideHeight = tile.height * 4 * zoom;
-      
-      // Left side (darker)
-      ctx.beginPath();
-      ctx.moveTo(-halfW, 0);
-      ctx.lineTo(0, halfH);
-      ctx.lineTo(0, halfH + sideHeight);
-      ctx.lineTo(-halfW, sideHeight);
-      ctx.closePath();
-      ctx.fillStyle = tile.owned ? '#2d5a3d' : '#1a3a2a';
-      ctx.fill();
-      
-      // Right side (slightly lighter)
-      ctx.beginPath();
-      ctx.moveTo(halfW, 0);
-      ctx.lineTo(0, halfH);
-      ctx.lineTo(0, halfH + sideHeight);
-      ctx.lineTo(halfW, sideHeight);
-      ctx.closePath();
-      ctx.fillStyle = tile.owned ? '#3d6a4d' : '#2a4a3a';
-      ctx.fill();
-    }
-
-    // Draw base terrain tile
-    ctx.beginPath();
-    ctx.moveTo(0, -halfH);
-    ctx.lineTo(halfW, 0);
-    ctx.lineTo(0, halfH);
-    ctx.lineTo(-halfW, 0);
-    ctx.closePath();
-
-    // Terrain color
-    if (!tile.owned) {
-      ctx.fillStyle = tile.forSale ? '#2a4a3a' : '#1a3a2a';
-    } else if (tile.terrain === 'water') {
-      ctx.fillStyle = '#0ea5e9';
-    } else if (tile.terrain === 'sand') {
-      ctx.fillStyle = '#d4a574';
-    } else if (tile.terrain === 'dirt') {
-      ctx.fillStyle = '#8b6914';
-    } else {
-      ctx.fillStyle = '#4ade80'; // grass
-    }
-    ctx.fill();
-
-    // Terrain border
-    ctx.strokeStyle = tile.owned ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.3)';
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
-
-    // Draw grass texture for owned tiles
-    if (tile.owned && !tile.path && !tile.building && zoom > 0.5) {
-      drawGrassTexture(ctx, halfW, halfH, zoom);
-    }
-
-    ctx.restore();
-
-    // Draw path on top of terrain
-    if (tile.path) {
-      const connections = getPathConnections(grid, gridSize, gridX, gridY);
-      drawPath(ctx, screenX, screenY - heightOffset, tile, connections, zoom, isHovered, isSelected);
-    }
-
-    // Draw buildings
-    if (tile.building) {
-      ctx.save();
-      ctx.translate(screenX, screenY - heightOffset);
-      drawBuilding(ctx, tile, halfW, halfH, zoom);
-      ctx.restore();
-    }
-
-    // Hover/selection highlight (for non-path tiles)
-    if ((isHovered || isSelected) && !tile.path) {
-      ctx.save();
-      ctx.translate(screenX, screenY - heightOffset);
-      ctx.beginPath();
-      ctx.moveTo(0, -halfH);
-      ctx.lineTo(halfW, 0);
-      ctx.lineTo(0, halfH);
-      ctx.lineTo(-halfW, 0);
-      ctx.closePath();
-      ctx.strokeStyle = !tile.owned ? 'rgba(239, 68, 68, 0.8)' : (isSelected ? '#ffffff' : 'rgba(255,255,255,0.5)');
-      ctx.lineWidth = isSelected ? 2 : 1;
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-
   // Draw grass texture
   function drawGrassTexture(ctx: CanvasRenderingContext2D, halfW: number, halfH: number, zoom: number) {
     ctx.fillStyle = 'rgba(34, 197, 94, 0.3)';
@@ -292,37 +117,6 @@ export function CoasterCanvas({
       const x = (Math.random() - 0.5) * halfW * 1.2;
       const y = (Math.random() - 0.5) * halfH * 0.8;
       ctx.fillRect(x, y, 1, 2 * zoom);
-    }
-  }
-
-  // Draw building sprite
-  function drawBuilding(ctx: CanvasRenderingContext2D, tile: ParkTile, halfW: number, halfH: number, zoom: number) {
-    if (!tile.building) return;
-
-    const buildingType = tile.building.type;
-
-    // Park entrance
-    if (buildingType === 'park_entrance') {
-      drawParkEntrance(ctx, halfW, halfH, zoom);
-      return;
-    }
-
-    // Check if it's a ride
-    if (RIDE_DEFINITIONS[buildingType as keyof typeof RIDE_DEFINITIONS]) {
-      drawRide(ctx, buildingType, halfW, halfH, zoom);
-      return;
-    }
-
-    // Check if it's a shop
-    if (SHOP_DEFINITIONS[buildingType as keyof typeof SHOP_DEFINITIONS]) {
-      drawShop(ctx, buildingType, halfW, halfH, zoom);
-      return;
-    }
-
-    // Check if it's scenery
-    if (SCENERY_DEFINITIONS[buildingType as keyof typeof SCENERY_DEFINITIONS]) {
-      drawScenery(ctx, buildingType, halfW, halfH, zoom);
-      return;
     }
   }
 
@@ -442,7 +236,7 @@ export function CoasterCanvas({
     ctx.fill();
 
     // Stall structure
-    ctx.fillStyle = def?.category === 'food' ? '#f97316' : 
+    ctx.fillStyle = def?.category === 'food' ? '#f97316' :
                     def?.category === 'drink' ? '#3b82f6' :
                     def?.category === 'merchandise' ? '#a855f7' : '#6b7280';
     ctx.fillRect(-halfW * 0.4, -h, halfW * 0.8, h);
@@ -511,6 +305,152 @@ export function CoasterCanvas({
     }
   }
 
+  // Draw building sprite
+  function drawBuilding(ctx: CanvasRenderingContext2D, tile: ParkTile, halfW: number, halfH: number, zoom: number) {
+    if (!tile.building) return;
+
+    const buildingType = tile.building.type;
+
+    // Park entrance
+    if (buildingType === 'park_entrance') {
+      drawParkEntrance(ctx, halfW, halfH, zoom);
+      return;
+    }
+
+    // Check if it's a ride
+    if (RIDE_DEFINITIONS[buildingType as keyof typeof RIDE_DEFINITIONS]) {
+      drawRide(ctx, buildingType, halfW, halfH, zoom);
+      return;
+    }
+
+    // Check if it's a shop
+    if (SHOP_DEFINITIONS[buildingType as keyof typeof SHOP_DEFINITIONS]) {
+      drawShop(ctx, buildingType, halfW, halfH, zoom);
+      return;
+    }
+
+    // Check if it's scenery
+    if (SCENERY_DEFINITIONS[buildingType as keyof typeof SCENERY_DEFINITIONS]) {
+      drawScenery(ctx, buildingType, halfW, halfH, zoom);
+      return;
+    }
+  }
+
+  // Draw a single tile
+  function drawTile(
+    ctx: CanvasRenderingContext2D,
+    tile: ParkTile,
+    screenX: number,
+    screenY: number,
+    zoom: number,
+    isHovered: boolean,
+    isSelected: boolean,
+    gridX: number,
+    gridY: number,
+    grid: ParkTile[][],
+    gridSize: number
+  ) {
+    const w = TILE_WIDTH * zoom;
+    const h = TILE_HEIGHT * zoom;
+    const halfW = w / 2;
+    const halfH = h / 2;
+
+    // Height offset
+    const heightOffset = tile.height * 4 * zoom;
+
+    ctx.save();
+    ctx.translate(screenX, screenY - heightOffset);
+
+    // Draw height sides first if elevated
+    if (tile.height > 0) {
+      const sideHeight = tile.height * 4 * zoom;
+
+      // Left side (darker)
+      ctx.beginPath();
+      ctx.moveTo(-halfW, 0);
+      ctx.lineTo(0, halfH);
+      ctx.lineTo(0, halfH + sideHeight);
+      ctx.lineTo(-halfW, sideHeight);
+      ctx.closePath();
+      ctx.fillStyle = tile.owned ? '#2d5a3d' : '#1a3a2a';
+      ctx.fill();
+
+      // Right side (slightly lighter)
+      ctx.beginPath();
+      ctx.moveTo(halfW, 0);
+      ctx.lineTo(0, halfH);
+      ctx.lineTo(0, halfH + sideHeight);
+      ctx.lineTo(halfW, sideHeight);
+      ctx.closePath();
+      ctx.fillStyle = tile.owned ? '#3d6a4d' : '#2a4a3a';
+      ctx.fill();
+    }
+
+    // Draw base terrain tile
+    ctx.beginPath();
+    ctx.moveTo(0, -halfH);
+    ctx.lineTo(halfW, 0);
+    ctx.lineTo(0, halfH);
+    ctx.lineTo(-halfW, 0);
+    ctx.closePath();
+
+    // Terrain color
+    if (!tile.owned) {
+      ctx.fillStyle = tile.forSale ? '#2a4a3a' : '#1a3a2a';
+    } else if (tile.terrain === 'water') {
+      ctx.fillStyle = '#0ea5e9';
+    } else if (tile.terrain === 'sand') {
+      ctx.fillStyle = '#d4a574';
+    } else if (tile.terrain === 'dirt') {
+      ctx.fillStyle = '#8b6914';
+    } else {
+      ctx.fillStyle = '#4ade80'; // grass
+    }
+    ctx.fill();
+
+    // Terrain border
+    ctx.strokeStyle = tile.owned ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // Draw grass texture for owned tiles
+    if (tile.owned && !tile.path && !tile.building && zoom > 0.5) {
+      drawGrassTexture(ctx, halfW, halfH, zoom);
+    }
+
+    ctx.restore();
+
+    // Draw path on top of terrain
+    if (tile.path) {
+      const connections = getPathConnections(grid, gridSize, gridX, gridY);
+      drawPath(ctx, screenX, screenY - heightOffset, tile, connections, zoom, isHovered, isSelected);
+    }
+
+    // Draw buildings
+    if (tile.building) {
+      ctx.save();
+      ctx.translate(screenX, screenY - heightOffset);
+      drawBuilding(ctx, tile, halfW, halfH, zoom);
+      ctx.restore();
+    }
+
+    // Hover/selection highlight (for non-path tiles)
+    if ((isHovered || isSelected) && !tile.path) {
+      ctx.save();
+      ctx.translate(screenX, screenY - heightOffset);
+      ctx.beginPath();
+      ctx.moveTo(0, -halfH);
+      ctx.lineTo(halfW, 0);
+      ctx.lineTo(0, halfH);
+      ctx.lineTo(-halfW, 0);
+      ctx.closePath();
+      ctx.strokeStyle = !tile.owned ? 'rgba(239, 68, 68, 0.8)' : (isSelected ? '#ffffff' : 'rgba(255,255,255,0.5)');
+      ctx.lineWidth = isSelected ? 2 : 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   // Draw a guest
   function drawGuest(
     ctx: CanvasRenderingContext2D,
@@ -520,10 +460,10 @@ export function CoasterCanvas({
     zoom: number
   ) {
     const size = 6 * zoom;
-    
+
     ctx.save();
     ctx.translate(screenX, screenY - size);
-    
+
     // Simple circle for guest
     ctx.beginPath();
     ctx.arc(0, 0, size, 0, Math.PI * 2);
@@ -532,9 +472,69 @@ export function CoasterCanvas({
     ctx.strokeStyle = 'rgba(0,0,0,0.3)';
     ctx.lineWidth = 1;
     ctx.stroke();
-    
+
     ctx.restore();
   }
+
+  // Main render loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvasSize.width * dpr;
+    canvas.height = canvasSize.height * dpr;
+    canvas.style.width = `${canvasSize.width}px`;
+    canvas.style.height = `${canvasSize.height}px`;
+    ctx.scale(dpr, dpr);
+
+    // Clear canvas
+    ctx.fillStyle = '#1a472a'; // Dark green background
+    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+
+    const { grid, gridSize, guests } = latestStateRef.current;
+
+    // Calculate visible bounds
+    const topLeft = screenToGrid(0, 0, offset.x, offset.y, zoom);
+    const bottomRight = screenToGrid(canvasSize.width, canvasSize.height, offset.x, offset.y, zoom);
+
+    const minX = Math.max(0, topLeft.x - 2);
+    const maxX = Math.min(gridSize - 1, bottomRight.x + 2);
+    const minY = Math.max(0, topLeft.y - 2);
+    const maxY = Math.min(gridSize - 1, bottomRight.y + 2);
+
+    // Draw tiles in isometric order (back to front)
+    for (let sum = minX + minY; sum <= maxX + maxY; sum++) {
+      for (let x = Math.max(minX, sum - maxY); x <= Math.min(maxX, sum - minY); x++) {
+        const y = sum - x;
+        if (y < 0 || y >= gridSize || x < 0 || x >= gridSize) continue;
+
+        const tile = grid[y]?.[x];
+        if (!tile) continue;
+
+        const screen = gridToScreen(x, y, offset.x, offset.y, zoom);
+        drawTile(ctx, tile, screen.x, screen.y, zoom, hoveredTile?.x === x && hoveredTile?.y === y, selectedTile?.x === x && selectedTile?.y === y, x, y, grid, gridSize);
+      }
+    }
+
+    // Draw ride tracks
+    const { rides } = latestStateRef.current;
+    for (const ride of rides) {
+      if (ride.track && ride.track.length > 0) {
+        drawRideTrack(ctx, ride, offset.x, offset.y, zoom);
+      }
+    }
+
+    // Draw guests
+    for (const guest of guests) {
+      const screen = gridToScreen(guest.x, guest.y, offset.x, offset.y, zoom);
+      drawGuest(ctx, guest, screen.x, screen.y, zoom);
+    }
+  }, [state, offset, zoom, canvasSize, hoveredTile, selectedTile, latestStateRef]);
 
   // Mouse handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
