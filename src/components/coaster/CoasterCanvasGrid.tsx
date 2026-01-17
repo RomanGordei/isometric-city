@@ -1,4 +1,3 @@
-/* eslint-disable no-param-reassign */
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -493,15 +492,18 @@ export function CoasterCanvasGrid({
     });
   }, [canvasSize, offset, onViewportChange, zoom]);
 
-  useEffect(() => {
-    if (!navigationTarget) return;
+  const prevNavigationTargetRef = useRef<{ x: number; y: number } | null | undefined>(null);
+  if (navigationTarget && navigationTarget !== prevNavigationTargetRef.current) {
+    prevNavigationTargetRef.current = navigationTarget;
     const { screenX, screenY } = gridToScreen(navigationTarget.x, navigationTarget.y, 0, 0);
     setOffset({
       x: canvasSize.width / 2 - screenX,
       y: canvasSize.height / 2 - screenY,
     });
     onNavigationComplete?.();
-  }, [canvasSize.height, canvasSize.width, navigationTarget, onNavigationComplete]);
+  } else if (!navigationTarget) {
+    prevNavigationTargetRef.current = null;
+  }
 
   const handleMouseMove = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
