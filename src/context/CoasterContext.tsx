@@ -106,6 +106,8 @@ const createInitialState = (): CoasterGameState => {
     lastGuestId: 0,
     lastStaffId: 0,
     guestSpawnTimer: 0,
+    clouds: [],
+    cloudSpawnTimer: 0,
   };
 };
 
@@ -128,6 +130,8 @@ const loadGameState = (): CoasterGameState | null => {
       ...parsed,
       parkEntrance: parsed.parkEntrance ?? { x: Math.floor(parsed.gridSize / 2), y: parsed.gridSize - 4 },
       guestSpawnTimer: parsed.guestSpawnTimer ?? 0,
+      clouds: parsed.clouds ?? [],
+      cloudSpawnTimer: parsed.cloudSpawnTimer ?? 0,
     };
   } catch {
     return null;

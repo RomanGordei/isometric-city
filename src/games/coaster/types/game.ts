@@ -79,6 +79,16 @@ export interface CoasterFinance {
   loanInterestRate: number;
 }
 
+export interface CoasterCloud {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  opacity: number;
+}
+
 export interface CoasterGameState {
   id: string;
   parkName: string;
@@ -105,4 +115,6 @@ export interface CoasterGameState {
   lastGuestId: number;
   lastStaffId: number;
   guestSpawnTimer: number;
+  clouds: CoasterCloud[];
+  cloudSpawnTimer: number;
 }

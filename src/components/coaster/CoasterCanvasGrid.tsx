@@ -98,7 +98,7 @@ export function CoasterCanvasGrid({
   onViewportChange,
 }: CoasterCanvasGridProps) {
   const { state, placeAtTile } = useCoaster();
-  const { grid, gridSize, selectedTool, coasterTrains, guests, staff, parkEntrance } = state;
+  const { grid, gridSize, selectedTool, coasterTrains, guests, staff, parkEntrance, clouds } = state;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 });
@@ -292,6 +292,26 @@ export function CoasterCanvasGrid({
     [offset.x, offset.y, staff]
   );
 
+  const drawClouds = useCallback(
+    (ctx: CanvasRenderingContext2D) => {
+      ctx.save();
+      clouds.forEach((cloud) => {
+        const { screenX, screenY } = gridToScreen(cloud.x, cloud.y, offset.x, offset.y);
+        const centerX = screenX + TILE_WIDTH / 2;
+        const centerY = screenY + TILE_HEIGHT / 2;
+        ctx.globalAlpha = cloud.opacity;
+        ctx.fillStyle = '#e2e8f0';
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY - TILE_HEIGHT * 2, 18 * cloud.size, 10 * cloud.size, 0, 0, Math.PI * 2);
+        ctx.ellipse(centerX + 12 * cloud.size, centerY - TILE_HEIGHT * 2.2, 14 * cloud.size, 8 * cloud.size, 0, 0, Math.PI * 2);
+        ctx.ellipse(centerX - 12 * cloud.size, centerY - TILE_HEIGHT * 2.1, 12 * cloud.size, 7 * cloud.size, 0, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    },
+    [clouds, offset.x, offset.y]
+  );
+
   const drawRides = useCallback(
     (ctx: CanvasRenderingContext2D, tile: CoasterTile, screenX: number, screenY: number) => {
       if (!tile.rideId || !tile.rideType) return;
@@ -377,6 +397,7 @@ export function CoasterCanvasGrid({
     drawTrains(ctx);
     drawGuests(ctx);
     drawStaff(ctx);
+    drawClouds(ctx);
 
     if (hoveredTile) {
       const { screenX, screenY } = gridToScreen(hoveredTile.x, hoveredTile.y, offset.x, offset.y);
@@ -403,7 +424,7 @@ export function CoasterCanvasGrid({
       ctx.closePath();
       ctx.stroke();
     }
-  }, [drawGuests, drawInsetDiamond, drawRides, drawScenery, drawStaff, drawTrains, drawSprite, grid, gridSize, hoveredTile, offset.x, offset.y, parkEntrance.x, parkEntrance.y, selectedTile, zoom]);
+  }, [drawClouds, drawGuests, drawInsetDiamond, drawRides, drawScenery, drawStaff, drawTrains, drawSprite, grid, gridSize, hoveredTile, offset.x, offset.y, parkEntrance.x, parkEntrance.y, selectedTile, zoom]);
 
   useEffect(() => {
     drawGrid();
