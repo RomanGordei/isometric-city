@@ -23,6 +23,25 @@ export type GuestState =
   | 'left';             // Has left the park
 
 // =============================================================================
+// GUEST INTENT
+// =============================================================================
+
+export type GuestIntentType =
+  | 'ride'
+  | 'shop'
+  | 'bathroom'
+  | 'bench'
+  | 'exit'
+  | 'wander';
+
+export interface GuestIntent {
+  type: GuestIntentType;
+  targetId?: string;
+  targetX?: number;
+  targetY?: number;
+}
+
+// =============================================================================
 // GUEST THOUGHTS
 // =============================================================================
 
@@ -117,6 +136,7 @@ export interface Guest {
   state: GuestState;
   cash: number;
   ticketType: 'pay_per_ride' | 'wristband';
+  intent?: GuestIntent;
   
   // Preferences
   preferences: GuestPreferences;
@@ -314,6 +334,7 @@ export function createGuest(id: number, entranceX: number, entranceY: number): G
     state: 'entering',
     cash: 50 + Math.floor(Math.random() * 100),
     ticketType: 'pay_per_ride',
+    intent: undefined,
     preferences: generateGuestPreferences(),
     inventory: {
       hasMap: false,

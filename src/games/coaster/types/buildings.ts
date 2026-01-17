@@ -949,6 +949,22 @@ export interface ShopDefinition {
   satisfies?: 'hunger' | 'thirst' | 'bathroom' | 'cash';
 }
 
+export type ShopStatus = 'open' | 'closed';
+
+export interface Shop {
+  id: string;
+  type: ShopType;
+  name: string;
+  x: number;
+  y: number;
+  status: ShopStatus;
+  price: number;
+  totalSales: number;
+  totalRevenue: number;
+  runningCostPerHour: number;
+  lastVisitedAt?: number;
+}
+
 export const SHOP_DEFINITIONS: Record<ShopType, ShopDefinition> = {
   burger_stall: {
     type: 'burger_stall',
@@ -1193,6 +1209,7 @@ export type ParkBuildingType = RideType | ShopType | SceneryType | 'park_entranc
 export interface ParkBuilding {
   type: ParkBuildingType;
   rideId?: string; // Reference to ride if this is a ride tile
+  shopId?: string; // Reference to shop if this is a shop tile
   orientation?: number; // 0, 90, 180, 270 degrees
   variant?: number; // For visual variants
 }

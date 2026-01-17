@@ -207,6 +207,10 @@ export interface Ride {
   
   // Guests currently on ride
   guestsOnRide: number[];
+
+  // Ride cycle state
+  cycleTimer: number;            // Ticks remaining in current cycle
+  isRunning: boolean;
   
   // Stats (calculated from track/type)
   stats: RideStats;

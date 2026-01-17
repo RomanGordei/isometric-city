@@ -2,7 +2,7 @@
  * Coaster Tycoon Game State Types
  */
 
-import { PathSurface, PathType, ParkBuilding, SceneryType, RideType } from './buildings';
+import { PathSurface, PathType, ParkBuilding, SceneryType, RideType, ShopType, Shop } from './buildings';
 import { Guest, Staff } from './guests';
 import { Ride, TrackElement } from './rides';
 
@@ -236,6 +236,9 @@ export type CoasterTool =
   
   // Rides (selected from menu)
   | 'place_ride'
+
+  // Shops (selected from menu)
+  | 'place_shop'
   
   // Scenery (selected from menu)
   | 'place_scenery'
@@ -263,6 +266,7 @@ export const TOOL_INFO: Record<CoasterTool, ToolInfo> = {
   terrain_water: { name: 'Add Water', cost: 100, description: 'Create water features' },
   terrain_own_land: { name: 'Buy Land', cost: 0, description: 'Purchase land for the park' },
   place_ride: { name: 'Place Ride', cost: 0, description: 'Build a new ride' },
+  place_shop: { name: 'Place Shop', cost: 0, description: 'Build a new shop or facility' },
   place_scenery: { name: 'Place Scenery', cost: 0, description: 'Add decorations' },
   hire_handyman: { name: 'Hire Handyman', cost: 500, description: 'Employ a cleaner' },
   hire_mechanic: { name: 'Hire Mechanic', cost: 800, description: 'Employ a mechanic' },
@@ -329,6 +333,7 @@ export interface CoasterGameState {
   guests: Guest[];
   staff: Staff[];
   rides: Ride[];
+  shops: Shop[];
   
   // Finances
   finances: Finances;
@@ -345,6 +350,7 @@ export interface CoasterGameState {
   // UI State
   selectedTool: CoasterTool;
   selectedRideType?: RideType;
+  selectedShopType?: ShopType;
   selectedSceneryType?: SceneryType;
   activePanel: 'none' | 'rides' | 'guests' | 'staff' | 'finances' | 'research' | 'park' | 'settings';
   

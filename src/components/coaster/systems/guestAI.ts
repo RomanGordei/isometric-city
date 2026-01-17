@@ -3,8 +3,9 @@
  */
 
 import { Guest, GuestState, ThoughtType, GuestThought } from '@/games/coaster/types/guests';
-import { ParkTile, CoasterGameState } from '@/games/coaster/types/game';
+import { CoasterGameState, ParkTile } from '@/games/coaster/types/game';
 import { Ride } from '@/games/coaster/types/rides';
+import { Shop, SHOP_DEFINITIONS, RIDE_DEFINITIONS } from '@/games/coaster/types/buildings';
 import { findPathOnGrid, findNearestPath } from './pathSystem';
 
 // =============================================================================
@@ -99,6 +100,111 @@ export function getMostUrgentNeed(guest: Guest): 'hunger' | 'thirst' | 'bathroom
   }
 
   return null;
+}
+
+// =============================================================================
+// TARGET FINDING
+// =============================================================================
+
+function getPathTargetNear(
+  state: CoasterGameState,
+  x: number,
+  y: number,
+  maxDistance: number = 4
+): { x: number; y: number } | null {
+  return findNearestPath(state.grid, state.gridSize, x, y, maxDistance);
+}
+
+function findRideTarget(guest: Guest, state: CoasterGameState): { ride: Ride; target: { x: number; y: number } } | null {
+  const eligibleRides = state.rides.filter(ride => {
+    if (ride.status !== 'open') return false;
+    if (ride.queueLength >= ride.maxQueueLength) return false;
+    if (guest.ticketType === 'pay_per_ride' && guest.cash < ride.price) return false;
+
+    const def = RIDE_DEFINITIONS[ride.type];
+    if (!def) return false;
+
+    // Respect intensity tolerance
+    if (ride.stats.intensity > guest.preferences.intensityTolerance + 2) return false;
+
+    return true;
+  });
+
+  if (eligibleRides.length === 0) return null;
+
+  // Sort by distance + queue length
+  const scored = eligibleRides
+    .map(ride => {
+      const dist = Math.abs(ride.entranceX - guest.x) + Math.abs(ride.entranceY - guest.y);
+      const score = dist + ride.queueLength * 0.5;
+      return { ride, score };
+    })
+    .sort((a, b) => a.score - b.score);
+
+  for (const { ride } of scored.slice(0, 5)) {
+    const target = getPathTargetNear(state, ride.entranceX, ride.entranceY, 6);
+    if (target) {
+      return { ride, target };
+    }
+  }
+
+  return null;
+}
+
+function findShopTarget(
+  guest: Guest,
+  state: CoasterGameState,
+  need: 'hunger' | 'thirst' | 'bathroom'
+): { shop: Shop; target: { x: number; y: number } } | null {
+  const eligibleShops = state.shops.filter(shop => {
+    const def = SHOP_DEFINITIONS[shop.type];
+    if (!def) return false;
+    if (shop.status !== 'open') return false;
+    if (def.satisfies !== need) return false;
+
+    if (shop.price > 0 && guest.cash < shop.price) return false;
+
+    return true;
+  });
+
+  if (eligibleShops.length === 0) return null;
+
+  const scored = eligibleShops
+    .map(shop => {
+      const dist = Math.abs(shop.x - guest.x) + Math.abs(shop.y - guest.y);
+      return { shop, score: dist };
+    })
+    .sort((a, b) => a.score - b.score);
+
+  for (const { shop } of scored.slice(0, 5)) {
+    const target = getPathTargetNear(state, shop.x, shop.y, 4);
+    if (target) {
+      return { shop, target };
+    }
+  }
+
+  return null;
+}
+
+function findBenchTarget(state: CoasterGameState, guest: Guest): { x: number; y: number } | null {
+  const maxDistance = 12;
+  let closest: { x: number; y: number; score: number } | null = null;
+
+  for (let y = 0; y < state.gridSize; y++) {
+    for (let x = 0; x < state.gridSize; x++) {
+      const tile = state.grid[y]?.[x];
+      if (!tile?.building || tile.building.type !== 'bench') continue;
+
+      const dist = Math.abs(x - guest.x) + Math.abs(y - guest.y);
+      if (dist > maxDistance) continue;
+      if (!closest || dist < closest.score) {
+        closest = { x, y, score: dist };
+      }
+    }
+  }
+
+  if (!closest) return null;
+  return getPathTargetNear(state, closest.x, closest.y, 4);
 }
 
 // =============================================================================
@@ -314,7 +420,8 @@ export function setGuestPath(
   grid: ParkTile[][],
   gridSize: number,
   targetX: number,
-  targetY: number
+  targetY: number,
+  intent?: Guest['intent']
 ): Guest {
   const startX = Math.floor(guest.x);
   const startY = Math.floor(guest.y);
@@ -329,6 +436,7 @@ export function setGuestPath(
       targetX,
       targetY,
       state: 'walking' as GuestState,
+      intent,
     };
   } else {
     // Couldn't find path - guest is lost
@@ -351,6 +459,15 @@ export function updateGuest(
   // Update needs
   let updated = updateGuestNeeds(guest, deltaTime);
 
+  // Resting behavior
+  if (updated.state === 'sitting') {
+    updated.energy = Math.min(255, updated.energy + 0.6 * deltaTime);
+    updated.happiness = Math.min(255, updated.happiness + 0.3 * deltaTime);
+    if (updated.energy > 220) {
+      updated.state = 'walking';
+    }
+  }
+
   // Generate thoughts
   updated = generateThoughts(updated);
 
@@ -358,17 +475,122 @@ export function updateGuest(
   updated.timeInPark += deltaTime;
   if (updated.state === 'queuing') {
     updated.timeInQueue += deltaTime;
+    updated.happiness = Math.max(0, updated.happiness + HAPPINESS_MODIFIERS.inQueue * deltaTime);
+
+    if (updated.timeInQueue > updated.preferences.maxQueueWait) {
+      updated = addThought(updated, 'long_queue');
+      updated.timeInQueue = 0;
+      updated.state = 'walking';
+      updated.intent = undefined;
+    }
   }
 
   // Make decisions periodically (every ~30 ticks)
-  if (state.tick % 30 === guest.id % 30) {
+  if (state.tick % 30 === guest.id % 30 && updated.state !== 'on_ride') {
     const decision = makeDecision(updated, state);
 
     switch (decision.type) {
       case 'leave_park':
-        updated = setGuestPath(updated, state.grid, state.gridSize, state.park.entranceX, state.park.entranceY);
+        updated = setGuestPath(
+          updated,
+          state.grid,
+          state.gridSize,
+          state.park.entranceX,
+          state.park.entranceY,
+          { type: 'exit' }
+        );
         updated.state = 'leaving';
         break;
+
+      case 'find_food': {
+        const target = findShopTarget(updated, state, 'hunger');
+        if (target) {
+          updated = setGuestPath(
+            updated,
+            state.grid,
+            state.gridSize,
+            target.target.x,
+            target.target.y,
+            { type: 'shop', targetId: target.shop.id }
+          );
+        }
+        break;
+      }
+
+      case 'find_drink': {
+        const target = findShopTarget(updated, state, 'thirst');
+        if (target) {
+          updated = setGuestPath(
+            updated,
+            state.grid,
+            state.gridSize,
+            target.target.x,
+            target.target.y,
+            { type: 'shop', targetId: target.shop.id }
+          );
+        }
+        break;
+      }
+
+      case 'find_bathroom': {
+        const target = findShopTarget(updated, state, 'bathroom');
+        if (target) {
+          updated = setGuestPath(
+            updated,
+            state.grid,
+            state.gridSize,
+            target.target.x,
+            target.target.y,
+            { type: 'bathroom', targetId: target.shop.id }
+          );
+        }
+        break;
+      }
+
+      case 'find_bench': {
+        const benchTarget = findBenchTarget(state, updated);
+        if (benchTarget) {
+          updated = setGuestPath(
+            updated,
+            state.grid,
+            state.gridSize,
+            benchTarget.x,
+            benchTarget.y,
+            { type: 'bench', targetX: benchTarget.x, targetY: benchTarget.y }
+          );
+        }
+        break;
+      }
+
+      case 'queue_for_ride': {
+        const ride = state.rides.find(r => r.id === decision.rideId);
+        if (ride) {
+          const target = getPathTargetNear(state, ride.entranceX, ride.entranceY, 6);
+          if (target) {
+            updated = setGuestPath(
+              updated,
+              state.grid,
+              state.gridSize,
+              target.x,
+              target.y,
+              { type: 'ride', targetId: ride.id }
+            );
+          }
+        } else {
+          const rideTarget = findRideTarget(updated, state);
+          if (rideTarget) {
+            updated = setGuestPath(
+              updated,
+              state.grid,
+              state.gridSize,
+              rideTarget.target.x,
+              rideTarget.target.y,
+              { type: 'ride', targetId: rideTarget.ride.id }
+            );
+          }
+        }
+        break;
+      }
 
       case 'wander':
         if (updated.state === 'walking' && updated.path.length > 0) {
@@ -387,7 +609,14 @@ export function updateGuest(
             const wanderY = nearbyPath.y + Math.floor(Math.random() * 10) - 5;
             const targetPath = findNearestPath(state.grid, state.gridSize, wanderX, wanderY, 5);
             if (targetPath) {
-              updated = setGuestPath(updated, state.grid, state.gridSize, targetPath.x, targetPath.y);
+              updated = setGuestPath(
+                updated,
+                state.grid,
+                state.gridSize,
+                targetPath.x,
+                targetPath.y,
+                { type: 'wander', targetX: targetPath.x, targetY: targetPath.y }
+              );
             }
           }
         }
@@ -400,13 +629,18 @@ export function updateGuest(
   }
 
   // Move if has a path
-  if (updated.path.length > 0 && updated.state !== 'on_ride' && updated.state !== 'sitting') {
+  if (
+    updated.path.length > 0 &&
+    updated.state !== 'on_ride' &&
+    updated.state !== 'sitting' &&
+    updated.state !== 'queuing' &&
+    updated.state !== 'buying'
+  ) {
     updated = moveGuest(updated, state.grid, state.gridSize, deltaTime);
   }
 
   // Check if should leave park
   if (updated.state === 'leaving' && updated.path.length === 0) {
-    // At exit
     const distToExit = Math.sqrt(
       Math.pow(updated.x - state.park.entranceX, 2) +
       Math.pow(updated.y - state.park.entranceY, 2)
@@ -417,6 +651,131 @@ export function updateGuest(
   }
 
   return updated;
+}
+
+// =============================================================================
+// INTERACTIONS
+// =============================================================================
+
+function isGuestNear(guest: Guest, x: number, y: number, threshold: number = 0.8): boolean {
+  return Math.abs(guest.x - x) < threshold && Math.abs(guest.y - y) < threshold;
+}
+
+export function processGuestInteractions(state: CoasterGameState): CoasterGameState {
+  const guests: Guest[] = state.guests.map(guest => ({ ...guest }));
+  const rides = state.rides.map(ride => ({
+    ...ride,
+    guestsInQueue: [...ride.guestsInQueue],
+    guestsOnRide: [...ride.guestsOnRide],
+  }));
+  const shops = state.shops.map(shop => ({ ...shop }));
+  const finances = {
+    ...state.finances,
+    currentMonthRecord: { ...state.finances.currentMonthRecord },
+  };
+
+  const rideMap = new Map(rides.map(ride => [ride.id, ride]));
+  const shopMap = new Map(shops.map(shop => [shop.id, shop]));
+
+  const updatedGuests: Guest[] = guests.map(guest => {
+    if (!guest.intent) return guest;
+
+    if (guest.intent.type === 'ride') {
+      const ride = guest.intent.targetId ? rideMap.get(guest.intent.targetId) : undefined;
+      if (!ride || ride.status !== 'open') {
+        return { ...guest, intent: undefined };
+      }
+
+      if (isGuestNear(guest, ride.entranceX, ride.entranceY)) {
+        if (!ride.guestsInQueue.includes(guest.id) && !ride.guestsOnRide.includes(guest.id)) {
+          ride.guestsInQueue.push(guest.id);
+          ride.queueLength = ride.guestsInQueue.length;
+        }
+
+        return {
+          ...guest,
+          state: 'queuing',
+          timeInQueue: 0,
+        };
+      }
+    }
+
+    if (guest.intent.type === 'shop' || guest.intent.type === 'bathroom') {
+      const shop = guest.intent.targetId ? shopMap.get(guest.intent.targetId) : undefined;
+      if (!shop) {
+        return { ...guest, intent: undefined };
+      }
+
+      if (isGuestNear(guest, shop.x, shop.y)) {
+        const def = SHOP_DEFINITIONS[shop.type];
+        if (!def) {
+          return { ...guest, intent: undefined };
+        }
+
+        if (shop.price > 0 && guest.cash < shop.price) {
+          return addThought({ ...guest, intent: undefined, state: 'walking' }, 'expensive');
+        }
+
+        const updatedGuest = { ...guest };
+        if (shop.price > 0) {
+          updatedGuest.cash -= shop.price;
+          finances.cash += shop.price;
+          if (def.category === 'facility') {
+            finances.currentMonthRecord.facilityUsage += shop.price;
+          } else {
+            finances.currentMonthRecord.shopSales += shop.price;
+          }
+          shop.totalSales += 1;
+          shop.totalRevenue += shop.price;
+          shop.lastVisitedAt = state.tick;
+        }
+
+        if (def.satisfies === 'hunger') {
+          updatedGuest.hunger = Math.max(0, updatedGuest.hunger - 180);
+          updatedGuest.happiness = Math.min(255, updatedGuest.happiness + 20);
+        } else if (def.satisfies === 'thirst') {
+          updatedGuest.thirst = Math.max(0, updatedGuest.thirst - 200);
+          updatedGuest.happiness = Math.min(255, updatedGuest.happiness + 18);
+        } else if (def.satisfies === 'bathroom') {
+          updatedGuest.bathroom = Math.max(0, updatedGuest.bathroom - 230);
+          updatedGuest.happiness = Math.min(255, updatedGuest.happiness + 15);
+        } else if (def.satisfies === 'cash') {
+          updatedGuest.cash += 50;
+        }
+
+        return addThought({
+          ...updatedGuest,
+          intent: undefined,
+          state: 'walking',
+          shopsVisited: [...updatedGuest.shopsVisited, shop.id],
+        }, 'good_value');
+      }
+    }
+
+    if (guest.intent.type === 'bench') {
+      if (guest.intent.targetX !== undefined && guest.intent.targetY !== undefined) {
+        if (isGuestNear(guest, guest.intent.targetX, guest.intent.targetY)) {
+          return {
+            ...guest,
+            state: 'sitting',
+            intent: undefined,
+            energy: Math.min(255, guest.energy + 40),
+            happiness: Math.min(255, guest.happiness + 10),
+          };
+        }
+      }
+    }
+
+    return guest;
+  });
+
+  return {
+    ...state,
+    guests: updatedGuests,
+    rides: Array.from(rideMap.values()),
+    shops: Array.from(shopMap.values()),
+    finances,
+  };
 }
 
 /**

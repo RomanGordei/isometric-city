@@ -37,13 +37,15 @@ import {
 import {
   RideType,
   ShopType,
+  Shop,
   SceneryType,
   RIDE_DEFINITIONS,
   SHOP_DEFINITIONS,
   SCENERY_DEFINITIONS,
   PathSurface,
 } from '@/games/coaster/types/buildings';
-import { updateAllGuests } from '@/components/coaster/systems/guestAI';
+import { updateAllGuests, processGuestInteractions } from '@/components/coaster/systems/guestAI';
+import { updateRides } from '@/components/coaster/systems/rideSystem';
 
 // Storage keys
 const STORAGE_KEY = 'coaster-game-state';
@@ -61,6 +63,7 @@ interface CoasterContextValue {
   // Tool management
   setTool: (tool: CoasterTool) => void;
   setSelectedRideType: (rideType: RideType | undefined) => void;
+  setSelectedShopType: (shopType: ShopType | undefined) => void;
   setSelectedSceneryType: (sceneryType: SceneryType | undefined) => void;
   
   // Game speed
@@ -74,6 +77,7 @@ interface CoasterContextValue {
   bulldozeTile: (x: number, y: number) => void;
   placePath: (x: number, y: number, surface: PathSurface, isQueue: boolean, rideId?: string) => void;
   placeRide: (x: number, y: number, rideType: RideType) => void;
+  placeShop: (x: number, y: number, shopType: ShopType) => void;
   placeScenery: (x: number, y: number, sceneryType: SceneryType) => void;
   
   // Terrain actions
@@ -318,12 +322,14 @@ function createInitialGameState(size: number = DEFAULT_GRID_SIZE, parkName: stri
     guests: [],
     staff: [],
     rides: [],
+    shops: [],
     finances: createInitialFinances(),
     research: createInitialResearch(),
     activeCampaigns: [],
     awards: [],
     selectedTool: 'select',
     selectedRideType: undefined,
+    selectedShopType: undefined,
     selectedSceneryType: undefined,
     activePanel: 'none',
     notifications: [],
@@ -352,6 +358,8 @@ function loadGameState(): CoasterGameState | null {
       
       const parsed = JSON.parse(jsonString);
       if (parsed && parsed.grid && parsed.gridSize && parsed.park) {
+        if (!parsed.shops) parsed.shops = [];
+        if (!parsed.selectedShopType) parsed.selectedShopType = undefined;
         return parsed as CoasterGameState;
       }
     }
@@ -539,6 +547,12 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
     
     // Update guests using AI system
     next.guests = updateAllGuests(next);
+
+    // Process guest interactions (shops, queues)
+    next = processGuestInteractions(next);
+
+    // Update ride operations
+    next = updateRides(next);
     
     return next;
   }, []);
@@ -549,6 +563,20 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
     
     // Calculate staff wages
     record.staffWages = next.staff.reduce((sum, s) => sum + s.salary, 0);
+
+    // Calculate running costs based on open hours
+    const openHoursPerDay = Math.max(0, next.park.closingHour - next.park.openingHour);
+    const hoursInMonth = openHoursPerDay * 30;
+    record.rideRunning = next.rides.reduce((sum, ride) => {
+      if (ride.status !== 'open') return sum;
+      const def = RIDE_DEFINITIONS[ride.type];
+      return sum + (def?.runningCostPerHour ?? 0) * hoursInMonth;
+    }, 0);
+
+    record.shopRunning = next.shops.reduce((sum, shop) => {
+      if (shop.status !== 'open') return sum;
+      return sum + shop.runningCostPerHour * hoursInMonth;
+    }, 0);
     
     // Calculate totals
     record.totalIncome = record.parkEntranceFees + record.rideTickets + record.shopSales + record.facilityUsage;
@@ -607,6 +635,10 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, selectedRideType: rideType }));
   }, []);
   
+  const setSelectedShopType = useCallback((shopType: ShopType | undefined) => {
+    setState(prev => ({ ...prev, selectedShopType: shopType }));
+  }, []);
+
   const setSelectedSceneryType = useCallback((sceneryType: SceneryType | undefined) => {
     setState(prev => ({ ...prev, selectedSceneryType: sceneryType }));
   }, []);
@@ -724,6 +756,8 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
         maxQueueLength: 100,
         guestsInQueue: [],
         guestsOnRide: [],
+        cycleTimer: 0,
+        isRunning: false,
         stats: createEmptyStats(),
         price: 2,
         minWaitTime: 30,
@@ -743,6 +777,64 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         grid: newGrid,
         rides: [...prev.rides, newRide],
+        finances: {
+          ...prev.finances,
+          cash: prev.finances.cash - def.buildCost,
+          currentMonthRecord: {
+            ...prev.finances.currentMonthRecord,
+            construction: prev.finances.currentMonthRecord.construction + def.buildCost,
+          },
+        },
+      };
+    });
+  }, []);
+
+  const placeShop = useCallback((x: number, y: number, shopType: ShopType) => {
+    setState(prev => {
+      const def = SHOP_DEFINITIONS[shopType];
+      if (!def) return prev;
+
+      if (prev.finances.cash < def.buildCost) return prev;
+
+      // Check if the area is clear and owned
+      for (let dy = 0; dy < def.size.height; dy++) {
+        for (let dx = 0; dx < def.size.width; dx++) {
+          const tile = prev.grid[y + dy]?.[x + dx];
+          if (!tile || !tile.owned || tile.building || tile.path) return prev;
+        }
+      }
+
+      const shopId = generateUUID();
+      const newGrid = prev.grid.map(row => row.map(t => ({ ...t })));
+
+      // Mark tiles as occupied
+      for (let dy = 0; dy < def.size.height; dy++) {
+        for (let dx = 0; dx < def.size.width; dx++) {
+          newGrid[y + dy][x + dx].building = {
+            type: shopType,
+            shopId,
+            orientation: 0,
+          };
+        }
+      }
+
+      const newShop: Shop = {
+        id: shopId,
+        type: shopType,
+        name: def.name,
+        x,
+        y,
+        status: 'open',
+        price: def.defaultPrice,
+        totalSales: 0,
+        totalRevenue: 0,
+        runningCostPerHour: def.runningCostPerHour,
+      };
+
+      return {
+        ...prev,
+        grid: newGrid,
+        shops: [...prev.shops, newShop],
         finances: {
           ...prev.finances,
           cash: prev.finances.cash - def.buildCost,
@@ -810,6 +902,28 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
             rides: prev.rides.filter(r => r.id !== tile.building?.rideId),
           };
         }
+
+        // If it's a shop, remove the whole shop footprint
+        const shopType = tile.building.type as ShopType;
+        if (SHOP_DEFINITIONS[shopType]) {
+          const shopId = tile.building.shopId;
+          if (shopId) {
+            for (let ty = 0; ty < prev.gridSize; ty++) {
+              for (let tx = 0; tx < prev.gridSize; tx++) {
+                if (newGrid[ty]?.[tx]?.building?.shopId === shopId) {
+                  newGrid[ty][tx].building = undefined;
+                }
+              }
+            }
+          } else {
+            newGrid[y][x].building = undefined;
+          }
+          return {
+            ...prev,
+            grid: newGrid,
+            shops: prev.shops.filter(shop => shop.id !== shopId && !(shop.x === x && shop.y === y)),
+          };
+        }
         
         newGrid[y][x].building = undefined;
       }
@@ -854,6 +968,11 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
           placeRide(x, y, latestStateRef.current.selectedRideType);
         }
         break;
+      case 'place_shop':
+        if (latestStateRef.current.selectedShopType) {
+          placeShop(x, y, latestStateRef.current.selectedShopType);
+        }
+        break;
       case 'place_scenery':
         if (latestStateRef.current.selectedSceneryType) {
           placeScenery(x, y, latestStateRef.current.selectedSceneryType);
@@ -866,7 +985,7 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
         lowerTerrain(x, y);
         break;
     }
-  }, [placePath, bulldozeTile, placeRide, placeScenery]);
+  }, [placePath, bulldozeTile, placeRide, placeShop, placeScenery]);
   
   const raiseTerrain = useCallback((x: number, y: number) => {
     setState(prev => {
@@ -1012,6 +1131,8 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
     try {
       const parsed = JSON.parse(stateString);
       if (parsed && parsed.grid && parsed.gridSize && parsed.park) {
+        if (!parsed.shops) parsed.shops = [];
+        if (!parsed.selectedShopType) parsed.selectedShopType = undefined;
         skipNextSaveRef.current = true;
         setState(parsed as CoasterGameState);
         return true;
@@ -1078,6 +1199,8 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
       
       const parsed = JSON.parse(jsonString);
       if (parsed && parsed.grid && parsed.gridSize && parsed.park) {
+        if (!parsed.shops) parsed.shops = [];
+        if (!parsed.selectedShopType) parsed.selectedShopType = undefined;
         skipNextSaveRef.current = true;
         setState(parsed as CoasterGameState);
         saveGameStateAsync(parsed);
@@ -1131,6 +1254,7 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
     latestStateRef,
     setTool,
     setSelectedRideType,
+    setSelectedShopType,
     setSelectedSceneryType,
     setSpeed,
     setActivePanel,
@@ -1138,6 +1262,7 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
     bulldozeTile,
     placePath,
     placeRide,
+    placeShop,
     placeScenery,
     raiseTerrain,
     lowerTerrain,

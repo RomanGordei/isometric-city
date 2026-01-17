@@ -159,10 +159,10 @@ export function CoasterSidebar({ onExit }: CoasterSidebarProps) {
     state, 
     setTool, 
     setSelectedRideType, 
+    setSelectedShopType,
     setSelectedSceneryType,
     setActivePanel,
     savePark,
-    placeRide,
   } = useCoaster();
   const { selectedTool, finances, activePanel, research } = state;
   const [showExitDialog, setShowExitDialog] = useState(false);
@@ -170,27 +170,30 @@ export function CoasterSidebar({ onExit }: CoasterSidebarProps) {
   const handleToolClick = useCallback((tool: CoasterTool) => {
     setTool(tool);
     setSelectedRideType(undefined);
+    setSelectedShopType(undefined);
     setSelectedSceneryType(undefined);
-  }, [setTool, setSelectedRideType, setSelectedSceneryType]);
+  }, [setTool, setSelectedRideType, setSelectedShopType, setSelectedSceneryType]);
 
   const handleRideClick = useCallback((rideType: RideType) => {
     setTool('place_ride');
     setSelectedRideType(rideType);
+    setSelectedShopType(undefined);
     setSelectedSceneryType(undefined);
-  }, [setTool, setSelectedRideType, setSelectedSceneryType]);
+  }, [setTool, setSelectedRideType, setSelectedShopType, setSelectedSceneryType]);
 
   const handleShopClick = useCallback((shopType: ShopType) => {
-    // Shops are handled like rides for now
-    setTool('place_ride');
-    setSelectedRideType(shopType as unknown as RideType);
+    setTool('place_shop');
+    setSelectedShopType(shopType);
+    setSelectedRideType(undefined);
     setSelectedSceneryType(undefined);
-  }, [setTool, setSelectedRideType, setSelectedSceneryType]);
+  }, [setTool, setSelectedShopType, setSelectedRideType, setSelectedSceneryType]);
 
   const handleSceneryClick = useCallback((sceneryType: SceneryType) => {
     setTool('place_scenery');
     setSelectedSceneryType(sceneryType);
     setSelectedRideType(undefined);
-  }, [setTool, setSelectedRideType, setSelectedSceneryType]);
+    setSelectedShopType(undefined);
+  }, [setTool, setSelectedRideType, setSelectedShopType, setSelectedSceneryType]);
 
   const handleSaveAndExit = useCallback(() => {
     savePark();
@@ -331,20 +334,24 @@ export function CoasterSidebar({ onExit }: CoasterSidebarProps) {
           {Object.entries(SHOP_CATEGORIES).map(([category, shops]) => {
             const availableShops = shops.filter(s => unlockedShops.has(s));
             if (availableShops.length === 0) return null;
+            const hasSelectedShop = availableShops.includes(state.selectedShopType as ShopType);
             
             return (
-              <HoverSubmenu key={category} label={category}>
+              <HoverSubmenu key={category} label={category} isSelected={hasSelectedShop}>
                 {availableShops.map(shopType => {
                   const def = SHOP_DEFINITIONS[shopType];
                   const canAfford = finances.cash >= def.buildCost;
+                  const isSelected = state.selectedShopType === shopType;
                   
                   return (
                     <Button
                       key={shopType}
                       onClick={() => handleShopClick(shopType)}
                       disabled={!canAfford}
-                      variant="ghost"
-                      className="w-full justify-start gap-2 px-3 py-2 h-auto text-sm text-white/80 hover:bg-white/10"
+                      variant={isSelected ? 'default' : 'ghost'}
+                      className={`w-full justify-start gap-2 px-3 py-2 h-auto text-sm ${
+                        isSelected ? 'bg-purple-600 text-white' : 'text-white/80 hover:bg-white/10'
+                      }`}
                     >
                       <span className="flex-1 text-left truncate">{def.name}</span>
                       <span className="text-xs opacity-60">${def.buildCost}</span>
