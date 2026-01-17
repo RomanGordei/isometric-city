@@ -68,6 +68,9 @@ const LITTER_DROP_CHANCE = 0.03;
 const LITTER_MAX = 3;
 const LITTER_CLEANLINESS_PENALTY = 0.008;
 const LITTER_HAPPINESS_PENALTY = 0.6;
+const TRASH_CAN_RADIUS = 2;
+const TRASH_CAN_USE_CHANCE = 0.7;
+const TRASH_CAN_LITTER_MULTIPLIER = 0.25;
 const ENTERTAINER_RADIUS = 4;
 const SECURITY_RADIUS = 3;
 const SCENERY_RADIUS = 3;
@@ -603,6 +606,7 @@ type ShopTarget = { position: { x: number; y: number }; type: CoasterBuildingTyp
 type SceneryTarget = { position: { x: number; y: number }; type: SceneryType };
 type BenchTarget = { position: { x: number; y: number } };
 type StaffRoomTarget = { position: { x: number; y: number } };
+type TrashCanTarget = { position: { x: number; y: number } };
 
 function findShopTargets(grid: CoasterTile[][]): ShopTarget[] {
   const targets: ShopTarget[] = [];
@@ -664,6 +668,18 @@ function findStaffRoomTargets(grid: CoasterTile[][]): StaffRoomTarget[] {
     for (let x = 0; x < grid[y].length; x++) {
       const building = grid[y][x].building;
       if (building?.type === 'staff_room') {
+        targets.push({ position: { x, y } });
+      }
+    }
+  }
+  return targets;
+}
+
+function findTrashCanTargets(grid: CoasterTile[][]): TrashCanTarget[] {
+  const targets: TrashCanTarget[] = [];
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y].length; x++) {
+      if (grid[y][x].scenery?.type === 'trash_can') {
         targets.push({ position: { x, y } });
       }
     }
@@ -765,6 +781,12 @@ function isBenchNearby(guest: Guest, targets: BenchTarget[], radius: number): bo
 function isStaffRoomNearby(staff: Staff, targets: StaffRoomTarget[], radius: number): boolean {
   return targets.some((target) => (
     Math.abs(target.position.x - staff.tileX) + Math.abs(target.position.y - staff.tileY) <= radius
+  ));
+}
+
+function isTrashCanNearby(guest: Guest, targets: TrashCanTarget[], radius: number): boolean {
+  return targets.some((target) => (
+    Math.abs(target.position.x - guest.tileX) + Math.abs(target.position.y - guest.tileY) <= radius
   ));
 }
 
@@ -1270,13 +1292,19 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
     grid[tileY] = row;
   };
 
+  const trashCanTargets = findTrashCanTargets(grid);
   nextGuests = nextGuests.map((guest) => {
     const tile = grid[guest.tileY]?.[guest.tileX];
     const canDrop = guest.hasItem === 'food' || guest.hasItem === 'drink';
     if (!tile?.path || !canDrop) return guest;
     const litter = tile.litter ?? 0;
     if (litter >= LITTER_MAX) return guest;
-    if (Math.random() > LITTER_DROP_CHANCE) return guest;
+    const trashNearby = trashCanTargets.length > 0 && isTrashCanNearby(guest, trashCanTargets, TRASH_CAN_RADIUS);
+    if (trashNearby && Math.random() < TRASH_CAN_USE_CHANCE) {
+      return { ...guest, hasItem: null };
+    }
+    const dropChance = trashNearby ? LITTER_DROP_CHANCE * TRASH_CAN_LITTER_MULTIPLIER : LITTER_DROP_CHANCE;
+    if (Math.random() > dropChance) return guest;
     updateGridTile(guest.tileX, guest.tileY, { litter: litter + 1 });
     return { ...guest, hasItem: null };
   });
