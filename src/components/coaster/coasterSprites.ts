@@ -120,6 +120,12 @@ export const COASTER_TRAIN_SPRITE: SpriteConfig = {
 };
 
 export const COASTER_SCENERY_SPRITES: Record<string, SpriteConfig> = {
+  tree: {
+    src: '/assets/coaster/scenery_tree.png',
+    scale: 1.1,
+    offsetX: 0,
+    offsetY: -0.45,
+  },
   bench: {
     src: '/assets/coaster/scenery_bench.png',
     scale: 1,
