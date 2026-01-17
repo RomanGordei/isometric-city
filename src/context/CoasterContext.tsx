@@ -273,6 +273,8 @@ function createInitialGrid(size: number): ParkTile[][] {
 
 function createInitialGameState(size: number = DEFAULT_GRID_SIZE, parkName: string = 'My Theme Park'): CoasterGameState {
   const parkInfo = createInitialParkInfo(parkName, size);
+  const center = Math.floor(size / 2);
+  const parkRadius = Math.floor(size * 0.35);
   
   // Place park entrance
   const grid = createInitialGrid(size);
@@ -288,13 +290,21 @@ function createInitialGameState(size: number = DEFAULT_GRID_SIZE, parkName: stri
     grid[entranceY][entranceX].owned = true;
     
     // Add path from entrance into park
-    for (let py = entranceY - 1; py >= entranceY - 5; py--) {
+    for (let py = entranceY - 1; py >= 0; py--) {
       if (grid[py] && grid[py][entranceX]) {
+        const distFromCenter = Math.sqrt(
+          Math.pow(entranceX - center, 2) + Math.pow(py - center, 2)
+        );
+        const reachedPark = distFromCenter <= parkRadius;
+
+        grid[py][entranceX].owned = true;
+        grid[py][entranceX].forSale = false;
+        grid[py][entranceX].purchasePrice = 0;
         grid[py][entranceX].path = {
           surface: 'tarmac',
           type: 'standard',
           connections: {
-            north: py > entranceY - 5,
+            north: !reachedPark,
             south: true,
             east: false,
             west: false,
@@ -302,6 +312,10 @@ function createInitialGameState(size: number = DEFAULT_GRID_SIZE, parkName: stri
           litter: 0,
           vomit: false,
         };
+
+        if (reachedPark) {
+          break;
+        }
       }
     }
   }
