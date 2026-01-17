@@ -72,6 +72,7 @@ const TRASH_CAN_RADIUS = 2;
 const TRASH_CAN_USE_CHANCE = 0.7;
 const TRASH_CAN_LITTER_MULTIPLIER = 0.25;
 const ENTERTAINER_RADIUS = 4;
+const PATH_BLOCKED_WAIT = 12;
 const SECURITY_RADIUS = 3;
 const SCENERY_RADIUS = 3;
 const TRASH_CAN_CLEANLINESS_BOOST = 0.02;
@@ -358,6 +359,32 @@ function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
   const speed = 0.4;
   const nextAge = guest.age + 1;
 
+  if (guest.path.length > 1 && guest.pathIndex < guest.path.length - 1) {
+    const nextTarget = guest.path[guest.pathIndex + 1];
+    const dx = nextTarget.x - guest.tileX;
+    const dy = nextTarget.y - guest.tileY;
+    const direction = dx > 0 ? 'east' : dx < 0 ? 'west' : dy > 0 ? 'south' : 'north';
+    const nextTile = grid[nextTarget.y]?.[nextTarget.x];
+    if (!nextTile?.path && guest.state !== 'leaving_park') {
+      const waitTimer = guest.stateTimer + 1;
+      if (waitTimer >= PATH_BLOCKED_WAIT) {
+        return {
+          ...guest,
+          state: 'wandering',
+          stateTimer: 0,
+          targetRideId: null,
+          targetShop: null,
+          queueJoinTick: null,
+          path: [],
+          pathIndex: 0,
+          progress: 0,
+          age: nextAge,
+        };
+      }
+      return { ...guest, stateTimer: waitTimer, direction, age: nextAge };
+    }
+  }
+
   if (guest.state === 'on_ride') {
     const nextTimer = guest.stateTimer - 1;
     if (nextTimer <= 0) {
@@ -477,7 +504,7 @@ function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
     const direction = dx > 0 ? 'east' : dx < 0 ? 'west' : dy > 0 ? 'south' : 'north';
     const nextProgress = guest.progress + speed;
     if (nextProgress < 1) {
-      return { ...guest, progress: nextProgress, direction, age: nextAge };
+      return { ...guest, progress: nextProgress, direction, stateTimer: 0, age: nextAge };
     }
     const reachedEnd = guest.pathIndex + 1 >= guest.path.length - 1;
     if (reachedEnd && guest.state === 'leaving_park') {
