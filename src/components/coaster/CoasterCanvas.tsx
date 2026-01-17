@@ -134,6 +134,12 @@ function drawScenery(
     ctx.beginPath();
     ctx.arc(centerX, centerY, width * 0.08, 0, Math.PI * 2);
     ctx.fill();
+  } else if (type === 'bench') {
+    ctx.fillStyle = '#a16207';
+    ctx.fillRect(centerX - width * 0.14, centerY - height * 0.02, width * 0.28, height * 0.06);
+    ctx.fillStyle = '#713f12';
+    ctx.fillRect(centerX - width * 0.12, centerY + height * 0.03, width * 0.05, height * 0.05);
+    ctx.fillRect(centerX + width * 0.07, centerY + height * 0.03, width * 0.05, height * 0.05);
   }
 }
 

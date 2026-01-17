@@ -47,6 +47,7 @@ export type CoasterTool =
   | 'coaster_track'
   | 'scenery_tree'
   | 'scenery_flower'
+  | 'scenery_bench'
   | 'ride_carousel'
   | 'ride_ferris_wheel'
   | 'ride_bumper_cars'
@@ -83,6 +84,7 @@ export const TOOL_INFO: Record<CoasterTool, ToolInfo> = {
   coaster_track: { name: 'Coaster Track', cost: 15, description: 'Lay coaster track segments', size: 1 },
   scenery_tree: { name: 'Tree', cost: 15, description: 'Plant a tree for scenery', size: 1 },
   scenery_flower: { name: 'Flowers', cost: 10, description: 'Place flower beds', size: 1 },
+  scenery_bench: { name: 'Bench', cost: 20, description: 'Give guests a place to rest', size: 1 },
   ride_carousel: { name: 'Carousel', cost: 800, description: 'Gentle carousel ride', size: 2 },
   ride_ferris_wheel: { name: 'Ferris Wheel', cost: 1200, description: 'Observation wheel', size: 2 },
   ride_bumper_cars: { name: 'Bumper Cars', cost: 1600, description: 'Bumper cars pavilion', size: 2 },

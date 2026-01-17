@@ -63,6 +63,11 @@ const ENTERTAINER_RADIUS = 4;
 const SECURITY_RADIUS = 3;
 const SCENERY_RADIUS = 3;
 const SCENERY_HAPPINESS_BOOST = 0.4;
+const BENCH_REST_THRESHOLD = 200;
+const BENCH_REST_RADIUS = 3;
+const BENCH_REST_TICKS = 25;
+const BENCH_ENERGY_RECOVERY = 2.5;
+const BENCH_HAPPINESS_RECOVERY = 0.3;
 const MECHANIC_UPTIME_BOOST = 0.0012;
 const RIDE_UPTIME_DECAY = 0.0005;
 const PAYROLL_INTERVAL_DAYS = 7;
@@ -340,6 +345,31 @@ function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
     return { ...guest, stateTimer: nextTimer, age: nextAge };
   }
 
+  if (guest.state === 'sitting') {
+    const nextTimer = guest.stateTimer - 1;
+    const energy = clamp(guest.needs.energy + BENCH_ENERGY_RECOVERY);
+    const happiness = clamp(guest.happiness + BENCH_HAPPINESS_RECOVERY);
+    const nextGuest = {
+      ...guest,
+      stateTimer: Math.max(0, nextTimer),
+      needs: {
+        ...guest.needs,
+        energy,
+        happiness,
+      },
+      happiness,
+      age: nextAge,
+    };
+    if (nextTimer <= 0 || energy >= 230) {
+      return {
+        ...nextGuest,
+        state: 'wandering',
+        stateTimer: 0,
+      };
+    }
+    return nextGuest;
+  }
+
   if (guest.state === 'leaving_park' && guest.path.length <= 1) {
     return { ...guest, age: guest.maxAge + 1 };
   }
@@ -499,6 +529,7 @@ function updateStaffMovement(staff: Staff, grid: CoasterTile[][]): Staff {
 
 type ShopTarget = { position: { x: number; y: number }; type: CoasterBuildingType; price: number };
 type SceneryTarget = { position: { x: number; y: number } };
+type BenchTarget = { position: { x: number; y: number } };
 
 function findShopTargets(grid: CoasterTile[][]): ShopTarget[] {
   const targets: ShopTarget[] = [];
@@ -541,7 +572,26 @@ function findSceneryTargets(grid: CoasterTile[][]): SceneryTarget[] {
   return targets;
 }
 
+function findBenchTargets(grid: CoasterTile[][]): BenchTarget[] {
+  const targets: BenchTarget[] = [];
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y].length; x++) {
+      const scenery = grid[y][x].scenery;
+      if (scenery?.type === 'bench') {
+        targets.push({ position: { x, y } });
+      }
+    }
+  }
+  return targets;
+}
+
 function isSceneryNearby(guest: Guest, targets: SceneryTarget[], radius: number): boolean {
+  return targets.some((target) => (
+    Math.abs(target.position.x - guest.tileX) + Math.abs(target.position.y - guest.tileY) <= radius
+  ));
+}
+
+function isBenchNearby(guest: Guest, targets: BenchTarget[], radius: number): boolean {
   return targets.some((target) => (
     Math.abs(target.position.x - guest.tileX) + Math.abs(target.position.y - guest.tileY) <= radius
   ));
@@ -702,6 +752,9 @@ function getGuestThoughtCandidate(
 ): { type: GuestThoughtType; message: string } | null {
   if (guest.state === 'queuing' && guest.queueJoinTick !== null && tick - guest.queueJoinTick > QUEUE_THOUGHT_TICKS) {
     return { type: 'warning', message: 'This line is taking forever.' };
+  }
+  if (guest.state === 'sitting') {
+    return { type: 'neutral', message: 'Taking a quick break.' };
   }
   if (guest.needs.bathroom < 60) {
     return { type: 'warning', message: 'Need a restroom soon.' };
@@ -974,6 +1027,27 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
   nextGuests = nextGuests.map((guest) => updateGuestMovement(guest, state));
   nextGuests = nextGuests.filter((guest) => guest.age < guest.maxAge);
   let totalGuests = state.stats.totalGuests;
+
+  const benchTargets = findBenchTargets(state.grid);
+  if (benchTargets.length > 0) {
+    nextGuests = nextGuests.map((guest) => {
+      if (guest.state === 'on_ride' || guest.state === 'at_shop' || guest.state === 'queuing' || guest.state === 'sitting' || guest.state === 'leaving_park') {
+        return guest;
+      }
+      if (guest.needs.energy >= BENCH_REST_THRESHOLD) return guest;
+      if (!isBenchNearby(guest, benchTargets, BENCH_REST_RADIUS)) return guest;
+      return {
+        ...guest,
+        state: 'sitting',
+        stateTimer: BENCH_REST_TICKS,
+        targetRideId: null,
+        targetShop: null,
+        path: [],
+        pathIndex: 0,
+        progress: 0,
+      };
+    });
+  }
 
   const entertainers = state.staff.filter((member) => member.type === 'entertainer');
   const securityStaff = state.staff.filter((member) => member.type === 'security');

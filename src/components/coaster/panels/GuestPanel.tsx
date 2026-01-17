@@ -52,9 +52,9 @@ export default function GuestPanel({ guests, onClose }: GuestPanelProps) {
     if (filter === 'all') return guests;
     if (filter === 'queue') return guests.filter((guest) => guest.state === 'queuing' || guest.state === 'heading_to_ride');
     if (filter === 'ride') return guests.filter((guest) => guest.state === 'on_ride');
-    if (filter === 'shop') return guests.filter((guest) => guest.state === 'at_shop');
+    if (filter === 'shop') return guests.filter((guest) => guest.state === 'at_shop' || guest.state === 'heading_to_shop');
     if (filter === 'leaving') return guests.filter((guest) => guest.state === 'leaving_park');
-    return guests.filter((guest) => guest.state === 'wandering');
+    return guests.filter((guest) => guest.state === 'wandering' || guest.state === 'sitting');
   }, [filter, guests]);
 
   return (

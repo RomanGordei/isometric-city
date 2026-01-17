@@ -550,8 +550,12 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
         return applyCost({ ...prev, grid });
       }
 
-      if (selectedTool === 'scenery_tree' || selectedTool === 'scenery_flower') {
-        const sceneryType: SceneryType = selectedTool === 'scenery_tree' ? 'tree' : 'flower';
+      if (selectedTool === 'scenery_tree' || selectedTool === 'scenery_flower' || selectedTool === 'scenery_bench') {
+        const sceneryType: SceneryType = selectedTool === 'scenery_tree'
+          ? 'tree'
+          : selectedTool === 'scenery_flower'
+            ? 'flower'
+            : 'bench';
         const scenery: Scenery = { type: sceneryType, variant: 0, rotation: 0 };
         if (tile.scenery?.type === sceneryType) {
           return prev;
