@@ -6,6 +6,14 @@ import { useCoaster } from '@/context/CoasterContext';
 import { TILE_WIDTH, TILE_HEIGHT } from '@/components/game/types';
 import { gridToScreen, screenToGrid } from '@/components/game/utils';
 import { drawIsometricDiamond } from '@/components/game/drawing';
+import { getCachedImage, onImageLoaded } from '@/components/game/imageLoader';
+import {
+  COASTER_RIDE_SPRITES,
+  COASTER_STALL_SPRITES,
+  COASTER_TRAIN_SPRITE,
+  preloadCoasterSprites,
+  SpriteConfig,
+} from '@/components/coaster/coasterSprites';
 import { CoasterTile, CoasterTrain } from '@/games/coaster/types';
 import { drawCoasterTrack } from '@/components/coaster/trackSystem';
 
@@ -60,6 +68,12 @@ const SCENERY_COLORS: Record<string, string> = {
 };
 
 const GUEST_COLORS = ['#ffe4c4', '#f9c9a8', '#f4b183', '#d4a373', '#b08968', '#9c6644', '#7f5539', '#e5e7eb'];
+const STAFF_COLORS: Record<string, string> = {
+  handyman: '#22c55e',
+  mechanic: '#facc15',
+  security: '#60a5fa',
+  entertainer: '#f472b6',
+};
 
 type Viewport = {
   offset: { x: number; y: number };
@@ -83,7 +97,7 @@ export function CoasterCanvasGrid({
   onViewportChange,
 }: CoasterCanvasGridProps) {
   const { state, placeAtTile } = useCoaster();
-  const { grid, gridSize, selectedTool, coasterTrains, guests } = state;
+  const { grid, gridSize, selectedTool, coasterTrains, guests, staff } = state;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 });
@@ -135,6 +149,30 @@ export function CoasterCanvasGrid({
     []
   );
 
+  const drawSprite = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      sprite: SpriteConfig,
+      centerX: number,
+      centerY: number,
+      rotation: number = 0
+    ) => {
+      const img = getCachedImage(sprite.src);
+      if (!img) return false;
+      const baseScale = TILE_WIDTH / img.naturalWidth;
+      const drawWidth = img.naturalWidth * baseScale * sprite.scale;
+      const drawHeight = img.naturalHeight * baseScale * sprite.scale;
+
+      ctx.save();
+      ctx.translate(centerX + sprite.offsetX * TILE_WIDTH, centerY + sprite.offsetY * TILE_HEIGHT);
+      ctx.rotate(rotation);
+      ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+      ctx.restore();
+      return true;
+    },
+    []
+  );
+
   const drawTrainCar = useCallback(
     (ctx: CanvasRenderingContext2D, train: CoasterTrain, carOffset: number, color: string) => {
       if (!train.path.length) return;
@@ -164,19 +202,22 @@ export function CoasterCanvasGrid({
       const dy = endY - startY;
       const angle = Math.atan2(dy, dx);
 
-      ctx.save();
-      ctx.translate(carX, carY);
-      ctx.rotate(angle);
-      ctx.fillStyle = color;
-      ctx.strokeStyle = '#1f2937';
-      ctx.lineWidth = 0.8;
-      ctx.beginPath();
-      ctx.roundRect(-5, -3, 10, 6, 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
+      const drewSprite = drawSprite(ctx, COASTER_TRAIN_SPRITE, carX, carY, angle);
+      if (!drewSprite) {
+        ctx.save();
+        ctx.translate(carX, carY);
+        ctx.rotate(angle);
+        ctx.fillStyle = color;
+        ctx.strokeStyle = '#1f2937';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.roundRect(-5, -3, 10, 6, 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
     },
-    [offset.x, offset.y]
+    [drawSprite, offset.x, offset.y]
   );
 
   const drawTrains = useCallback(
@@ -222,22 +263,65 @@ export function CoasterCanvasGrid({
     [guests, offset.x, offset.y]
   );
 
+  const drawStaff = useCallback(
+    (ctx: CanvasRenderingContext2D) => {
+      staff.forEach((member) => {
+        const startScreen = gridToScreen(member.tileX, member.tileY, offset.x, offset.y);
+        const startX = startScreen.screenX + TILE_WIDTH / 2;
+        const startY = startScreen.screenY + TILE_HEIGHT / 2;
+        let endX = startX;
+        let endY = startY;
+        const nextTile = member.path[member.pathIndex + 1];
+        if (nextTile) {
+          const endScreen = gridToScreen(nextTile.x, nextTile.y, offset.x, offset.y);
+          endX = endScreen.screenX + TILE_WIDTH / 2;
+          endY = endScreen.screenY + TILE_HEIGHT / 2;
+        }
+        const x = startX + (endX - startX) * member.progress;
+        const y = startY + (endY - startY) * member.progress;
+
+        ctx.fillStyle = STAFF_COLORS[member.type] ?? '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y - 2, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#1f2937';
+        ctx.fillRect(x - 1.2, y, 2.4, 3.6);
+      });
+    },
+    [offset.x, offset.y, staff]
+  );
+
   const drawRides = useCallback(
     (ctx: CanvasRenderingContext2D, tile: CoasterTile, screenX: number, screenY: number) => {
       if (!tile.rideId || !tile.rideType) return;
-      const color = RIDE_COLORS[tile.rideType] ?? '#f97316';
-      ctx.fillStyle = color;
-      ctx.globalAlpha = 0.75;
-      ctx.beginPath();
-      ctx.moveTo(screenX + TILE_WIDTH / 2, screenY + TILE_HEIGHT * 0.15);
-      ctx.lineTo(screenX + TILE_WIDTH * 0.85, screenY + TILE_HEIGHT / 2);
-      ctx.lineTo(screenX + TILE_WIDTH / 2, screenY + TILE_HEIGHT * 0.85);
-      ctx.lineTo(screenX + TILE_WIDTH * 0.15, screenY + TILE_HEIGHT / 2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.globalAlpha = 1;
+      const isOrigin =
+        (!grid[tile.y - 1]?.[tile.x] || grid[tile.y - 1][tile.x].rideId !== tile.rideId) &&
+        (!grid[tile.y]?.[tile.x - 1] || grid[tile.y][tile.x - 1].rideId !== tile.rideId);
+      if (!isOrigin) return;
+
+      const centerX = screenX + TILE_WIDTH / 2;
+      const centerY = screenY + TILE_HEIGHT / 2;
+      const rideSprite = COASTER_RIDE_SPRITES[tile.rideType];
+      if (rideSprite) {
+        drawSprite(ctx, rideSprite, centerX, centerY);
+        return;
+      }
+
+      if (tile.rideType === 'coaster') {
+        const color = RIDE_COLORS[tile.rideType] ?? '#f97316';
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.75;
+        ctx.beginPath();
+        ctx.moveTo(screenX + TILE_WIDTH / 2, screenY + TILE_HEIGHT * 0.15);
+        ctx.lineTo(screenX + TILE_WIDTH * 0.85, screenY + TILE_HEIGHT / 2);
+        ctx.lineTo(screenX + TILE_WIDTH / 2, screenY + TILE_HEIGHT * 0.85);
+        ctx.lineTo(screenX + TILE_WIDTH * 0.15, screenY + TILE_HEIGHT / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
     },
-    []
+    [drawSprite, grid]
   );
 
   const drawGrid = useCallback(() => {
@@ -274,14 +358,18 @@ export function CoasterCanvasGrid({
         if (tile.facility) {
           const centerX = screenX + TILE_WIDTH / 2;
           const centerY = screenY + TILE_HEIGHT / 2;
-          ctx.fillStyle = RIDE_COLORS[tile.facility] ?? '#94a3b8';
-          ctx.fillRect(centerX - 4, centerY - 4, 8, 8);
+          const facilitySprite = COASTER_STALL_SPRITES[tile.facility];
+          if (!facilitySprite || !drawSprite(ctx, facilitySprite, centerX, centerY)) {
+            ctx.fillStyle = RIDE_COLORS[tile.facility] ?? '#94a3b8';
+            ctx.fillRect(centerX - 4, centerY - 4, 8, 8);
+          }
         }
       }
     }
 
     drawTrains(ctx);
     drawGuests(ctx);
+    drawStaff(ctx);
 
     if (hoveredTile) {
       const { screenX, screenY } = gridToScreen(hoveredTile.x, hoveredTile.y, offset.x, offset.y);
@@ -308,10 +396,16 @@ export function CoasterCanvasGrid({
       ctx.closePath();
       ctx.stroke();
     }
-  }, [drawGuests, drawInsetDiamond, drawRides, drawScenery, drawTrains, grid, gridSize, hoveredTile, offset.x, offset.y, selectedTile, zoom]);
+  }, [drawGuests, drawInsetDiamond, drawRides, drawScenery, drawStaff, drawTrains, grid, gridSize, hoveredTile, offset.x, offset.y, selectedTile, zoom]);
 
   useEffect(() => {
     drawGrid();
+  }, [drawGrid]);
+
+  useEffect(() => {
+    preloadCoasterSprites();
+    const unsubscribe = onImageLoaded(() => drawGrid());
+    return unsubscribe;
   }, [drawGrid]);
 
   useEffect(() => {

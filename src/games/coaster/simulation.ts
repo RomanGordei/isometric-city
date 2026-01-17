@@ -1,6 +1,7 @@
 import { CoasterGameState } from './types';
 import { syncCoasterTrains, updateCoasterTrains } from '@/components/coaster/coasterTrainSystem';
 import { updateGuests } from '@/components/coaster/guestSystem';
+import { updateStaff } from '@/components/coaster/staffSystem';
 
 const HOURS_PER_SECOND = 0.04;
 const DAYS_PER_MONTH = 30;
@@ -57,16 +58,17 @@ export function simulateCoasterTick(
   const synced = syncCoasterTrains(timeUpdated);
   const trainsUpdated = updateCoasterTrains(synced, deltaSeconds);
   const guestsUpdated = updateGuests(trainsUpdated, deltaSeconds);
+  const staffUpdated = updateStaff(guestsUpdated, deltaSeconds);
 
   const avgHappiness =
-    guestsUpdated.guests.length > 0
-      ? guestsUpdated.guests.reduce((sum, guest) => sum + guest.needs.happiness, 0) / guestsUpdated.guests.length
+    staffUpdated.guests.length > 0
+      ? staffUpdated.guests.reduce((sum, guest) => sum + guest.needs.happiness, 0) / staffUpdated.guests.length
       : 75;
-  const rideVariety = Math.min(1, guestsUpdated.rides.length / 8);
+  const rideVariety = Math.min(1, staffUpdated.rides.length / 8);
   const rating = Math.round(Math.min(100, Math.max(10, avgHappiness * 0.65 + rideVariety * 35)));
 
   return {
-    ...guestsUpdated,
+    ...staffUpdated,
     parkRating: rating,
   };
 }

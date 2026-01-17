@@ -1,6 +1,8 @@
 import { CoasterTile } from '@/games/coaster/types';
 import { TILE_WIDTH, TILE_HEIGHT } from '@/components/game/types';
 import { CardinalDirection } from '@/core/types';
+import { getCachedImage } from '@/components/game/imageLoader';
+import { COASTER_TRACK_SPRITES } from '@/components/coaster/coasterSprites';
 
 export type TrackConnections = {
   north: boolean;
@@ -103,6 +105,31 @@ export function getTrackType(connections: TrackConnections): TrackType {
     if (west) return 'terminus_e';
   }
   return 'single';
+}
+
+function drawTrackSprite(
+  ctx: CanvasRenderingContext2D,
+  spriteKey: keyof typeof COASTER_TRACK_SPRITES,
+  x: number,
+  y: number,
+  rotation: number
+): boolean {
+  const sprite = COASTER_TRACK_SPRITES[spriteKey];
+  const img = getCachedImage(sprite.src);
+  if (!img) return false;
+
+  const baseScale = TILE_WIDTH / img.naturalWidth;
+  const drawWidth = img.naturalWidth * baseScale * sprite.scale;
+  const drawHeight = img.naturalHeight * baseScale * sprite.scale;
+  const centerX = x + TILE_WIDTH / 2 + sprite.offsetX * TILE_WIDTH;
+  const centerY = y + TILE_HEIGHT / 2 + sprite.offsetY * TILE_HEIGHT;
+
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(rotation);
+  ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+  ctx.restore();
+  return true;
 }
 
 function drawSingleStraightRails(
@@ -245,6 +272,41 @@ export function drawCoasterTrack(
   const westEdge = { x: x + w * 0.25, y: y + h * 0.75 };
   const center = { x: x + w / 2, y: y + h / 2 };
 
+  const special = grid[gridY][gridX].track?.special;
+  const spriteKey =
+    special === 'station'
+      ? 'station'
+      : special === 'lift'
+      ? 'lift'
+      : special === 'brakes'
+      ? 'brakes'
+      : special === 'booster'
+      ? 'booster'
+      : special === 'loop'
+      ? 'loop'
+      : special === 'corkscrew'
+      ? 'corkscrew'
+      : trackType.includes('curve')
+      ? 'curve'
+      : 'straight';
+
+  let rotation = 0;
+  if (trackType === 'straight_ew') rotation = Math.PI / 2;
+  if (trackType === 'curve_se') rotation = Math.PI / 2;
+  if (trackType === 'curve_sw') rotation = Math.PI;
+  if (trackType === 'curve_nw') rotation = -Math.PI / 2;
+
+  const useSprite =
+    (trackType === 'straight_ns' ||
+      trackType === 'straight_ew' ||
+      trackType.startsWith('curve') ||
+      special) &&
+    drawTrackSprite(ctx, spriteKey, x, y, rotation);
+
+  if (useSprite && !trackType.startsWith('junction')) {
+    return;
+  }
+
   switch (trackType) {
     case 'straight_ns':
       drawTrackTies(ctx, northEdge, southEdge, ISO_EW, ISO_NS, TIES_PER_TILE);
@@ -297,7 +359,6 @@ export function drawCoasterTrack(
       break;
   }
 
-  const special = grid[gridY][gridX].track?.special;
   if (special) {
     ctx.save();
     ctx.fillStyle =
