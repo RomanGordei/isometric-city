@@ -1,4 +1,3 @@
-/* eslint-disable no-param-reassign */
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -499,6 +498,7 @@ export function CoasterCanvasGrid({
   useEffect(() => {
     if (!navigationTarget) return;
     const { screenX, screenY } = gridToScreen(navigationTarget.x, navigationTarget.y, 0, 0);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: navigation requires immediate viewport update
     setOffset({
       x: canvasSize.width / 2 - screenX,
       y: canvasSize.height / 2 - screenY,
