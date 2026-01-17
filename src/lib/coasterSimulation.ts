@@ -84,7 +84,7 @@ const QUEUE_PATIENCE_HIGH = 90;
 const QUEUE_PATIENCE_LOW_PENALTY = 0.2;
 const QUEUE_PATIENCE_MEDIUM_PENALTY = 0.35;
 const QUEUE_PATIENCE_HIGH_PENALTY = 0.5;
-const QUEUE_THOUGHT_TICKS = 30;
+const QUEUE_THOUGHT_TICKS = 10;
 
 function createGuest(id: number, tileX: number, tileY: number, entranceFee: number): Guest {
   const colors = ['#60a5fa', '#f87171', '#facc15', '#34d399', '#a78bfa'];
