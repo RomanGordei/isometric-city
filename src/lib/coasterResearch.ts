@@ -1,18 +1,19 @@
+import { msg } from 'gt-next';
 import { ResearchItem } from '@/games/coaster/types';
 
 const RESEARCH_ITEMS: ResearchItem[] = [
   {
     id: 'coaster_wooden',
-    name: 'Wooden Coaster',
-    category: 'coasters',
+    name: msg('Wooden Coaster'),
+    category: msg('coasters'),
     cost: 800,
     progress: 0,
     unlocked: false,
   },
   {
     id: 'coaster_steel',
-    name: 'Steel Coaster',
-    category: 'coasters',
+    name: msg('Steel Coaster'),
+    category: msg('coasters'),
     cost: 1200,
     progress: 0,
     unlocked: false,
