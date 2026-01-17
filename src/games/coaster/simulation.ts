@@ -105,7 +105,14 @@ export function simulateCoasterTick(
       ? staffUpdated.guests.reduce((sum, guest) => sum + guest.needs.happiness, 0) / staffUpdated.guests.length
       : 75;
   const rideVariety = Math.min(1, staffUpdated.rides.length / 8);
-  const rating = Math.round(Math.min(100, Math.max(10, avgHappiness * 0.65 + rideVariety * 35)));
+  const sceneryCount = staffUpdated.grid.reduce(
+    (sum, row) => sum + row.reduce((rowSum, tile) => rowSum + tile.scenery.length, 0),
+    0
+  );
+  const sceneryBonus = Math.min(12, sceneryCount * 0.25);
+  const rating = Math.round(
+    Math.min(100, Math.max(10, avgHappiness * 0.6 + rideVariety * 30 + sceneryBonus))
+  );
 
   return {
     ...staffUpdated,
