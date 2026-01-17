@@ -10,6 +10,7 @@ import { getCachedImage, onImageLoaded } from '@/components/game/imageLoader';
 import {
   COASTER_RIDE_SPRITES,
   COASTER_STALL_SPRITES,
+  COASTER_SCENERY_SPRITES,
   COASTER_TRAIN_SPRITE,
   COASTER_ENTRANCE_SPRITE,
   COASTER_QUEUE_SPRITE,
@@ -127,30 +128,6 @@ export function CoasterCanvasGrid({
   );
 
 
-  const drawScenery = useCallback(
-    (ctx: CanvasRenderingContext2D, tile: CoasterTile, screenX: number, screenY: number) => {
-      if (!tile.scenery.length) return;
-      const centerX = screenX + TILE_WIDTH / 2;
-      const centerY = screenY + TILE_HEIGHT / 2;
-
-      tile.scenery.forEach((item, index) => {
-        const offsetX = (index % 2 === 0 ? -1 : 1) * 6;
-        const offsetY = index % 2 === 0 ? -4 : 4;
-        ctx.fillStyle = SCENERY_COLORS[item] ?? '#ffffff';
-        if (item === 'tree') {
-          ctx.beginPath();
-          ctx.arc(centerX + offsetX, centerY + offsetY - 6, 5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#854d0e';
-          ctx.fillRect(centerX + offsetX - 1.5, centerY + offsetY - 2, 3, 6);
-        } else {
-          ctx.fillRect(centerX + offsetX - 3, centerY + offsetY - 3, 6, 6);
-        }
-      });
-    },
-    []
-  );
-
   const drawSprite = useCallback(
     (
       ctx: CanvasRenderingContext2D,
@@ -173,6 +150,36 @@ export function CoasterCanvasGrid({
       return true;
     },
     []
+  );
+
+  const drawScenery = useCallback(
+    (ctx: CanvasRenderingContext2D, tile: CoasterTile, screenX: number, screenY: number) => {
+      if (!tile.scenery.length) return;
+      const centerX = screenX + TILE_WIDTH / 2;
+      const centerY = screenY + TILE_HEIGHT / 2;
+
+      tile.scenery.forEach((item, index) => {
+        const offsetX = (index % 2 === 0 ? -1 : 1) * 6;
+        const offsetY = index % 2 === 0 ? -4 : 4;
+        const sprite = COASTER_SCENERY_SPRITES[item];
+        if (sprite) {
+          drawSprite(ctx, sprite, centerX + offsetX, centerY + offsetY);
+          return;
+        }
+
+        ctx.fillStyle = SCENERY_COLORS[item] ?? '#ffffff';
+        if (item === 'tree') {
+          ctx.beginPath();
+          ctx.arc(centerX + offsetX, centerY + offsetY - 6, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#854d0e';
+          ctx.fillRect(centerX + offsetX - 1.5, centerY + offsetY - 2, 3, 6);
+        } else {
+          ctx.fillRect(centerX + offsetX - 3, centerY + offsetY - 3, 6, 6);
+        }
+      });
+    },
+    [drawSprite]
   );
 
   const drawTrainCar = useCallback(

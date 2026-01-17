@@ -119,6 +119,27 @@ export const COASTER_TRAIN_SPRITE: SpriteConfig = {
   offsetY: -0.25,
 };
 
+export const COASTER_SCENERY_SPRITES: Record<string, SpriteConfig> = {
+  bench: {
+    src: '/assets/coaster/scenery_bench.png',
+    scale: 1,
+    offsetX: 0,
+    offsetY: -0.2,
+  },
+  lamp: {
+    src: '/assets/coaster/scenery_lamp.png',
+    scale: 1.05,
+    offsetX: 0,
+    offsetY: -0.45,
+  },
+  fence: {
+    src: '/assets/coaster/scenery_fence.png',
+    scale: 1,
+    offsetX: 0,
+    offsetY: -0.1,
+  },
+};
+
 export const COASTER_ENTRANCE_SPRITE: SpriteConfig = {
   src: '/assets/coaster/park_entrance.png',
   scale: 1.3,
@@ -138,6 +159,7 @@ export function preloadCoasterSprites() {
     ...Object.values(COASTER_TRACK_SPRITES).map((sprite) => sprite.src),
     ...Object.values(COASTER_RIDE_SPRITES).map((sprite) => sprite.src),
     ...Object.values(COASTER_STALL_SPRITES).map((sprite) => sprite.src),
+    ...Object.values(COASTER_SCENERY_SPRITES).map((sprite) => sprite.src),
     COASTER_TRAIN_SPRITE.src,
     COASTER_ENTRANCE_SPRITE.src,
     COASTER_QUEUE_SPRITE.src,
