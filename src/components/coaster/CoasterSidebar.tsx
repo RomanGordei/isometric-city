@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { msg, useMessages } from 'gt-next';
+import { T, msg, useMessages } from 'gt-next';
 import { useCoaster } from '@/context/CoasterContext';
 import { COASTER_TOOL_INFO, CoasterTool } from '@/games/coaster/types';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,7 @@ export function CoasterSidebar() {
   return (
     <div className="w-56 bg-sidebar border-r border-sidebar-border flex flex-col h-screen fixed left-0 top-0 z-40">
       <div className="px-4 py-4 border-b border-sidebar-border">
-        <div className="text-sidebar-foreground font-bold tracking-tight">COASTER PARK</div>
+        <div className="text-sidebar-foreground font-bold tracking-tight"><T>COASTER PARK</T></div>
       </div>
 
       <ScrollArea className="flex-1 py-2">
@@ -91,10 +91,10 @@ export function CoasterSidebar() {
       <div className="border-t border-sidebar-border p-2">
         <div className="grid grid-cols-4 gap-1">
           {[
-            { panel: 'finances' as const, icon: <Coins className="w-4 h-4" />, label: 'Finances' },
-            { panel: 'rides' as const, icon: <Ticket className="w-4 h-4" />, label: 'Rides' },
-            { panel: 'guests' as const, icon: <Users className="w-4 h-4" />, label: 'Guests' },
-            { panel: 'settings' as const, icon: <Settings className="w-4 h-4" />, label: 'Settings' },
+            { panel: 'finances' as const, icon: <Coins className="w-4 h-4" />, label: m(msg('Finances')) },
+            { panel: 'rides' as const, icon: <Ticket className="w-4 h-4" />, label: m(msg('Rides')) },
+            { panel: 'guests' as const, icon: <Users className="w-4 h-4" />, label: m(msg('Guests')) },
+            { panel: 'settings' as const, icon: <Settings className="w-4 h-4" />, label: m(msg('Settings')) },
           ].map(({ panel, icon, label }) => (
             <Button
               key={panel}
