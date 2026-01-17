@@ -71,6 +71,7 @@ export type CoasterTool =
   | 'shop_atm'
   | 'shop_first_aid'
   | 'shop_toilet'
+  | 'shop_staff_room'
   | 'staff_handyman'
   | 'staff_mechanic'
   | 'staff_security'
@@ -119,6 +120,7 @@ export const TOOL_INFO: Record<CoasterTool, ToolInfo> = {
   shop_atm: { name: 'ATM', cost: 300, description: 'Let guests withdraw cash', size: 1 },
   shop_first_aid: { name: 'First Aid', cost: 350, description: 'Help guests recover', size: 1 },
   shop_toilet: { name: 'Toilets', cost: 200, description: 'Restrooms for guests', size: 1 },
+  shop_staff_room: { name: 'Staff Room', cost: 600, description: 'Give staff a place to rest', size: 1 },
   staff_handyman: { name: 'Handyman', cost: 0, description: 'Hire a handyman for cleaning' },
   staff_mechanic: { name: 'Mechanic', cost: 0, description: 'Hire a mechanic for repairs' },
   staff_security: { name: 'Security', cost: 0, description: 'Hire security for safety' },

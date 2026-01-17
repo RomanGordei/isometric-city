@@ -59,6 +59,7 @@ export default function CoasterGame() {
     state.grid.forEach((row, y) => {
       row.forEach((tile, x) => {
         if (!tile.building) return;
+        if (tile.building.type === 'staff_room') return;
         entries.push({
           id: `${x}-${y}-${tile.building.type}`,
           name: tile.building.name,
@@ -70,6 +71,17 @@ export default function CoasterGame() {
       });
     });
     return entries;
+  }, [state.grid]);
+  const staffRoomCount = useMemo(() => {
+    let count = 0;
+    state.grid.forEach((row) => {
+      row.forEach((tile) => {
+        if (tile.building?.type === 'staff_room') {
+          count += 1;
+        }
+      });
+    });
+    return count;
   }, [state.grid]);
 
   useEffect(() => {
@@ -237,6 +249,7 @@ export default function CoasterGame() {
               assignmentId={staffAssignmentId}
               patrolRadius={patrolRadius}
               focusId={focusedStaffId}
+              staffRoomCount={staffRoomCount}
               onClose={handleClosePanel}
               onHire={hireStaff}
               onStartPatrol={(staffId) => {

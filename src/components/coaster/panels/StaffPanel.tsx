@@ -13,6 +13,7 @@ interface StaffPanelProps {
   assignmentId: number | null;
   patrolRadius: number;
   focusId: number | null;
+  staffRoomCount: number;
   onClose: () => void;
   onHire: (type: 'handyman' | 'mechanic' | 'security' | 'entertainer') => void;
   onStartPatrol: (staffId: number) => void;
@@ -28,6 +29,7 @@ export default function StaffPanel({
   assignmentId,
   patrolRadius,
   focusId,
+  staffRoomCount,
   onClose,
   onHire,
   onStartPatrol,
@@ -70,7 +72,12 @@ export default function StaffPanel({
               </Button>
             ))}
           </div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Team</div>
+          <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            <span>Team</span>
+            <span className="text-[10px] text-muted-foreground">
+              Staff Rooms {staffRoomCount}
+            </span>
+          </div>
           {assignmentTarget && (
             <div className="rounded-md border border-border/60 bg-muted/40 p-2 text-xs space-y-2">
               <div className="flex items-center justify-between">
@@ -134,6 +141,7 @@ export default function StaffPanel({
                     </div>
                     <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
                       <div>${member.wage}/wk</div>
+                      <div>Fatigue {Math.round((member.fatigue / 255) * 100)}%</div>
                       <div className="flex items-center gap-1">
                         <Button
                           size="sm"

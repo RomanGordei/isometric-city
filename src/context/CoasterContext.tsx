@@ -56,6 +56,7 @@ const TOOL_SHOP_MAP: Partial<Record<CoasterTool, CoasterBuildingType>> = {
   shop_atm: 'atm',
   shop_first_aid: 'first_aid',
   shop_toilet: 'toilets',
+  shop_staff_room: 'staff_room',
 };
 
 const SHOP_DEFAULTS: Record<CoasterBuildingType, { name: string; price: number; capacity: number }> = {

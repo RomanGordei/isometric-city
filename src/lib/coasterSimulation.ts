@@ -59,6 +59,10 @@ const MAX_GUESTS = 120;
 const STAFF_SPEED = 0.32;
 const CLEANLINESS_DECAY_PER_GUEST = 0.006;
 const HANDYMAN_CLEANLINESS_BOOST = 0.25;
+const STAFF_FATIGUE_DECAY = 0.05;
+const STAFF_ROOM_RECOVERY = 0.45;
+const STAFF_ROOM_RADIUS = 2;
+const STAFF_MIN_EFFICIENCY = 0.35;
 const ENTERTAINER_RADIUS = 4;
 const SECURITY_RADIUS = 3;
 const SCENERY_RADIUS = 3;
@@ -586,9 +590,14 @@ function updateStaffMovement(staff: Staff, grid: CoasterTile[][]): Staff {
   };
 }
 
+function getStaffEfficiency(staff: Staff): number {
+  return clampFloat(1 - staff.fatigue / 255, STAFF_MIN_EFFICIENCY, 1);
+}
+
 type ShopTarget = { position: { x: number; y: number }; type: CoasterBuildingType; price: number };
 type SceneryTarget = { position: { x: number; y: number }; type: SceneryType };
 type BenchTarget = { position: { x: number; y: number } };
+type StaffRoomTarget = { position: { x: number; y: number } };
 
 function findShopTargets(grid: CoasterTile[][]): ShopTarget[] {
   const targets: ShopTarget[] = [];
@@ -637,6 +646,19 @@ function findBenchTargets(grid: CoasterTile[][]): BenchTarget[] {
     for (let x = 0; x < grid[y].length; x++) {
       const scenery = grid[y][x].scenery;
       if (scenery?.type === 'bench') {
+        targets.push({ position: { x, y } });
+      }
+    }
+  }
+  return targets;
+}
+
+function findStaffRoomTargets(grid: CoasterTile[][]): StaffRoomTarget[] {
+  const targets: StaffRoomTarget[] = [];
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y].length; x++) {
+      const building = grid[y][x].building;
+      if (building?.type === 'staff_room') {
         targets.push({ position: { x, y } });
       }
     }
@@ -722,6 +744,12 @@ export function calculateSceneryScore(grid: CoasterTile[][]): number {
 function isBenchNearby(guest: Guest, targets: BenchTarget[], radius: number): boolean {
   return targets.some((target) => (
     Math.abs(target.position.x - guest.tileX) + Math.abs(target.position.y - guest.tileY) <= radius
+  ));
+}
+
+function isStaffRoomNearby(staff: Staff, targets: StaffRoomTarget[], radius: number): boolean {
+  return targets.some((target) => (
+    Math.abs(target.position.x - staff.tileX) + Math.abs(target.position.y - staff.tileY) <= radius
   ));
 }
 
@@ -1003,16 +1031,30 @@ function updateResearch(state: CoasterParkState): CoasterParkState {
 }
 
 function updateStaff(state: CoasterParkState): CoasterParkState {
-  const updatedStaff = state.staff.map((member) => updateStaffMovement(member, state.grid));
-  const handymanCount = updatedStaff.filter((member) => member.type === 'handyman').length;
+  const movedStaff = state.staff.map((member) => updateStaffMovement(member, state.grid));
+  const staffRooms = findStaffRoomTargets(state.grid);
+  const updatedStaff = movedStaff.map((member) => {
+    let fatigue = clamp(member.fatigue - STAFF_FATIGUE_DECAY);
+    if (staffRooms.length > 0 && isStaffRoomNearby(member, staffRooms, STAFF_ROOM_RADIUS)) {
+      fatigue = clamp(fatigue - STAFF_ROOM_RECOVERY);
+    }
+    if (fatigue === member.fatigue) return member;
+    return { ...member, fatigue };
+  });
+  const handymanEffort = updatedStaff
+    .filter((member) => member.type === 'handyman')
+    .reduce((sum, member) => sum + getStaffEfficiency(member), 0);
+  const mechanicEffort = updatedStaff
+    .filter((member) => member.type === 'mechanic')
+    .reduce((sum, member) => sum + getStaffEfficiency(member), 0);
   const mechanicCount = updatedStaff.filter((member) => member.type === 'mechanic').length;
   const cleanlinessDecay = state.guests.length * CLEANLINESS_DECAY_PER_GUEST;
   const trashCanCount = countSceneryType(state.grid, 'trash_can');
-  const cleanlinessBoost = handymanCount * HANDYMAN_CLEANLINESS_BOOST
+  const cleanlinessBoost = handymanEffort * HANDYMAN_CLEANLINESS_BOOST
     + trashCanCount * TRASH_CAN_CLEANLINESS_BOOST;
   const nextCleanliness = clamp(state.stats.cleanliness - cleanlinessDecay + cleanlinessBoost);
 
-  const mechanicBoost = mechanicCount * MECHANIC_UPTIME_BOOST;
+  const mechanicBoost = mechanicEffort * MECHANIC_UPTIME_BOOST;
   const isStormy = state.weather.type === 'stormy';
   let maintenanceCost = 0;
   const updatedRides = state.rides.map((ride) => {
