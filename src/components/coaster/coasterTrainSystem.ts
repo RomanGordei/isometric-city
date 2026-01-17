@@ -75,10 +75,25 @@ export function syncCoasterTrains(state: CoasterGameState): CoasterGameState {
 }
 
 export function updateCoasterTrains(state: CoasterGameState, deltaSeconds: number): CoasterGameState {
+  const rideStatusById = state.rides.reduce<Record<string, string>>((map, ride) => {
+    map[ride.id] = ride.status;
+    return map;
+  }, {});
+
   const updatedTrains = state.coasterTrains.map((train) => {
     if (!train.path.length) return train;
 
+    const rideStatus = rideStatusById[train.rideId] ?? 'closed';
+    if (rideStatus === 'closed') {
+      return { ...train, speed: 0, state: 'waiting', stateTimer: 0 };
+    }
+
     let { segmentIndex, progress, speed, state: trainState, stateTimer } = train;
+
+    if (trainState === 'waiting') {
+      trainState = 'loading';
+      stateTimer = 0;
+    }
 
     const currentTile = train.path[segmentIndex];
     const currentTrack = state.grid[currentTile.y]?.[currentTile.x]?.track;
