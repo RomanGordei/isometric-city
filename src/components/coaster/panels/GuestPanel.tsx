@@ -14,6 +14,27 @@ interface GuestPanelProps {
 export default function GuestPanel({ guests, onClose }: GuestPanelProps) {
   const [filter, setFilter] = useState<'all' | 'wandering' | 'queue' | 'ride' | 'shop'>('all');
 
+  const getMoodStyles = (guest: Guest) => {
+    if (guest.happiness >= 180) {
+      return { label: 'Thrilled', className: 'border-emerald-500/30 bg-emerald-500/20 text-emerald-200' };
+    }
+    if (guest.happiness >= 140) {
+      return { label: 'Happy', className: 'border-sky-500/30 bg-sky-500/20 text-sky-200' };
+    }
+    if (guest.happiness >= 100) {
+      return { label: 'Okay', className: 'border-amber-500/30 bg-amber-500/20 text-amber-200' };
+    }
+    return { label: 'Unhappy', className: 'border-rose-500/30 bg-rose-500/20 text-rose-200' };
+  };
+
+  const getNeedHint = (guest: Guest) => {
+    if (guest.needs.hunger < 80) return 'Hungry';
+    if (guest.needs.thirst < 80) return 'Thirsty';
+    if (guest.needs.bathroom < 60) return 'Bathroom';
+    if (guest.needs.energy < 60) return 'Tired';
+    return null;
+  };
+
   const filteredGuests = useMemo(() => {
     if (filter === 'all') return guests;
     if (filter === 'queue') return guests.filter((guest) => guest.state === 'queuing');
@@ -64,17 +85,30 @@ export default function GuestPanel({ guests, onClose }: GuestPanelProps) {
               {filteredGuests.length === 0 && (
                 <div className="text-muted-foreground text-xs">No guests match this filter.</div>
               )}
-              {filteredGuests.map((guest) => (
-                <div key={guest.id} className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">{guest.name}</div>
-                    <div className="text-xs text-muted-foreground capitalize">{guest.state.replace('_', ' ')}</div>
+              {filteredGuests.map((guest) => {
+                const mood = getMoodStyles(guest);
+                const needHint = getNeedHint(guest);
+                return (
+                  <div key={guest.id} className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium">{guest.name}</div>
+                      <div className="text-xs text-muted-foreground capitalize">{guest.state.replace('_', ' ')}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${mood.className}`}>
+                          {mood.label}
+                        </span>
+                        <span>Energy {Math.round((guest.needs.energy / 255) * 100)}%</span>
+                        {needHint && (
+                          <span className="text-amber-200/80">{needHint}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      ${guest.money}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    ${guest.money}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
         </div>
