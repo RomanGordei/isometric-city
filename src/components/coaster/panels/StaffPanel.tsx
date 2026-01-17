@@ -11,22 +11,26 @@ interface StaffPanelProps {
   staff: Staff[];
   cash: number;
   assignmentId: number | null;
+  patrolRadius: number;
   onClose: () => void;
   onHire: (type: 'handyman' | 'mechanic' | 'security' | 'entertainer') => void;
   onStartPatrol: (staffId: number) => void;
   onClearPatrol: (staffId: number) => void;
   onCancelPatrol: () => void;
+  onPatrolRadiusChange: (radius: number) => void;
 }
 
 export default function StaffPanel({
   staff,
   cash,
   assignmentId,
+  patrolRadius,
   onClose,
   onHire,
   onStartPatrol,
   onClearPatrol,
   onCancelPatrol,
+  onPatrolRadiusChange,
 }: StaffPanelProps) {
   const assignmentTarget = assignmentId ? staff.find((member) => member.id === assignmentId) : null;
 
@@ -62,13 +66,33 @@ export default function StaffPanel({
           </div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Team</div>
           {assignmentTarget && (
-            <div className="rounded-md border border-border/60 bg-muted/40 p-2 text-xs flex items-center justify-between">
-              <span>
-                Click a tile to set patrol area for <span className="font-semibold">{assignmentTarget.name}</span>.
-              </span>
-              <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={onCancelPatrol}>
-                Cancel
-              </Button>
+            <div className="rounded-md border border-border/60 bg-muted/40 p-2 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span>
+                  Click a tile to set patrol area for <span className="font-semibold">{assignmentTarget.name}</span>.
+                </span>
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={onCancelPatrol}>
+                  Cancel
+                </Button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                  Patrol Size
+                </span>
+                <div className="flex items-center gap-1">
+                  {[3, 4, 6].map((radius) => (
+                    <Button
+                      key={radius}
+                      size="sm"
+                      variant={patrolRadius === radius ? 'default' : 'outline'}
+                      className="h-6 px-2 text-[10px]"
+                      onClick={() => onPatrolRadiusChange(radius)}
+                    >
+                      {radius * 2 + 1}x{radius * 2 + 1}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
           <ScrollArea className="h-48 rounded-md border border-border/50">

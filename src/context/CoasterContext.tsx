@@ -104,7 +104,7 @@ type CoasterContextValue = {
   setRidePrice: (rideId: string, price: number) => void;
   toggleRideStatus: (rideId: string) => void;
   hireStaff: (type: 'handyman' | 'mechanic' | 'security' | 'entertainer') => void;
-  setStaffPatrolArea: (staffId: number, center: { x: number; y: number }) => void;
+  setStaffPatrolArea: (staffId: number, center: { x: number; y: number }, radius?: number) => void;
   clearStaffPatrolArea: (staffId: number) => void;
   newGame: (name?: string, size?: number) => void;
   loadState: (stateString: string) => boolean;
@@ -674,8 +674,7 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
     });
   }, []);
 
-  const setStaffPatrolArea = useCallback((staffId: number, center: { x: number; y: number }) => {
-    const radius = 4;
+  const setStaffPatrolArea = useCallback((staffId: number, center: { x: number; y: number }, radius: number = 4) => {
     setState((prev) => {
       const minX = Math.max(0, center.x - radius);
       const minY = Math.max(0, center.y - radius);

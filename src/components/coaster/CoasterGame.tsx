@@ -28,6 +28,7 @@ export default function CoasterGame() {
   const [viewport, setViewport] = useState<{ offset: { x: number; y: number }; zoom: number; canvasSize: { width: number; height: number } } | null>(null);
   const [selectedRideId, setSelectedRideId] = useState<string | null>(null);
   const [staffAssignmentId, setStaffAssignmentId] = useState<number | null>(null);
+  const [patrolRadius, setPatrolRadius] = useState(4);
 
   const selectedRide = useMemo(
     () => state.rides.find((ride) => ride.id === selectedRideId) ?? null,
@@ -42,9 +43,9 @@ export default function CoasterGame() {
 
   const handleAssignPatrol = useCallback((position: { x: number; y: number }) => {
     if (staffAssignmentId === null) return;
-    setStaffPatrolArea(staffAssignmentId, position);
+    setStaffPatrolArea(staffAssignmentId, position, patrolRadius);
     setStaffAssignmentId(null);
-  }, [setStaffPatrolArea, staffAssignmentId]);
+  }, [patrolRadius, setStaffPatrolArea, staffAssignmentId]);
 
   const handleClosePanel = useCallback(() => {
     setActivePanel('none');
@@ -136,6 +137,7 @@ export default function CoasterGame() {
               staff={state.staff}
               cash={state.finance.cash}
               assignmentId={staffAssignmentId}
+              patrolRadius={patrolRadius}
               onClose={handleClosePanel}
               onHire={hireStaff}
               onStartPatrol={(staffId) => setStaffAssignmentId(staffId)}
@@ -144,6 +146,7 @@ export default function CoasterGame() {
                 setStaffAssignmentId((current) => (current === staffId ? null : current));
               }}
               onCancelPatrol={() => setStaffAssignmentId(null)}
+              onPatrolRadiusChange={setPatrolRadius}
             />
           )}
         </div>
