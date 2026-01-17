@@ -433,7 +433,7 @@ export default function CoasterCanvas({
   onAssignPatrol,
 }: CoasterCanvasProps) {
   const { state, placeAtTile } = useCoaster();
-  const { grid, gridSize, rides, guests, coasterTrains, selectedTool, staff } = state;
+  const { grid, gridSize, rides, guests, coasterTrains, selectedTool, staff, hour } = state;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -447,6 +447,7 @@ export default function CoasterCanvas({
   const tileWidth = useMemo(() => TILE_WIDTH * zoom, [zoom]);
   const tileHeight = useMemo(() => TILE_HEIGHT * zoom, [zoom]);
   const rideColors = useMemo(() => new Map(rides.map((ride) => [ride.id, ride.color])), [rides]);
+  const isNight = useMemo(() => hour >= 19 || hour < 6, [hour]);
   const patrolOverlay = useMemo(() => {
     const overlay = new Map<string, string>();
     staff.forEach((member) => {
@@ -577,6 +578,9 @@ export default function CoasterCanvas({
           if ((tile.litter ?? 0) > 0) {
             drawLitter(ctx, screenX, screenY, tileWidth, tileHeight, tile.litter);
           }
+          if (isNight && tile.scenery?.type === 'lamp') {
+            drawOverlayDiamond(ctx, screenX, screenY, tileWidth, tileHeight, '#fde047', 0.18);
+          }
         }
         if (tile.track) {
           drawTrack(ctx, screenX, screenY, tileWidth, tileHeight, tile.track.connections);
@@ -645,7 +649,7 @@ export default function CoasterCanvas({
       const centerY = baseY + tileHeight / 2 - tileHeight * 0.2;
       drawTrain(ctx, centerX, centerY, tileWidth * 0.1);
     });
-  }, [canvasSize, grid, gridSize, offset, patrolOverlay, focusedOverlay, previewOverlay, focusedStaffId, rideColors, guests, staff, coasterTrains, tileHeight, tileWidth, zoom]);
+  }, [canvasSize, grid, gridSize, offset, patrolOverlay, focusedOverlay, previewOverlay, focusedStaffId, rideColors, guests, staff, coasterTrains, tileHeight, tileWidth, zoom, isNight]);
 
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDragging(true);
