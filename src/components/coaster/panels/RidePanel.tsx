@@ -5,6 +5,7 @@ import { Ride } from '@/games/coaster/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
+import { estimateQueueWaitMinutes } from '@/lib/coasterQueue';
 
 interface RidePanelProps {
   ride: Ride;
@@ -21,10 +22,7 @@ export default function RidePanel({ ride, onClose, onToggleStatus, onPriceChange
   }, [ride.price]);
 
   const queueLength = ride.queue.guestIds.length;
-  const rideTimeMinutes = Math.max(1, Math.round(ride.stats.rideTime / 60));
-  const estimatedWait = ride.stats.capacity > 0
-    ? Math.round((queueLength / ride.stats.capacity) * rideTimeMinutes)
-    : 0;
+  const estimatedWait = estimateQueueWaitMinutes(queueLength, ride.stats.rideTime, ride.stats.capacity);
 
   const statusLabel = useMemo(() => {
     switch (ride.status) {

@@ -1,6 +1,7 @@
 import { CardinalDirection, isInBounds } from '@/core/types';
 import { CoasterBuildingType, CoasterParkState, CoasterTile, Finance, Guest, ParkStats, PathInfo, Research, Staff, WeatherState } from '@/games/coaster/types';
 import { findPath } from '@/lib/coasterPathfinding';
+import { estimateQueueWaitMinutes } from '@/lib/coasterQueue';
 
 export const DEFAULT_COASTER_GRID_SIZE = 50;
 
@@ -679,7 +680,23 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
         return (queueCounts.get(ride.id) ?? 0) < capacity;
       });
       if (rideOptions.length === 0) return guest;
-      const ride = rideOptions[Math.floor(Math.random() * rideOptions.length)];
+      const weightedRides = rideOptions.map((ride) => {
+        const queueLength = queueCounts.get(ride.id) ?? ride.queue.guestIds.length;
+        const waitMinutes = estimateQueueWaitMinutes(queueLength, ride.stats.rideTime, ride.stats.capacity);
+        const excitementBoost = Math.max(1, ride.excitement / 15);
+        const weight = excitementBoost / (1 + waitMinutes);
+        return { ride, weight };
+      });
+      const totalWeight = weightedRides.reduce((sum, item) => sum + item.weight, 0);
+      let roll = Math.random() * totalWeight;
+      let ride = weightedRides[0].ride;
+      for (const option of weightedRides) {
+        roll -= option.weight;
+        if (roll <= 0) {
+          ride = option.ride;
+          break;
+        }
+      }
       const accessTile = findRideAccessTile(ride, state.grid);
       if (!accessTile) return guest;
       const path = findPath({ x: guest.tileX, y: guest.tileY }, accessTile, state.grid);

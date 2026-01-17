@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Ride } from '@/games/coaster/types';
+import { estimateQueueWaitMinutes } from '@/lib/coasterQueue';
 
 interface RidesPanelProps {
   rides: Ride[];
@@ -48,6 +49,11 @@ export default function RidesPanel({ rides, onClose, onSelectRide, onToggleRide 
               )}
               {sortedRides.map((ride) => {
                 const status = STATUS_STYLES[ride.status] ?? STATUS_STYLES.building;
+                const estimatedWait = estimateQueueWaitMinutes(
+                  ride.queue.guestIds.length,
+                  ride.stats.rideTime,
+                  ride.stats.capacity
+                );
                 return (
                   <div key={ride.id} className="flex items-start justify-between gap-3">
                     <div>
@@ -59,7 +65,8 @@ export default function RidesPanel({ rides, onClose, onSelectRide, onToggleRide 
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        ${ride.price} ticket · {ride.stats.totalRiders} riders
+                        {estimatedWait > 0 ? `${estimatedWait} min wait` : 'No wait'} · ${ride.price} ticket ·{' '}
+                        {ride.stats.totalRiders} riders
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
