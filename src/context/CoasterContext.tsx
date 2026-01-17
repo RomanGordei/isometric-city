@@ -504,50 +504,116 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
   // Simulation loop
   useEffect(() => {
     if (state.speed === 0) return;
-    
+
     const interval = state.speed === 1 ? 500 : state.speed === 2 ? 250 : 100;
-    
+
     const timer = setInterval(() => {
       setState(prev => simulateTick(prev));
     }, interval);
-    
+
     return () => clearInterval(timer);
-  }, [state.speed]);
+  }, [state.speed, simulateTick]);
   
   // =============================================================================
   // SIMULATION
   // =============================================================================
-  
+
+  const processMonthlyFinances = useCallback((state: CoasterGameState): CoasterGameState => {
+    const next = { ...state };
+    const record = { ...next.finances.currentMonthRecord };
+
+    // Calculate staff wages
+    record.staffWages = next.staff.reduce((sum, s) => sum + s.salary, 0);
+
+    // Calculate running costs based on open hours
+    const openHoursPerDay = Math.max(0, next.park.closingHour - next.park.openingHour);
+    const hoursInMonth = openHoursPerDay * 30;
+    record.rideRunning = next.rides.reduce((sum, ride) => {
+      if (ride.status !== 'open') return sum;
+      const def = RIDE_DEFINITIONS[ride.type];
+      return sum + (def?.runningCostPerHour ?? 0) * hoursInMonth;
+    }, 0);
+
+    record.shopRunning = next.shops.reduce((sum, shop) => {
+      if (shop.status !== 'open') return sum;
+      return sum + shop.runningCostPerHour * hoursInMonth;
+    }, 0);
+
+    // Calculate totals
+    record.totalIncome = record.parkEntranceFees + record.rideTickets + record.shopSales + record.facilityUsage;
+    record.totalExpenses = record.rideRunning + record.shopRunning + record.staffWages +
+                           record.marketing + record.research + record.loanInterest + record.construction;
+    record.profit = record.totalIncome - record.totalExpenses;
+
+    // Apply to cash
+    next.finances.cash += record.profit;
+
+    // Save to history
+    next.finances.history = [...next.finances.history, record];
+    if (next.finances.history.length > 24) {
+      next.finances.history = next.finances.history.slice(-24);
+    }
+
+    // Start new month
+    next.finances.currentMonthRecord = createEmptyFinancialRecord(next.year, next.month);
+
+    return next;
+  }, []);
+
+  const updateParkRating = useCallback((state: CoasterGameState): CoasterGameState => {
+    const next = { ...state };
+
+    // Rating factors
+    let rating = 500; // Base rating
+
+    // Guest happiness contribution
+    if (next.guests.length > 0) {
+      const avgHappiness = next.guests.reduce((sum, g) => sum + g.happiness, 0) / next.guests.length;
+      rating += (avgHappiness / 255) * 300;
+    }
+
+    // Ride variety
+    rating += Math.min(next.rides.filter(r => r.status === 'open').length * 20, 150);
+
+    // Cleanliness (simplified)
+    rating += 50; // Placeholder
+
+    // Clamp to 0-999
+    next.park.parkRating = Math.max(0, Math.min(999, Math.floor(rating)));
+
+    return next;
+  }, []);
+
   const simulateTick = useCallback((prev: CoasterGameState): CoasterGameState => {
     let next = { ...prev, tick: prev.tick + 1 };
-    
+
     // Advance time
     next.minute += 1;
     if (next.minute >= 60) {
       next.minute = 0;
       next.hour += 1;
-      
+
       if (next.hour >= 24) {
         next.hour = 0;
         next.day += 1;
-        
+
         // Month progression
         const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
         if (next.day > daysInMonth[next.month - 1]) {
           next.day = 1;
           next.month += 1;
-          
+
           if (next.month > 12) {
             next.month = 1;
             next.year += 1;
           }
-          
+
           // Monthly financial update
           next = processMonthlyFinances(next);
         }
       }
     }
-    
+
     // Guest spawning (during open hours)
     if (next.hour >= next.park.openingHour && next.hour < next.park.closingHour) {
       if (next.tick % 10 === 0 && next.guests.length < 100) {
@@ -566,12 +632,12 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-    
+
     // Update park rating
     if (next.tick % 100 === 0) {
       next = updateParkRating(next);
     }
-    
+
     // Update guests using AI system
     next.guests = updateAllGuests(next);
 
@@ -580,75 +646,9 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
 
     // Update ride operations
     next = updateRides(next);
-    
-    return next;
-  }, []);
-  
-  const processMonthlyFinances = useCallback((state: CoasterGameState): CoasterGameState => {
-    const next = { ...state };
-    const record = { ...next.finances.currentMonthRecord };
-    
-    // Calculate staff wages
-    record.staffWages = next.staff.reduce((sum, s) => sum + s.salary, 0);
 
-    // Calculate running costs based on open hours
-    const openHoursPerDay = Math.max(0, next.park.closingHour - next.park.openingHour);
-    const hoursInMonth = openHoursPerDay * 30;
-    record.rideRunning = next.rides.reduce((sum, ride) => {
-      if (ride.status !== 'open') return sum;
-      const def = RIDE_DEFINITIONS[ride.type];
-      return sum + (def?.runningCostPerHour ?? 0) * hoursInMonth;
-    }, 0);
-
-    record.shopRunning = next.shops.reduce((sum, shop) => {
-      if (shop.status !== 'open') return sum;
-      return sum + shop.runningCostPerHour * hoursInMonth;
-    }, 0);
-    
-    // Calculate totals
-    record.totalIncome = record.parkEntranceFees + record.rideTickets + record.shopSales + record.facilityUsage;
-    record.totalExpenses = record.rideRunning + record.shopRunning + record.staffWages + 
-                           record.marketing + record.research + record.loanInterest + record.construction;
-    record.profit = record.totalIncome - record.totalExpenses;
-    
-    // Apply to cash
-    next.finances.cash += record.profit;
-    
-    // Save to history
-    next.finances.history = [...next.finances.history, record];
-    if (next.finances.history.length > 24) {
-      next.finances.history = next.finances.history.slice(-24);
-    }
-    
-    // Start new month
-    next.finances.currentMonthRecord = createEmptyFinancialRecord(next.year, next.month);
-    
     return next;
-  }, []);
-  
-  const updateParkRating = useCallback((state: CoasterGameState): CoasterGameState => {
-    const next = { ...state };
-    
-    // Rating factors
-    let rating = 500; // Base rating
-    
-    // Guest happiness contribution
-    if (next.guests.length > 0) {
-      const avgHappiness = next.guests.reduce((sum, g) => sum + g.happiness, 0) / next.guests.length;
-      rating += (avgHappiness / 255) * 300;
-    }
-    
-    // Ride variety
-    rating += Math.min(next.rides.filter(r => r.status === 'open').length * 20, 150);
-    
-    // Cleanliness (simplified)
-    rating += 50; // Placeholder
-    
-    // Clamp to 0-999
-    next.park.parkRating = Math.max(0, Math.min(999, Math.floor(rating)));
-    
-    return next;
-  }, []);
+  }, [processMonthlyFinances, updateParkRating]);
   
   // =============================================================================
   // ACTIONS
@@ -911,9 +911,9 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
     setState(prev => {
       const tile = prev.grid[y]?.[x];
       if (!tile || (!tile.building && !tile.path)) return prev;
-      
+
       const newGrid = prev.grid.map(row => row.map(t => ({ ...t })));
-      
+
       // Remove building
       if (tile.building) {
         // If it's part of a ride, remove the whole ride
@@ -954,14 +954,14 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
             shops: prev.shops.filter(shop => shop.id !== shopId && !(shop.x === x && shop.y === y)),
           };
         }
-        
+
         newGrid[y][x].building = undefined;
       }
-      
+
       // Remove path
       if (tile.path) {
         newGrid[y][x].path = undefined;
-        
+
         // Update neighboring connections
         [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([dx, dy]) => {
           const neighbor = newGrid[y + dy]?.[x + dx];
@@ -975,14 +975,54 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
           }
         });
       }
-      
+
       return { ...prev, grid: newGrid };
     });
   }, []);
-  
+
+  const raiseTerrain = useCallback((x: number, y: number) => {
+    setState(prev => {
+      const tile = prev.grid[y]?.[x];
+      if (!tile || !tile.owned || tile.height >= 15) return prev;
+      if (prev.finances.cash < TOOL_INFO.terrain_raise.cost) return prev;
+
+      const newGrid = prev.grid.map(row => row.map(t => ({ ...t })));
+      newGrid[y][x].height += 1;
+
+      return {
+        ...prev,
+        grid: newGrid,
+        finances: {
+          ...prev.finances,
+          cash: prev.finances.cash - TOOL_INFO.terrain_raise.cost,
+        },
+      };
+    });
+  }, []);
+
+  const lowerTerrain = useCallback((x: number, y: number) => {
+    setState(prev => {
+      const tile = prev.grid[y]?.[x];
+      if (!tile || !tile.owned || tile.height <= 0) return prev;
+      if (prev.finances.cash < TOOL_INFO.terrain_lower.cost) return prev;
+
+      const newGrid = prev.grid.map(row => row.map(t => ({ ...t })));
+      newGrid[y][x].height -= 1;
+
+      return {
+        ...prev,
+        grid: newGrid,
+        finances: {
+          ...prev.finances,
+          cash: prev.finances.cash - TOOL_INFO.terrain_lower.cost,
+        },
+      };
+    });
+  }, []);
+
   const placeAtTile = useCallback((x: number, y: number) => {
     const tool = latestStateRef.current.selectedTool;
-    
+
     switch (tool) {
       case 'path_standard':
         placePath(x, y, 'tarmac', false);
@@ -1015,47 +1055,7 @@ export function CoasterProvider({ children }: { children: React.ReactNode }) {
         lowerTerrain(x, y);
         break;
     }
-  }, [placePath, bulldozeTile, placeRide, placeShop, placeScenery]);
-  
-  const raiseTerrain = useCallback((x: number, y: number) => {
-    setState(prev => {
-      const tile = prev.grid[y]?.[x];
-      if (!tile || !tile.owned || tile.height >= 15) return prev;
-      if (prev.finances.cash < TOOL_INFO.terrain_raise.cost) return prev;
-      
-      const newGrid = prev.grid.map(row => row.map(t => ({ ...t })));
-      newGrid[y][x].height += 1;
-      
-      return {
-        ...prev,
-        grid: newGrid,
-        finances: {
-          ...prev.finances,
-          cash: prev.finances.cash - TOOL_INFO.terrain_raise.cost,
-        },
-      };
-    });
-  }, []);
-  
-  const lowerTerrain = useCallback((x: number, y: number) => {
-    setState(prev => {
-      const tile = prev.grid[y]?.[x];
-      if (!tile || !tile.owned || tile.height <= 0) return prev;
-      if (prev.finances.cash < TOOL_INFO.terrain_lower.cost) return prev;
-      
-      const newGrid = prev.grid.map(row => row.map(t => ({ ...t })));
-      newGrid[y][x].height -= 1;
-      
-      return {
-        ...prev,
-        grid: newGrid,
-        finances: {
-          ...prev.finances,
-          cash: prev.finances.cash - TOOL_INFO.terrain_lower.cost,
-        },
-      };
-    });
-  }, []);
+  }, [placePath, bulldozeTile, placeRide, placeShop, placeScenery, raiseTerrain, lowerTerrain]);
   
   const openRide = useCallback((rideId: string) => {
     setState(prev => ({
