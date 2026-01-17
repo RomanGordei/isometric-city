@@ -375,6 +375,21 @@ function updateGuestMovement(guest: Guest, state: CoasterParkState): Guest {
   }
 
   if (guest.state === 'at_shop') {
+    const target = guest.targetShop;
+    const building = target ? grid[target.position.y]?.[target.position.x]?.building : null;
+    if (!building || !building.open) {
+      return {
+        ...guest,
+        state: 'wandering',
+        stateTimer: 0,
+        targetShop: null,
+        queueJoinTick: null,
+        path: [],
+        pathIndex: 0,
+        progress: 0,
+        age: nextAge,
+      };
+    }
     const nextTimer = guest.stateTimer - 1;
     if (nextTimer <= 0) {
       const shopType = guest.targetShop?.type;
@@ -536,7 +551,7 @@ function findShopTargets(grid: CoasterTile[][]): ShopTarget[] {
   for (let y = 0; y < grid.length; y++) {
     for (let x = 0; x < grid[y].length; x++) {
       const building = grid[y][x].building;
-      if (building) {
+      if (building && building.open) {
         targets.push({ position: { x, y }, type: building.type, price: building.price });
       }
     }
@@ -1025,6 +1040,24 @@ function updateGuests(state: CoasterParkState): CoasterParkState {
   let nextGuests = state.guests.map((guest) => updateGuestNeeds(guest));
   nextGuests = nextGuests.map((guest) => applyWeatherMood(guest, state.weather));
   nextGuests = nextGuests.map((guest) => updateGuestMovement(guest, state));
+  nextGuests = nextGuests.map((guest) => {
+    if ((guest.state === 'heading_to_shop' || guest.state === 'at_shop') && guest.targetShop) {
+      const building = state.grid[guest.targetShop.position.y]?.[guest.targetShop.position.x]?.building;
+      if (!building || !building.open) {
+        return {
+          ...guest,
+          state: 'wandering',
+          stateTimer: 0,
+          targetShop: null,
+          queueJoinTick: null,
+          path: [],
+          pathIndex: 0,
+          progress: 0,
+        };
+      }
+    }
+    return guest;
+  });
   nextGuests = nextGuests.filter((guest) => guest.age < guest.maxAge);
   let totalGuests = state.stats.totalGuests;
 

@@ -23,6 +23,7 @@ export default function CoasterGame() {
     newGame,
     setRidePrice,
     setShopPrice,
+    toggleShopOpen,
     toggleRideStatus,
     setActivePanel,
     hireStaff,
@@ -52,6 +53,7 @@ export default function CoasterGame() {
       name: string;
       type: CoasterBuildingType;
       price: number;
+      open: boolean;
       position: { x: number; y: number };
     }[] = [];
     state.grid.forEach((row, y) => {
@@ -62,6 +64,7 @@ export default function CoasterGame() {
           name: tile.building.name,
           type: tile.building.type,
           price: tile.building.price,
+          open: tile.building.open,
           position: { x, y },
         });
       });
@@ -218,6 +221,7 @@ export default function CoasterGame() {
               shops={shops}
               onClose={handleClosePanel}
               onPriceChange={setShopPrice}
+              onToggleOpen={toggleShopOpen}
             />
           )}
           {state.activePanel === 'guests' && (

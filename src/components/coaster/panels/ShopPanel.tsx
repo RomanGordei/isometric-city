@@ -9,6 +9,7 @@ type ShopEntry = {
   name: string;
   type: CoasterBuildingType;
   price: number;
+  open: boolean;
   position: {
     x: number;
     y: number;
@@ -19,11 +20,12 @@ interface ShopPanelProps {
   shops: ShopEntry[];
   onClose: () => void;
   onPriceChange: (position: { x: number; y: number }, price: number) => void;
+  onToggleOpen: (position: { x: number; y: number }) => void;
 }
 
 const PRICE_RANGE = [0, 20];
 
-export default function ShopPanel({ shops, onClose, onPriceChange }: ShopPanelProps) {
+export default function ShopPanel({ shops, onClose, onPriceChange, onToggleOpen }: ShopPanelProps) {
   return (
     <div className="absolute top-20 right-6 z-50 w-96">
       <Card className="space-y-4 p-4">
@@ -43,7 +45,7 @@ export default function ShopPanel({ shops, onClose, onPriceChange }: ShopPanelPr
           )}
           <div className="space-y-4">
             {shops.map((shop) => (
-              <div key={shop.id} className="rounded-lg border border-border/60 p-3">
+              <div key={shop.id} className="rounded-lg border border-border/60 p-3 space-y-2">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="font-medium">{shop.name}</div>
@@ -51,7 +53,19 @@ export default function ShopPanel({ shops, onClose, onPriceChange }: ShopPanelPr
                       {shop.type.replaceAll('_', ' ')} · ({shop.position.x}, {shop.position.y})
                     </div>
                   </div>
+                  <div className={`text-xs font-semibold ${shop.open ? 'text-emerald-200' : 'text-rose-200'}`}>
+                    {shop.open ? 'Open' : 'Closed'}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold">${shop.price}</div>
+                  <Button
+                    size="sm"
+                    variant={shop.open ? 'outline' : 'default'}
+                    onClick={() => onToggleOpen(shop.position)}
+                  >
+                    {shop.open ? 'Close' : 'Open'}
+                  </Button>
                 </div>
                 <div className="mt-3 space-y-2">
                   <Slider
