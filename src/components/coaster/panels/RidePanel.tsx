@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Ride } from '@/games/coaster/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { estimateQueueWaitMinutes, getRideDispatchCapacity } from '@/lib/coasterQueue';
+import { T, useGT } from 'gt-next';
 
 interface RidePanelProps {
   ride: Ride;
@@ -16,11 +17,14 @@ interface RidePanelProps {
 }
 
 export default function RidePanel({ ride, onClose, onToggleStatus, onPriceChange }: RidePanelProps) {
+  const gt = useGT();
   const [price, setPrice] = useState(ride.price);
+  const prevRidePriceRef = React.useRef(ride.price);
 
-  useEffect(() => {
+  if (prevRidePriceRef.current !== ride.price) {
+    prevRidePriceRef.current = ride.price;
     setPrice(ride.price);
-  }, [ride.price]);
+  }
 
   const queueLength = ride.queue.guestIds.length;
   const estimatedWait = estimateQueueWaitMinutes(queueLength, ride.stats.rideTime, getRideDispatchCapacity(ride));
@@ -29,46 +33,46 @@ export default function RidePanel({ ride, onClose, onToggleStatus, onPriceChange
 
   const statusLabel = useMemo(() => {
     if (ride.weatherClosed && ride.status === 'closed') {
-      return 'Storm Closed';
+      return gt('Storm Closed');
     }
     switch (ride.status) {
       case 'open':
-        return 'Open';
+        return gt('Open');
       case 'closed':
-        return 'Closed';
+        return gt('Closed');
       case 'broken':
-        return 'Broken';
+        return gt('Broken');
       case 'testing':
-        return 'Testing';
+        return gt('Testing');
       default:
-        return 'Building';
+        return gt('Building');
     }
-  }, [ride.status]);
+  }, [ride.status, ride.weatherClosed, gt]);
 
   const canToggle = (ride.status === 'open' || ride.status === 'closed') && !ride.weatherClosed;
   const toggleLabel = ride.weatherClosed
-    ? 'Storm Closed'
+    ? gt('Storm Closed')
     : ride.status === 'broken'
-    ? 'Awaiting Repair'
+    ? gt('Awaiting Repair')
     : ride.status === 'open'
-      ? 'Close Ride'
-      : 'Open Ride';
+      ? gt('Close Ride')
+      : gt('Open Ride');
 
   return (
     <div className="absolute top-20 right-6 z-50 w-72">
       <Card className="bg-card/95 border-border/70 shadow-xl">
         <div className="flex items-start justify-between p-4 border-b border-border/60">
           <div>
-            <div className="text-sm text-muted-foreground uppercase tracking-[0.2em]">Ride</div>
+            <T><div className="text-sm text-muted-foreground uppercase tracking-[0.2em]">Ride</div></T>
             <div className="text-lg font-semibold">{ride.name}</div>
           </div>
-          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label="Close ride panel">
+          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label={gt('Close ride panel')}>
             ✕
           </Button>
         </div>
         <div className="p-4 space-y-4 text-sm">
           <div className="flex items-center justify-between">
-            <span>Status</span>
+            <span>{gt('Status')}</span>
             <span
               className={`text-xs font-semibold uppercase tracking-[0.15em] ${
                 ride.status === 'open'
@@ -84,45 +88,45 @@ export default function RidePanel({ ride, onClose, onToggleStatus, onPriceChange
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span>Queue</span>
+            <span>{gt('Queue')}</span>
             <span>
-              {queueLength} / {ride.queue.maxLength} guests
+              {gt('{current} / {max} guests', { current: queueLength, max: ride.queue.maxLength })}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span>Estimated Wait</span>
-            <span>{estimatedWait} min</span>
+            <span>{gt('Estimated Wait')}</span>
+            <span>{gt('{minutes} min', { minutes: estimatedWait })}</span>
           </div>
           <div className="grid grid-cols-3 gap-3 text-center text-xs">
             <div>
-              <div className="text-muted-foreground">Excitement</div>
+              <div className="text-muted-foreground">{gt('Excitement')}</div>
               <div className="font-semibold">{ride.excitement}</div>
             </div>
             <div>
-              <div className="text-muted-foreground">Intensity</div>
+              <div className="text-muted-foreground">{gt('Intensity')}</div>
               <div className="font-semibold">{ride.intensity}</div>
             </div>
             <div>
-              <div className="text-muted-foreground">Nausea</div>
+              <div className="text-muted-foreground">{gt('Nausea')}</div>
               <div className="font-semibold">{ride.nausea}</div>
             </div>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Reliability</span>
-              <span>{reliabilityPercent}%</span>
+              <span>{gt('Reliability')}</span>
+              <span>{gt('{percent}%', { percent: reliabilityPercent })}</span>
             </div>
             <Progress value={reliabilityPercent} className="h-2" />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Uptime</span>
-              <span>{uptimePercent}%</span>
+              <span>{gt('Uptime')}</span>
+              <span>{gt('{percent}%', { percent: uptimePercent })}</span>
             </div>
             <Progress value={uptimePercent} className="h-2" />
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span>Ticket Price</span>
-              <span>${price}</span>
+              <span>{gt('Ticket Price')}</span>
+              <span>{gt('${price}', { price })}</span>
             </div>
             <Slider
               value={[price]}

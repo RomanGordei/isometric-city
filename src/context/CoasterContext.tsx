@@ -3,6 +3,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
+import { msg, useMessages, useGT } from 'gt-next';
 import {
   CoasterParkState,
   CoasterTool,
@@ -57,15 +58,15 @@ const TOOL_SHOP_MAP: Partial<Record<CoasterTool, CoasterBuildingType>> = {
 };
 
 const SHOP_DEFAULTS: Record<CoasterBuildingType, { name: string; price: number; capacity: number }> = {
-  food_stall: { name: 'Burger Stall', price: 5, capacity: 10 },
-  drink_stall: { name: 'Soda Stall', price: 3, capacity: 8 },
-  ice_cream_stall: { name: 'Ice Cream', price: 4, capacity: 8 },
-  souvenir_shop: { name: 'Souvenir Shop', price: 6, capacity: 12 },
-  info_kiosk: { name: 'Info Kiosk', price: 2, capacity: 6 },
-  toilets: { name: 'Restrooms', price: 0, capacity: 6 },
-  atm: { name: 'ATM', price: 0, capacity: 4 },
-  first_aid: { name: 'First Aid', price: 0, capacity: 4 },
-  staff_room: { name: 'Staff Room', price: 0, capacity: 4 },
+  food_stall: { name: msg('Burger Stall'), price: 5, capacity: 10 },
+  drink_stall: { name: msg('Soda Stall'), price: 3, capacity: 8 },
+  ice_cream_stall: { name: msg('Ice Cream'), price: 4, capacity: 8 },
+  souvenir_shop: { name: msg('Souvenir Shop'), price: 6, capacity: 12 },
+  info_kiosk: { name: msg('Info Kiosk'), price: 2, capacity: 6 },
+  toilets: { name: msg('Restrooms'), price: 0, capacity: 6 },
+  atm: { name: msg('ATM'), price: 0, capacity: 4 },
+  first_aid: { name: msg('First Aid'), price: 0, capacity: 4 },
+  staff_room: { name: msg('Staff Room'), price: 0, capacity: 4 },
 };
 
 const SCENERY_TOOL_MAP: Partial<Record<CoasterTool, SceneryType>> = {
@@ -223,8 +224,11 @@ function saveSavedParks(parks: SavedParkMeta[]): void {
 }
 
 export function CoasterProvider({ children, startFresh = false }: { children: React.ReactNode; startFresh?: boolean }) {
+  const m = useMessages();
+  const gt = useGT();
+  const defaultParkName = gt('Coaster Park');
   const [state, setState] = useState<CoasterParkState>(() =>
-    createInitialCoasterState(DEFAULT_COASTER_GRID_SIZE, 'Coaster Park')
+    createInitialCoasterState(DEFAULT_COASTER_GRID_SIZE, defaultParkName)
   );
   const [hasExistingGame, setHasExistingGame] = useState(false);
   const [isStateReady, setIsStateReady] = useState(false);
@@ -603,7 +607,7 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
         const defaults = SHOP_DEFAULTS[shopType];
         const building: CoasterBuilding = {
           type: shopType,
-          name: defaults.name,
+          name: m(defaults.name),
           price: defaults.price,
           capacity: defaults.capacity,
           open: true,
@@ -667,7 +671,7 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
 
       return prev;
     });
-  }, [applyRidePlacement]);
+  }, [applyRidePlacement, m]);
 
   const buildRide = useCallback((rideType: RideType, x: number, y: number) => {
     let success = false;
@@ -909,10 +913,10 @@ export function CoasterProvider({ children, startFresh = false }: { children: Re
   }, []);
 
   const newGame = useCallback((name?: string, size?: number) => {
-    const fresh = createInitialCoasterState(size ?? DEFAULT_COASTER_GRID_SIZE, name ?? 'Coaster Park');
+    const fresh = createInitialCoasterState(size ?? DEFAULT_COASTER_GRID_SIZE, name ?? defaultParkName);
     skipNextSaveRef.current = true;
     setState(fresh);
-  }, []);
+  }, [defaultParkName]);
 
   const loadState = useCallback((stateString: string) => {
     try {
