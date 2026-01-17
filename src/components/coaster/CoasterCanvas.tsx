@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useCoaster } from '@/context/CoasterContext';
 import { CardinalDirection, gridToScreen, isInGrid, screenToGrid } from '@/core/types';
 import { TILE_HEIGHT, TILE_WIDTH } from '@/components/game/types';
@@ -336,11 +336,13 @@ export default function CoasterCanvas({
     return overlay;
   }, [gridSize, hoveredTile, patrolAssignmentId, patrolAssignmentRadius]);
 
-  useEffect(() => {
+  const prevPatrolAssignmentIdRef = useRef(patrolAssignmentId);
+  if (prevPatrolAssignmentIdRef.current !== patrolAssignmentId) {
+    prevPatrolAssignmentIdRef.current = patrolAssignmentId;
     if (patrolAssignmentId === undefined || patrolAssignmentId === null) {
       setHoveredTile(null);
     }
-  }, [patrolAssignmentId]);
+  }
 
   useEffect(() => {
     const container = containerRef.current;
@@ -355,7 +357,7 @@ export default function CoasterCanvas({
     return () => resizeObserver.disconnect();
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (canvasSize.width === 0 || canvasSize.height === 0) return;
     const gridCenter = gridToScreen(gridSize / 2, gridSize / 2, TILE_WIDTH, TILE_HEIGHT);
     setOffset({
@@ -364,7 +366,7 @@ export default function CoasterCanvas({
     });
   }, [canvasSize, gridSize, zoom]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!navigationTarget) return;
     const targetIso = gridToScreen(navigationTarget.x, navigationTarget.y, TILE_WIDTH, TILE_HEIGHT);
     setOffset({
