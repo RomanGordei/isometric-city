@@ -19,6 +19,7 @@ const TRACK_DRAG_TOOLS: Tool[] = [
   'coaster_build',
   'coaster_track',
   'path',
+  'queue',
   'bulldoze',
 ];
 

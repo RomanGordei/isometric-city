@@ -38,12 +38,59 @@ const TOOL_CATEGORIES: Record<string, Tool[]> = {
     'pond_small', 'pond_medium', 'pond_koi',
     'splash_pad', 'water_jets', 'dancing_fountain',
   ],
-  'Food': ['food_hotdog', 'food_burger', 'food_icecream', 'food_cotton_candy', 'food_popcorn'],
-  'Shops': ['shop_souvenir', 'shop_toys', 'shop_photo', 'restroom', 'first_aid'],
+  'Food': [
+    // American
+    'food_hotdog', 'food_burger', 'food_fries', 'food_corndog', 'food_pretzel',
+    // Sweet Treats
+    'food_icecream', 'food_cotton_candy', 'food_candy_apple', 'food_churros', 'food_funnel_cake',
+    // Drinks
+    'drink_soda', 'drink_lemonade', 'drink_smoothie', 'drink_coffee', 'drink_slushie',
+    // Snacks
+    'snack_popcorn', 'snack_nachos', 'snack_pizza', 'snack_cookies', 'snack_donuts',
+    // International
+    'food_tacos', 'food_noodles', 'food_kebab', 'food_crepes', 'food_waffles',
+    // Themed
+    'cart_pirate', 'cart_space', 'cart_medieval', 'cart_western', 'cart_tropical',
+  ],
+  'Shops': [
+    // Gift shops
+    'shop_souvenir', 'shop_emporium', 'shop_photo', 'shop_ticket', 'shop_collectibles',
+    // Toy shops
+    'shop_toys', 'shop_plush', 'shop_apparel', 'shop_bricks', 'shop_rc',
+    // Candy
+    'shop_candy', 'shop_fudge', 'shop_jewelry', 'shop_popcorn_shop', 'shop_soda_fountain',
+    // Games
+    'game_ring_toss', 'game_balloon', 'game_shooting', 'game_darts', 'game_basketball',
+    // Entertainment
+    'arcade_building', 'vr_experience', 'photo_booth', 'caricature', 'face_paint',
+    // Services
+    'restroom', 'first_aid', 'lockers', 'stroller_rental', 'atm',
+  ],
   'Rides': [
-    'ride_carousel', 'ride_teacups', 'ride_ferris_wheel', 'ride_drop_tower',
-    'ride_swing_ride', 'ride_bumper_cars', 'ride_go_karts', 'ride_haunted_house',
-    'ride_log_flume',
+    // Kiddie
+    'ride_kiddie_coaster', 'ride_kiddie_train', 'ride_kiddie_planes', 'ride_kiddie_boats', 'ride_kiddie_cars',
+    // Spinning
+    'ride_teacups', 'ride_scrambler', 'ride_tilt_a_whirl', 'ride_spinning_apples', 'ride_whirlwind',
+    // Classic
+    'ride_carousel', 'ride_antique_cars', 'ride_monorail_car', 'ride_sky_ride_car', 'ride_train_car',
+    // Theater
+    'ride_bumper_cars', 'ride_go_karts', 'ride_simulator', 'ride_motion_theater', 'ride_4d_theater',
+    // Water
+    'ride_bumper_boats', 'ride_paddle_boats', 'ride_lazy_river', 'ride_water_play', 'ride_splash_zone',
+    // Dark Rides
+    'ride_haunted_house', 'ride_ghost_train', 'ride_dark_ride', 'ride_tunnel', 'ride_themed_facade',
+    // Ferris Wheels
+    'ride_ferris_classic', 'ride_ferris_modern', 'ride_ferris_observation', 'ride_ferris_double', 'ride_ferris_led',
+    // Drop/Tower
+    'ride_drop_tower', 'ride_space_shot', 'ride_observation_tower', 'ride_sky_swing', 'ride_star_flyer',
+    // Swing
+    'ride_swing_ride', 'ride_wave_swinger', 'ride_flying_scooters', 'ride_enterprise', 'ride_loop_o_plane',
+    // Thrill
+    'ride_top_spin', 'ride_frisbee', 'ride_afterburner', 'ride_inversion', 'ride_meteorite',
+    // Transport/Water
+    'ride_log_flume', 'ride_rapids', 'ride_train_station', 'ride_monorail_station', 'ride_chairlift',
+    // Shows
+    'show_4d', 'show_stunt', 'show_dolphin', 'show_amphitheater', 'show_parade_float',
   ],
   'Coasters': [
     'coaster_build',

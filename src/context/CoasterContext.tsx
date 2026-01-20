@@ -451,6 +451,33 @@ function collectConnectedTrack(
 }
 
 /**
+ * Check if a track forms a complete loop (closed circuit).
+ * A track is complete if the last piece's exit connects back to the first piece's entry.
+ */
+function isTrackComplete(
+  tiles: { x: number; y: number }[],
+  pieces: TrackPiece[]
+): boolean {
+  if (tiles.length < 4 || pieces.length < 4) {
+    // Need at least 4 pieces to form a loop
+    return false;
+  }
+  
+  const firstTile = tiles[0];
+  const lastTile = tiles[tiles.length - 1];
+  const lastPiece = pieces[pieces.length - 1];
+  
+  // Get where the last piece exits to
+  const exitDir = getExitDirection(lastPiece);
+  const offset = getDirectionOffset(exitDir);
+  const exitX = lastTile.x + offset.dx;
+  const exitY = lastTile.y + offset.dy;
+  
+  // Check if the exit leads back to the first tile
+  return exitX === firstTile.x && exitY === firstTile.y;
+}
+
+/**
  * Collect all track tiles for a coaster from the grid.
  * Returns tiles in connected order following the track direction.
  */
@@ -964,6 +991,13 @@ export function CoasterProvider({
           if (coaster.track.length === 0 || coaster.trains.length === 0) return coaster;
           const trackLength = coaster.track.length;
           
+          // Only run trains if the track forms a complete loop
+          const trackComplete = isTrackComplete(coaster.trackTiles, coaster.track);
+          if (!trackComplete) {
+            // Track is incomplete - keep trains stationary at station
+            return coaster;
+          }
+          
           // Find station position - the tile with an adjacent queue
           const stationIndex = coaster.trackTiles.findIndex(
             t => t.x === coaster.stationTileX && t.y === coaster.stationTileY
@@ -1427,20 +1461,19 @@ export function CoasterProvider({
           //
           // When connecting to existing track:
           // - Exit connection: adjacent exits toward us, we receive at our entry
-          //   To properly continue the track flow, we use the OPPOSITE direction
-          //   so our entry edge (at startHeight) faces the connection
+          //   Keep the same direction so train flow continues naturally
           // - Entry connection: we feed into adjacent's entry
-          //   Use adjacentDirection as-is since it already points toward them
+          //   Flip direction so our exit faces their entry
           if (adjacentDirection) {
             if (connectingToEntry) {
-              startDirection = adjacentDirection;
-            } else {
-              // Flip for exit connection - this ensures the slope visually
-              // rises in the correct direction relative to track flow
+              // We're feeding into their entry - flip so our exit faces them
               const oppDir: Record<TrackDirection, TrackDirection> = {
                 north: 'south', south: 'north', east: 'west', west: 'east'
               };
               startDirection = oppDir[adjacentDirection];
+            } else {
+              // Receiving from their exit - continue in the same flow direction
+              startDirection = adjacentDirection;
             }
           }
           if (connectingToEntry && targetEntryHeight > 0) {
@@ -1452,7 +1485,7 @@ export function CoasterProvider({
           chainLift = true;
         } else if (tool === 'coaster_slope_down') {
           pieceType = 'slope_down_small';
-          // For slope_down, direction logic is OPPOSITE of slope_up
+          // For slope_down, direction logic is the SAME as slope_up:
           // When receiving from adjacent exit, DON'T flip - we continue in same direction but descend
           // When feeding into adjacent entry, we flip so our exit faces their entry
           if (adjacentDirection) {

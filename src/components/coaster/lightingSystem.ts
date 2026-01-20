@@ -262,6 +262,7 @@ function drawLightCutouts(
 
 /**
  * Draw colored glows for atmosphere (after cutouts)
+ * Keep these subtle to avoid washed out look
  */
 function drawColoredGlows(
   ctx: CanvasRenderingContext2D,
@@ -274,31 +275,29 @@ function drawColoredGlows(
     const tileCenterY = screenY + TILE_HEIGHT / 2;
     
     if (light.type === 'path') {
-      // Warm yellow street light glow
-      const gradient = ctx.createRadialGradient(tileCenterX, tileCenterY - 5, 0, tileCenterX, tileCenterY - 5, 22);
-      gradient.addColorStop(0, `rgba(255, 210, 130, ${0.3 * lightIntensity})`);
-      gradient.addColorStop(0.6, `rgba(255, 190, 100, ${0.12 * lightIntensity})`);
+      // Subtle warm glow - very low opacity
+      const gradient = ctx.createRadialGradient(tileCenterX, tileCenterY - 5, 0, tileCenterX, tileCenterY - 5, 16);
+      gradient.addColorStop(0, `rgba(255, 220, 150, ${0.15 * lightIntensity})`);
       gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(tileCenterX, tileCenterY - 5, 22, 0, Math.PI * 2);
+      ctx.arc(tileCenterX, tileCenterY - 5, 16, 0, Math.PI * 2);
       ctx.fill();
     } else if (light.type === 'track' && light.seed !== undefined) {
-      // Red safety lights along track
+      // Subtle red safety lights
       const trackHeight = light.trackHeight || 0;
       const elevationOffset = trackHeight * HEIGHT_UNIT;
       const lightY = tileCenterY - elevationOffset - 10;
       
-      const gradient = ctx.createRadialGradient(tileCenterX, lightY, 0, tileCenterX, lightY, 18);
-      gradient.addColorStop(0, `rgba(255, 80, 80, ${0.35 * lightIntensity})`);
-      gradient.addColorStop(0.6, `rgba(255, 100, 100, ${0.15 * lightIntensity})`);
+      const gradient = ctx.createRadialGradient(tileCenterX, lightY, 0, tileCenterX, lightY, 12);
+      gradient.addColorStop(0, `rgba(255, 100, 100, ${0.2 * lightIntensity})`);
       gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(tileCenterX, lightY, 18, 0, Math.PI * 2);
+      ctx.arc(tileCenterX, lightY, 12, 0, Math.PI * 2);
       ctx.fill();
     } else if (light.type === 'ride' && light.seed !== undefined) {
-      // Colorful ride lights
+      // Subtle colorful ride lights
       const colors = [
         { r: 255, g: 100, b: 150 }, // Pink
         { r: 100, g: 200, b: 255 }, // Cyan
@@ -308,13 +307,12 @@ function drawColoredGlows(
       const colorIdx = Math.floor(pseudoRandom(light.seed, 5) * colors.length);
       const color = colors[colorIdx];
       
-      const gradient = ctx.createRadialGradient(tileCenterX, tileCenterY - 20, 0, tileCenterX, tileCenterY - 20, 35);
-      gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, ${0.35 * lightIntensity})`);
-      gradient.addColorStop(0.5, `rgba(${color.r}, ${color.g}, ${color.b}, ${0.15 * lightIntensity})`);
+      const gradient = ctx.createRadialGradient(tileCenterX, tileCenterY - 20, 0, tileCenterX, tileCenterY - 20, 25);
+      gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, ${0.2 * lightIntensity})`);
       gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(tileCenterX, tileCenterY - 20, 35, 0, Math.PI * 2);
+      ctx.arc(tileCenterX, tileCenterY - 20, 25, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -357,10 +355,10 @@ export function useCoasterLightingSystem(config: CoasterLightingConfig): void {
     
     const ambient = getAmbientColor(hour);
     
-    // Apply darkness overlay - use low alpha to avoid the "washed out" look
-    // Use a very dark blue with low opacity for a cleaner night effect
-    const alpha = darkness * 0.35;
-    ctx.fillStyle = `rgba(5, 10, 30, ${alpha})`;
+    // Apply darkness overlay - use very low alpha to avoid washed out look
+    // Use pure dark blue with minimal opacity
+    const alpha = darkness * 0.25;
+    ctx.fillStyle = `rgba(0, 5, 20, ${alpha})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     // Calculate viewport bounds

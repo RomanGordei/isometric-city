@@ -49,8 +49,9 @@ export function TopBar() {
   const { state, setSpeed, setActivePanel, addMoney } = useCoaster();
   const { settings, stats, finances, year, month, day, hour, minute, speed } = state;
   
-  // Format time
-  const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+  // Format time - use Math.floor for minute since it can be fractional
+  const displayMinute = Math.floor(minute);
+  const timeString = `${hour.toString().padStart(2, '0')}:${displayMinute.toString().padStart(2, '0')}`;
   const dateString = `Year ${year}, Month ${month}, Day ${day}`;
   
   // Format month name
@@ -59,10 +60,10 @@ export function TopBar() {
   
   return (
     <div className="h-14 bg-slate-900/95 border-b border-slate-700 flex items-center px-4 gap-6">
-      {/* Park name and date */}
-      <div className="flex flex-col">
-        <span className="text-white font-medium text-sm">{settings.name}</span>
-        <span className="text-white/50 text-xs">{monthName} {day}, Year {year} — {timeString}</span>
+      {/* Park name and date - fixed width to prevent layout jitter */}
+      <div className="flex flex-col min-w-[180px]">
+        <span className="text-white font-medium text-sm truncate">{settings.name}</span>
+        <span className="text-white/50 text-xs tabular-nums">{monthName} {day}, Year {year} — {timeString}</span>
       </div>
       
       {/* Separator */}

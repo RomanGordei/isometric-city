@@ -40,9 +40,31 @@ export type Tool =
   | 'lamp_victorian' | 'lamp_modern' | 'lamp_themed' | 'lamp_double' | 'lamp_pathway'
   | 'trash_can_basic' | 'trash_can_fancy' | 'trash_can_themed'
   
-  // Food & Shops
-  | 'food_hotdog' | 'food_burger' | 'food_icecream' | 'food_cotton_candy' | 'food_popcorn'
-  | 'shop_souvenir' | 'shop_toys' | 'shop_photo' | 'restroom' | 'first_aid'
+  // Food - American
+  | 'food_hotdog' | 'food_burger' | 'food_fries' | 'food_corndog' | 'food_pretzel'
+  // Food - Sweet Treats
+  | 'food_icecream' | 'food_cotton_candy' | 'food_candy_apple' | 'food_churros' | 'food_funnel_cake'
+  // Food - Drinks
+  | 'drink_soda' | 'drink_lemonade' | 'drink_smoothie' | 'drink_coffee' | 'drink_slushie'
+  // Food - Snacks
+  | 'snack_popcorn' | 'snack_nachos' | 'snack_pizza' | 'snack_cookies' | 'snack_donuts'
+  // Food - International
+  | 'food_tacos' | 'food_noodles' | 'food_kebab' | 'food_crepes' | 'food_waffles'
+  // Food - Themed Carts
+  | 'cart_pirate' | 'cart_space' | 'cart_medieval' | 'cart_western' | 'cart_tropical'
+  
+  // Shops - Gift shops
+  | 'shop_souvenir' | 'shop_emporium' | 'shop_photo' | 'shop_ticket' | 'shop_collectibles'
+  // Shops - Toy shops
+  | 'shop_toys' | 'shop_plush' | 'shop_apparel' | 'shop_bricks' | 'shop_rc'
+  // Shops - Candy
+  | 'shop_candy' | 'shop_fudge' | 'shop_jewelry' | 'shop_popcorn_shop' | 'shop_soda_fountain'
+  // Shops - Games
+  | 'game_ring_toss' | 'game_balloon' | 'game_shooting' | 'game_darts' | 'game_basketball'
+  // Shops - Entertainment
+  | 'arcade_building' | 'vr_experience' | 'photo_booth' | 'caricature' | 'face_paint'
+  // Shops - Services
+  | 'restroom' | 'first_aid' | 'lockers' | 'stroller_rental' | 'atm'
   
   // Fountains & Water Features
   | 'fountain_small_1' | 'fountain_small_2' | 'fountain_small_3' | 'fountain_small_4' | 'fountain_small_5'
@@ -51,9 +73,31 @@ export type Tool =
   | 'pond_small' | 'pond_medium' | 'pond_large' | 'pond_koi' | 'pond_lily'
   | 'splash_pad' | 'water_jets' | 'mist_fountain' | 'interactive_fountain' | 'dancing_fountain'
   
-  // Flat Rides
-  | 'ride_carousel' | 'ride_teacups' | 'ride_ferris_wheel' | 'ride_drop_tower' | 'ride_swing_ride'
-  | 'ride_bumper_cars' | 'ride_go_karts' | 'ride_haunted_house' | 'ride_log_flume'
+  // Rides Small - Kiddie
+  | 'ride_kiddie_coaster' | 'ride_kiddie_train' | 'ride_kiddie_planes' | 'ride_kiddie_boats' | 'ride_kiddie_cars'
+  // Rides Small - Spinning
+  | 'ride_teacups' | 'ride_scrambler' | 'ride_tilt_a_whirl' | 'ride_spinning_apples' | 'ride_whirlwind'
+  // Rides Small - Classic
+  | 'ride_carousel' | 'ride_antique_cars' | 'ride_monorail_car' | 'ride_sky_ride_car' | 'ride_train_car'
+  // Rides Small - Driving/Theater
+  | 'ride_bumper_cars' | 'ride_go_karts' | 'ride_simulator' | 'ride_motion_theater' | 'ride_4d_theater'
+  // Rides Small - Water
+  | 'ride_bumper_boats' | 'ride_paddle_boats' | 'ride_lazy_river' | 'ride_water_play' | 'ride_splash_zone'
+  // Rides Small - Dark Rides
+  | 'ride_haunted_house' | 'ride_ghost_train' | 'ride_dark_ride' | 'ride_tunnel' | 'ride_themed_facade'
+  
+  // Rides Large - Ferris Wheels
+  | 'ride_ferris_classic' | 'ride_ferris_modern' | 'ride_ferris_observation' | 'ride_ferris_double' | 'ride_ferris_led'
+  // Rides Large - Drop/Tower
+  | 'ride_drop_tower' | 'ride_space_shot' | 'ride_observation_tower' | 'ride_sky_swing' | 'ride_star_flyer'
+  // Rides Large - Swing
+  | 'ride_swing_ride' | 'ride_wave_swinger' | 'ride_flying_scooters' | 'ride_enterprise' | 'ride_loop_o_plane'
+  // Rides Large - Thrill
+  | 'ride_top_spin' | 'ride_frisbee' | 'ride_afterburner' | 'ride_inversion' | 'ride_meteorite'
+  // Rides Large - Transport/Water
+  | 'ride_log_flume' | 'ride_rapids' | 'ride_train_station' | 'ride_monorail_station' | 'ride_chairlift'
+  // Rides Large - Shows
+  | 'show_4d' | 'show_stunt' | 'show_dolphin' | 'show_amphitheater' | 'show_parade_float'
   
   // Infrastructure
   | 'park_entrance' | 'staff_building';
@@ -182,30 +226,153 @@ export const TOOL_INFO: Record<Tool, ToolInfo> = {
   interactive_fountain: { name: 'Interactive Fountain', cost: 550, description: 'Guest-activated fountain', category: 'fountains' },
   dancing_fountain: { name: 'Dancing Fountain', cost: 800, description: 'Choreographed water show', category: 'fountains', size: { width: 2, height: 2 } },
   
-  // Food
+  // Food - American
   food_hotdog: { name: 'Hot Dog Stand', cost: 200, description: 'Sells hot dogs', category: 'food' },
   food_burger: { name: 'Burger Stand', cost: 250, description: 'Sells burgers', category: 'food' },
+  food_fries: { name: 'Fries Stand', cost: 180, description: 'Sells french fries', category: 'food' },
+  food_corndog: { name: 'Corn Dog Stand', cost: 200, description: 'Sells corn dogs', category: 'food' },
+  food_pretzel: { name: 'Pretzel Stand', cost: 180, description: 'Sells soft pretzels', category: 'food' },
+  // Food - Sweet Treats
   food_icecream: { name: 'Ice Cream Stand', cost: 200, description: 'Sells ice cream', category: 'food' },
   food_cotton_candy: { name: 'Cotton Candy', cost: 150, description: 'Sells cotton candy', category: 'food' },
-  food_popcorn: { name: 'Popcorn Stand', cost: 180, description: 'Sells popcorn', category: 'food' },
+  food_candy_apple: { name: 'Candy Apple', cost: 150, description: 'Sells candy apples', category: 'food' },
+  food_churros: { name: 'Churros Stand', cost: 180, description: 'Sells churros', category: 'food' },
+  food_funnel_cake: { name: 'Funnel Cake', cost: 200, description: 'Sells funnel cakes', category: 'food' },
+  // Food - Drinks
+  drink_soda: { name: 'Soda Stand', cost: 150, description: 'Sells cold drinks', category: 'food' },
+  drink_lemonade: { name: 'Lemonade Stand', cost: 150, description: 'Fresh lemonade', category: 'food' },
+  drink_smoothie: { name: 'Smoothie Stand', cost: 180, description: 'Fruit smoothies', category: 'food' },
+  drink_coffee: { name: 'Coffee Stand', cost: 180, description: 'Coffee and espresso', category: 'food' },
+  drink_slushie: { name: 'Slushie Stand', cost: 150, description: 'Frozen slushies', category: 'food' },
+  // Food - Snacks
+  snack_popcorn: { name: 'Popcorn Stand', cost: 180, description: 'Sells popcorn', category: 'food' },
+  snack_nachos: { name: 'Nachos Stand', cost: 200, description: 'Sells nachos', category: 'food' },
+  snack_pizza: { name: 'Pizza Stand', cost: 250, description: 'Sells pizza slices', category: 'food' },
+  snack_cookies: { name: 'Cookie Stand', cost: 150, description: 'Fresh baked cookies', category: 'food' },
+  snack_donuts: { name: 'Donut Stand', cost: 180, description: 'Sells donuts', category: 'food' },
+  // Food - International
+  food_tacos: { name: 'Taco Stand', cost: 220, description: 'Sells tacos', category: 'food' },
+  food_noodles: { name: 'Noodle Stand', cost: 220, description: 'Asian noodles', category: 'food' },
+  food_kebab: { name: 'Kebab Stand', cost: 220, description: 'Grilled kebabs', category: 'food' },
+  food_crepes: { name: 'Crepe Stand', cost: 200, description: 'French crepes', category: 'food' },
+  food_waffles: { name: 'Waffle Stand', cost: 200, description: 'Belgian waffles', category: 'food' },
+  // Food - Themed Carts
+  cart_pirate: { name: 'Pirate Food Cart', cost: 300, description: 'Themed pirate cart', category: 'food' },
+  cart_space: { name: 'Space Food Cart', cost: 300, description: 'Themed space cart', category: 'food' },
+  cart_medieval: { name: 'Medieval Food Cart', cost: 300, description: 'Themed medieval cart', category: 'food' },
+  cart_western: { name: 'Western Food Cart', cost: 300, description: 'Themed western cart', category: 'food' },
+  cart_tropical: { name: 'Tropical Food Cart', cost: 300, description: 'Themed tropical cart', category: 'food' },
   
-  // Shops
+  // Shops - Gift shops
   shop_souvenir: { name: 'Souvenir Shop', cost: 400, description: 'Sells souvenirs', category: 'shops' },
-  shop_toys: { name: 'Toy Shop', cost: 350, description: 'Sells toys and plushies', category: 'shops' },
+  shop_emporium: { name: 'Emporium', cost: 600, description: 'Large gift shop', category: 'shops' },
   shop_photo: { name: 'Photo Shop', cost: 300, description: 'On-ride photo sales', category: 'shops' },
+  shop_ticket: { name: 'Ticket Booth', cost: 200, description: 'Ticket sales', category: 'shops' },
+  shop_collectibles: { name: 'Collectibles', cost: 450, description: 'Sells collectibles', category: 'shops' },
+  // Shops - Toy shops
+  shop_toys: { name: 'Toy Shop', cost: 350, description: 'Sells toys and plushies', category: 'shops' },
+  shop_plush: { name: 'Plush Shop', cost: 350, description: 'Stuffed animals', category: 'shops' },
+  shop_apparel: { name: 'Apparel Shop', cost: 400, description: 'Park clothing', category: 'shops' },
+  shop_bricks: { name: 'Brick Shop', cost: 400, description: 'Building toys', category: 'shops' },
+  shop_rc: { name: 'RC Shop', cost: 350, description: 'Remote control toys', category: 'shops' },
+  // Shops - Candy
+  shop_candy: { name: 'Candy Shop', cost: 350, description: 'Sells candy', category: 'shops' },
+  shop_fudge: { name: 'Fudge Shop', cost: 350, description: 'Fresh fudge', category: 'shops' },
+  shop_jewelry: { name: 'Jewelry Shop', cost: 400, description: 'Costume jewelry', category: 'shops' },
+  shop_popcorn_shop: { name: 'Popcorn Shop', cost: 300, description: 'Gourmet popcorn', category: 'shops' },
+  shop_soda_fountain: { name: 'Soda Fountain', cost: 350, description: 'Retro soda shop', category: 'shops' },
+  // Shops - Games
+  game_ring_toss: { name: 'Ring Toss', cost: 250, description: 'Ring toss game', category: 'shops' },
+  game_balloon: { name: 'Balloon Pop', cost: 250, description: 'Balloon dart game', category: 'shops' },
+  game_shooting: { name: 'Shooting Gallery', cost: 300, description: 'Target shooting', category: 'shops' },
+  game_darts: { name: 'Darts Game', cost: 250, description: 'Dart throwing', category: 'shops' },
+  game_basketball: { name: 'Basketball Toss', cost: 300, description: 'Basketball game', category: 'shops' },
+  // Shops - Entertainment
+  arcade_building: { name: 'Arcade', cost: 500, description: 'Video game arcade', category: 'shops' },
+  vr_experience: { name: 'VR Experience', cost: 600, description: 'Virtual reality', category: 'shops' },
+  photo_booth: { name: 'Photo Booth', cost: 200, description: 'Instant photos', category: 'shops' },
+  caricature: { name: 'Caricature Artist', cost: 150, description: 'Portrait drawings', category: 'shops' },
+  face_paint: { name: 'Face Painting', cost: 150, description: 'Face painting booth', category: 'shops' },
+  // Shops - Services
   restroom: { name: 'Restroom', cost: 300, description: 'Guest restroom', category: 'shops' },
   first_aid: { name: 'First Aid', cost: 400, description: 'Medical station', category: 'shops' },
+  lockers: { name: 'Lockers', cost: 350, description: 'Storage lockers', category: 'shops' },
+  stroller_rental: { name: 'Stroller Rental', cost: 250, description: 'Rent strollers', category: 'shops' },
+  atm: { name: 'ATM', cost: 150, description: 'Cash machine', category: 'shops' },
   
-  // Rides
-  ride_carousel: { name: 'Carousel', cost: 5000, description: 'Classic merry-go-round', category: 'rides_small', size: { width: 2, height: 2 } },
+  // Rides Small - Kiddie
+  ride_kiddie_coaster: { name: 'Kiddie Coaster', cost: 3000, description: 'Mini roller coaster', category: 'rides_small', size: { width: 2, height: 2 } },
+  ride_kiddie_train: { name: 'Kiddie Train', cost: 2500, description: 'Small train ride', category: 'rides_small', size: { width: 2, height: 2 } },
+  ride_kiddie_planes: { name: 'Kiddie Planes', cost: 2500, description: 'Flying airplanes', category: 'rides_small', size: { width: 2, height: 2 } },
+  ride_kiddie_boats: { name: 'Kiddie Boats', cost: 2500, description: 'Boat ride for kids', category: 'rides_small', size: { width: 2, height: 2 } },
+  ride_kiddie_cars: { name: 'Kiddie Cars', cost: 2500, description: 'Car ride for kids', category: 'rides_small', size: { width: 2, height: 2 } },
+  // Rides Small - Spinning
   ride_teacups: { name: 'Teacups', cost: 4000, description: 'Spinning teacups', category: 'rides_small', size: { width: 2, height: 2 } },
-  ride_ferris_wheel: { name: 'Ferris Wheel', cost: 15000, description: 'Giant observation wheel', category: 'rides_large', size: { width: 3, height: 3 } },
-  ride_drop_tower: { name: 'Drop Tower', cost: 20000, description: 'Thrilling drop ride', category: 'rides_large', size: { width: 2, height: 2 } },
-  ride_swing_ride: { name: 'Swing Ride', cost: 12000, description: 'Flying swings', category: 'rides_large', size: { width: 3, height: 3 } },
+  ride_scrambler: { name: 'Scrambler', cost: 4500, description: 'Scrambler ride', category: 'rides_small', size: { width: 2, height: 2 } },
+  ride_tilt_a_whirl: { name: 'Tilt-A-Whirl', cost: 4500, description: 'Tilting spinner', category: 'rides_small', size: { width: 2, height: 2 } },
+  ride_spinning_apples: { name: 'Spinning Apples', cost: 4000, description: 'Apple basket spin', category: 'rides_small', size: { width: 2, height: 2 } },
+  ride_whirlwind: { name: 'Whirlwind', cost: 5000, description: 'Fast spinner', category: 'rides_small', size: { width: 2, height: 2 } },
+  // Rides Small - Classic
+  ride_carousel: { name: 'Carousel', cost: 5000, description: 'Classic merry-go-round', category: 'rides_small', size: { width: 2, height: 2 } },
+  ride_antique_cars: { name: 'Antique Cars', cost: 4500, description: 'Vintage car ride', category: 'rides_small', size: { width: 3, height: 2 } },
+  ride_monorail_car: { name: 'Monorail', cost: 6000, description: 'Monorail segment', category: 'rides_small', size: { width: 2, height: 1 } },
+  ride_sky_ride_car: { name: 'Sky Ride', cost: 5000, description: 'Gondola ride', category: 'rides_small', size: { width: 2, height: 1 } },
+  ride_train_car: { name: 'Park Train', cost: 5000, description: 'Steam train ride', category: 'rides_small', size: { width: 2, height: 1 } },
+  // Rides Small - Driving/Theater
   ride_bumper_cars: { name: 'Bumper Cars', cost: 6000, description: 'Classic bumper cars', category: 'rides_small', size: { width: 3, height: 2 } },
   ride_go_karts: { name: 'Go-Karts', cost: 8000, description: 'Racing go-karts', category: 'rides_small', size: { width: 4, height: 3 } },
-  ride_haunted_house: { name: 'Haunted House', cost: 10000, description: 'Spooky dark ride', category: 'rides_large', size: { width: 3, height: 3 } },
-  ride_log_flume: { name: 'Log Flume', cost: 25000, description: 'Water splash ride', category: 'rides_large', size: { width: 2, height: 2 } },
+  ride_simulator: { name: 'Motion Simulator', cost: 8000, description: 'Flight simulator', category: 'rides_small', size: { width: 2, height: 2 } },
+  ride_motion_theater: { name: '3D Theater', cost: 7000, description: '3D movie experience', category: 'rides_small', size: { width: 3, height: 2 } },
+  ride_4d_theater: { name: '4D Theater', cost: 9000, description: '4D movie experience', category: 'rides_small', size: { width: 3, height: 2 } },
+  // Rides Small - Water
+  ride_bumper_boats: { name: 'Bumper Boats', cost: 5000, description: 'Water bumper boats', category: 'rides_small', size: { width: 3, height: 2 } },
+  ride_paddle_boats: { name: 'Paddle Boats', cost: 4000, description: 'Pedal boats', category: 'rides_small', size: { width: 3, height: 2 } },
+  ride_lazy_river: { name: 'Lazy River', cost: 8000, description: 'Floating river', category: 'rides_small', size: { width: 3, height: 2 } },
+  ride_water_play: { name: 'Water Playground', cost: 6000, description: 'Splash area', category: 'rides_small', size: { width: 3, height: 3 } },
+  ride_splash_zone: { name: 'Splash Zone', cost: 5000, description: 'Fountain play area', category: 'rides_small', size: { width: 2, height: 2 } },
+  // Rides Small - Dark Rides
+  ride_haunted_house: { name: 'Haunted House', cost: 10000, description: 'Spooky dark ride', category: 'rides_small', size: { width: 3, height: 3 } },
+  ride_ghost_train: { name: 'Ghost Train', cost: 9000, description: 'Scary train ride', category: 'rides_small', size: { width: 3, height: 3 } },
+  ride_dark_ride: { name: 'Dark Ride', cost: 8000, description: 'Themed dark ride', category: 'rides_small', size: { width: 3, height: 3 } },
+  ride_tunnel: { name: 'Tunnel Ride', cost: 6000, description: 'Mine tunnel ride', category: 'rides_small', size: { width: 2, height: 2 } },
+  ride_themed_facade: { name: 'Castle Facade', cost: 10000, description: 'Themed castle entrance', category: 'rides_small', size: { width: 3, height: 3 } },
+  
+  // Rides Large - Ferris Wheels
+  ride_ferris_classic: { name: 'Classic Ferris Wheel', cost: 12000, description: 'Traditional ferris wheel', category: 'rides_large', size: { width: 3, height: 3 } },
+  ride_ferris_modern: { name: 'Modern Ferris Wheel', cost: 15000, description: 'Modern observation wheel', category: 'rides_large', size: { width: 3, height: 3 } },
+  ride_ferris_observation: { name: 'Observation Wheel', cost: 20000, description: 'Giant observation wheel', category: 'rides_large', size: { width: 4, height: 4 } },
+  ride_ferris_double: { name: 'Double Ferris Wheel', cost: 18000, description: 'Twin ferris wheels', category: 'rides_large', size: { width: 3, height: 3 } },
+  ride_ferris_led: { name: 'LED Ferris Wheel', cost: 22000, description: 'Light-up wheel', category: 'rides_large', size: { width: 3, height: 3 } },
+  // Rides Large - Drop/Tower
+  ride_drop_tower: { name: 'Drop Tower', cost: 20000, description: 'Thrilling drop ride', category: 'rides_large', size: { width: 2, height: 2 } },
+  ride_space_shot: { name: 'Space Shot', cost: 18000, description: 'Launch tower', category: 'rides_large', size: { width: 2, height: 2 } },
+  ride_observation_tower: { name: 'Observation Tower', cost: 15000, description: 'Viewing tower', category: 'rides_large', size: { width: 2, height: 2 } },
+  ride_sky_swing: { name: 'Sky Swing', cost: 16000, description: 'High swing ride', category: 'rides_large', size: { width: 2, height: 2 } },
+  ride_star_flyer: { name: 'Star Flyer', cost: 18000, description: 'Rotating tower swing', category: 'rides_large', size: { width: 2, height: 2 } },
+  // Rides Large - Swing
+  ride_swing_ride: { name: 'Swing Ride', cost: 12000, description: 'Flying swings', category: 'rides_large', size: { width: 3, height: 3 } },
+  ride_wave_swinger: { name: 'Wave Swinger', cost: 14000, description: 'Tilting swings', category: 'rides_large', size: { width: 3, height: 3 } },
+  ride_flying_scooters: { name: 'Flying Scooters', cost: 10000, description: 'Controlled swings', category: 'rides_large', size: { width: 2, height: 2 } },
+  ride_enterprise: { name: 'Enterprise', cost: 15000, description: 'Spinning wheel', category: 'rides_large', size: { width: 3, height: 3 } },
+  ride_loop_o_plane: { name: 'Loop-O-Plane', cost: 12000, description: 'Looping ride', category: 'rides_large', size: { width: 2, height: 2 } },
+  // Rides Large - Thrill
+  ride_top_spin: { name: 'Top Spin', cost: 16000, description: 'Flipping ride', category: 'rides_large', size: { width: 2, height: 2 } },
+  ride_frisbee: { name: 'Frisbee', cost: 18000, description: 'Giant pendulum', category: 'rides_large', size: { width: 3, height: 2 } },
+  ride_afterburner: { name: 'Afterburner', cost: 17000, description: 'Spinning loop', category: 'rides_large', size: { width: 2, height: 2 } },
+  ride_inversion: { name: 'Inversion', cost: 20000, description: 'Inverting thrill', category: 'rides_large', size: { width: 2, height: 2 } },
+  ride_meteorite: { name: 'Meteorite', cost: 15000, description: 'Spinning disc', category: 'rides_large', size: { width: 2, height: 2 } },
+  // Rides Large - Transport/Water
+  ride_log_flume: { name: 'Log Flume', cost: 25000, description: 'Water splash ride', category: 'rides_large', size: { width: 3, height: 3 } },
+  ride_rapids: { name: 'River Rapids', cost: 28000, description: 'White water ride', category: 'rides_large', size: { width: 3, height: 3 } },
+  ride_train_station: { name: 'Train Station', cost: 8000, description: 'Park train station', category: 'rides_large', size: { width: 3, height: 2 } },
+  ride_monorail_station: { name: 'Monorail Station', cost: 10000, description: 'Monorail station', category: 'rides_large', size: { width: 3, height: 2 } },
+  ride_chairlift: { name: 'Chairlift', cost: 8000, description: 'Sky lift tower', category: 'rides_large', size: { width: 2, height: 2 } },
+  // Rides Large - Shows
+  show_4d: { name: '4D Show', cost: 12000, description: '4D theater building', category: 'rides_large', size: { width: 3, height: 3 } },
+  show_stunt: { name: 'Stunt Show', cost: 15000, description: 'Stunt show arena', category: 'rides_large', size: { width: 4, height: 3 } },
+  show_dolphin: { name: 'Dolphin Show', cost: 20000, description: 'Marine show stadium', category: 'rides_large', size: { width: 4, height: 4 } },
+  show_amphitheater: { name: 'Amphitheater', cost: 18000, description: 'Outdoor theater', category: 'rides_large', size: { width: 4, height: 4 } },
+  show_parade_float: { name: 'Parade Float', cost: 8000, description: 'Parade display', category: 'rides_large', size: { width: 2, height: 2 } },
   
   // Infrastructure
   park_entrance: { name: 'Park Entrance', cost: 1000, description: 'Main park entrance', category: 'infrastructure', size: { width: 3, height: 1 } },
