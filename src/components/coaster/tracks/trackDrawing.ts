@@ -821,7 +821,8 @@ function drawSupport(
 
 /**
  * Draw a vertical loop section
- * A complete vertical circle - train goes up, inverts at top, comes back down
+ * Uses a clothoid/teardrop shape like real roller coasters - taller than wide,
+ * with a tighter radius at the top to reduce g-forces when inverted
  */
 export function drawLoopTrack(
   ctx: CanvasRenderingContext2D,
@@ -837,29 +838,37 @@ export function drawLoopTrack(
   const centerX = startX + w / 2;
   const centerY = startY + h / 2;
   
-  // Loop radius - make it visible
-  const loopRadius = Math.max(28, loopHeight * HEIGHT_UNIT * 0.4);
+  // Base loop size - keep it proportional but not too large
+  const baseRadius = Math.max(20, loopHeight * HEIGHT_UNIT * 0.28);
   const numSegments = 32;
   const railOffset = TRACK_WIDTH / 2;
   
   // Get direction vector for the track
   const dir = DIRECTIONS[direction];
   
-  // The loop is a vertical circle in the plane of travel
-  // In isometric view, we see it at an angle
-  // The circle center is at track level, offset forward by the radius
+  // Clothoid/teardrop loop parameters:
+  // Real coaster loops are slightly taller than wide with a tighter curve at the top
+  // Keep it subtle - we want a loop shape, not an almond!
+  const verticalStretch = 1.15; // Just slightly taller than wide
+  const horizontalScale = 1.0; // Full width - don't compress horizontally
   
-  // For a vertical loop viewed in isometric:
-  // - Horizontal displacement (along track direction) = sin(angle) * radius
-  // - Vertical displacement (up in screen space) = (1 - cos(angle)) * radius
-  // angle 0 = entry (bottom), angle PI = top (inverted), angle 2PI = exit (bottom)
+  // For a clothoid-like teardrop shape:
+  // The radius varies based on position - slightly smaller at top, larger at bottom
+  // This creates a subtle teardrop effect without losing the loop shape
   
   const getLoopPoint = (angle: number, railSide: number = 0): Point => {
-    // Forward displacement along track direction
-    const forwardOffset = Math.sin(angle) * loopRadius;
+    // Subtle variable radius based on angle:
+    // - At bottom (angle = 0 or 2PI): full radius for gentle entry/exit
+    // - At top (angle = PI): slightly reduced radius for tighter curve
+    // Keep the modulation subtle (only 15% reduction at top)
+    const radiusMod = 1.0 - 0.15 * (1 - Math.abs(Math.cos(angle)));
     
-    // Height displacement (up in screen = negative Y)
-    const heightOffset = (1 - Math.cos(angle)) * loopRadius;
+    // Forward displacement along track direction
+    const forwardOffset = Math.sin(angle) * baseRadius * horizontalScale;
+    
+    // Height displacement (slightly stretched vertically for subtle teardrop)
+    // Apply radiusMod only to height to create the teardrop pinch at top
+    const heightOffset = (1 - Math.cos(angle)) * baseRadius * verticalStretch * radiusMod;
     
     // Base position at center of tile
     const baseX = centerX + dir.dx * forwardOffset;
@@ -889,8 +898,9 @@ export function drawLoopTrack(
   ctx.lineWidth = 1;
   
   // Main vertical support column at center
+  // Height accounts for the stretched teardrop shape (2x base * vertical stretch)
   const supportWidth = isWood ? 5 : 4;
-  const supportHeight = loopRadius * 2 + 5;
+  const supportHeight = baseRadius * 2 * verticalStretch + 5;
   
   // Draw shadow/outline
   ctx.fillStyle = darkColor;
@@ -915,10 +925,14 @@ export function drawLoopTrack(
   ctx.stroke();
   
   // Horizontal braces at different heights
+  // Width varies to follow teardrop contour - wider at bottom, narrower at top
   const numBraces = isWood ? 5 : 3; // More braces for wood
   for (let i = 1; i <= numBraces; i++) {
-    const braceY = centerY - (supportHeight * i / (numBraces + 1));
-    const braceWidth = loopRadius * (isWood ? 0.5 : 0.4);
+    const t = i / (numBraces + 1); // 0 = bottom, 1 = top
+    const braceY = centerY - (supportHeight * t);
+    // Brace width follows loop shape: slightly narrower at top
+    const teardropWidthFactor = 1.0 - t * 0.3; // Reduces to 70% width at top
+    const braceWidth = baseRadius * horizontalScale * (isWood ? 0.6 : 0.5) * teardropWidthFactor;
     
     ctx.strokeStyle = accentColor;
     ctx.lineWidth = isWood ? 2 : 1.5;
@@ -929,7 +943,10 @@ export function drawLoopTrack(
     
     // For wood, add diagonal braces
     if (isWood && i < numBraces) {
-      const nextBraceY = centerY - (supportHeight * (i + 1) / (numBraces + 1));
+      const nextT = (i + 1) / (numBraces + 1);
+      const nextBraceY = centerY - (supportHeight * nextT);
+      const nextTeardropWidthFactor = 1.0 - nextT * 0.3;
+      const nextBraceWidth = baseRadius * horizontalScale * 0.6 * nextTeardropWidthFactor;
       ctx.strokeStyle = COLORS.woodAccent;
       ctx.lineWidth = 1.5;
       
@@ -940,7 +957,7 @@ export function drawLoopTrack(
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(centerX - supportWidth / 2, braceY);
-      ctx.lineTo(centerX - braceWidth, nextBraceY);
+      ctx.lineTo(centerX - nextBraceWidth, nextBraceY);
       ctx.stroke();
       
       // X-brace on right side
@@ -950,7 +967,7 @@ export function drawLoopTrack(
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(centerX + supportWidth / 2, braceY);
-      ctx.lineTo(centerX + braceWidth, nextBraceY);
+      ctx.lineTo(centerX + nextBraceWidth, nextBraceY);
       ctx.stroke();
     }
   }

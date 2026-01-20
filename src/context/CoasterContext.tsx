@@ -11,7 +11,7 @@ import {
   TOOL_INFO,
 } from '@/games/coaster/types';
 import { ParkFinances, ParkStats, ParkSettings, Guest, Staff, DEFAULT_PRICES } from '@/games/coaster/types/economy';
-import { Coaster, CoasterTrain, CoasterCar, TrackDirection, TrackHeight, TrackPiece, TrackPieceType, CoasterType, getStrutStyleForCoasterType } from '@/games/coaster/types/tracks';
+import { Coaster, CoasterTrain, CoasterCar, TrackDirection, TrackHeight, TrackPiece, TrackPieceType, CoasterType, COASTER_TYPE_STATS, getStrutStyleForCoasterType } from '@/games/coaster/types/tracks';
 import { Building, BuildingType } from '@/games/coaster/types/buildings';
 import { spawnGuests, updateGuest } from '@/components/coaster/guests';
 import {
@@ -322,34 +322,29 @@ function getDirectionOffset(dir: TrackDirection): { dx: number; dy: number } {
 }
 
 /**
- * Collect all track tiles for a coaster from the grid.
- * Returns tiles in connected order following the track direction.
+ * Collect a single connected component of track tiles starting from a given tile.
+ * Returns tiles in connected order following track connections.
  */
-function collectCoasterTrack(grid: Tile[][], coasterId: string): { tiles: { x: number; y: number }[]; pieces: TrackPiece[] } {
+function collectConnectedTrack(
+  grid: Tile[][],
+  startX: number,
+  startY: number,
+  visited: Set<string>
+): { tiles: { x: number; y: number }[]; pieces: TrackPiece[] } {
   const gridSize = grid.length;
-  const allTrackTiles: { x: number; y: number; piece: TrackPiece }[] = [];
-  
-  // First, collect all tiles with this coaster's track
-  for (let y = 0; y < gridSize; y++) {
-    for (let x = 0; x < gridSize; x++) {
-      const tile = grid[y][x];
-      if (tile.coasterTrackId === coasterId && tile.trackPiece) {
-        allTrackTiles.push({ x, y, piece: tile.trackPiece });
-      }
-    }
-  }
-  
-  if (allTrackTiles.length === 0) {
-    return { tiles: [], pieces: [] };
-  }
-  
-  // Order the tiles by following track connections
-  const visited = new Set<string>();
   const orderedTiles: { x: number; y: number }[] = [];
   const orderedPieces: TrackPiece[] = [];
   
-  // Start from the first tile found
-  let current = allTrackTiles[0];
+  const startTile = grid[startY]?.[startX];
+  if (!startTile?.trackPiece) {
+    return { tiles: [], pieces: [] };
+  }
+  
+  let current: { x: number; y: number; piece: TrackPiece } = {
+    x: startX,
+    y: startY,
+    piece: startTile.trackPiece,
+  };
   
   while (current && !visited.has(`${current.x},${current.y}`)) {
     visited.add(`${current.x},${current.y}`);
@@ -364,10 +359,10 @@ function collectCoasterTrack(grid: Tile[][], coasterId: string): { tiles: { x: n
     const key = `${nx},${ny}`;
     
     let found = false;
-    if (!visited.has(key)) {
-      const next = allTrackTiles.find(t => t.x === nx && t.y === ny);
-      if (next) {
-        current = next;
+    if (!visited.has(key) && nx >= 0 && ny >= 0 && nx < gridSize && ny < gridSize) {
+      const nextTile = grid[ny]?.[nx];
+      if (nextTile?.trackPiece) {
+        current = { x: nx, y: ny, piece: nextTile.trackPiece };
         found = true;
       }
     }
@@ -384,10 +379,10 @@ function collectCoasterTrack(grid: Tile[][], coasterId: string): { tiles: { x: n
         const adjY = current.y + dy;
         const adjKey = `${adjX},${adjY}`;
         
-        if (!visited.has(adjKey)) {
-          const next = allTrackTiles.find(t => t.x === adjX && t.y === adjY);
-          if (next) {
-            current = next;
+        if (!visited.has(adjKey) && adjX >= 0 && adjY >= 0 && adjX < gridSize && adjY < gridSize) {
+          const adjTile = grid[adjY]?.[adjX];
+          if (adjTile?.trackPiece) {
+            current = { x: adjX, y: adjY, piece: adjTile.trackPiece };
             found = true;
             break;
           }
@@ -399,6 +394,126 @@ function collectCoasterTrack(grid: Tile[][], coasterId: string): { tiles: { x: n
   }
   
   return { tiles: orderedTiles, pieces: orderedPieces };
+}
+
+/**
+ * Collect all track tiles for a coaster from the grid.
+ * Returns tiles in connected order following the track direction.
+ */
+function collectCoasterTrack(grid: Tile[][], coasterId: string): { tiles: { x: number; y: number }[]; pieces: TrackPiece[] } {
+  const gridSize = grid.length;
+  
+  // Find the first tile with this coaster ID to start collection
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      const tile = grid[y][x];
+      if (tile.coasterTrackId === coasterId && tile.trackPiece) {
+        const visited = new Set<string>();
+        return collectConnectedTrack(grid, x, y, visited);
+      }
+    }
+  }
+  
+  return { tiles: [], pieces: [] };
+}
+
+/**
+ * Find all disconnected track components on the grid and ensure each has its own coaster.
+ * This fixes cases where multiple separate tracks share the same coasterTrackId.
+ * Returns updated grid and coasters array.
+ */
+function ensureAllTracksHaveCoasters(
+  grid: Tile[][],
+  coasters: Coaster[]
+): { grid: Tile[][]; coasters: Coaster[]; changed: boolean } {
+  const gridSize = grid.length;
+  const visited = new Set<string>();
+  const newGrid = grid.map(row => row.map(tile => ({ ...tile })));
+  let newCoasters = [...coasters];
+  let changed = false;
+  
+  // Find all connected track components
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      const tile = newGrid[y][x];
+      const key = `${x},${y}`;
+      
+      if (tile.trackPiece && !visited.has(key)) {
+        // Found a track tile that hasn't been visited - collect its connected component
+        const { tiles: componentTiles, pieces: componentPieces } = collectConnectedTrack(newGrid, x, y, visited);
+        
+        if (componentTiles.length === 0) continue;
+        
+        // Get the coaster ID from the first tile
+        const firstTile = newGrid[componentTiles[0].y][componentTiles[0].x];
+        const existingCoasterId = firstTile.coasterTrackId;
+        
+        // Check if there's already a coaster that matches this component
+        let matchingCoaster = existingCoasterId 
+          ? newCoasters.find(c => c.id === existingCoasterId)
+          : null;
+        
+        // Check if the matching coaster's trackTiles match our component
+        // (if not, there might be another disconnected component with the same ID)
+        if (matchingCoaster) {
+          const coasterTileSet = new Set(matchingCoaster.trackTiles.map(t => `${t.x},${t.y}`));
+          const componentTileSet = new Set(componentTiles.map(t => `${t.x},${t.y}`));
+          
+          // If the sets don't match, we have a disconnected component
+          const tilesMatch = coasterTileSet.size === componentTileSet.size &&
+            [...coasterTileSet].every(k => componentTileSet.has(k));
+          
+          if (!tilesMatch) {
+            // This component is disconnected from the coaster's main track
+            // Create a new coaster for it
+            matchingCoaster = null;
+          }
+        }
+        
+        if (!matchingCoaster) {
+          // No matching coaster - create a new one
+          const newCoasterId = generateUUID();
+          changed = true;
+          
+          // Update all tiles in this component to use the new coaster ID
+          for (const { x: tx, y: ty } of componentTiles) {
+            newGrid[ty][tx].coasterTrackId = newCoasterId;
+          }
+          
+          // Create a new coaster for this component
+          const newCoaster = createDefaultCoaster(
+            newCoasterId,
+            componentTiles[0],
+            componentPieces.length
+          );
+          newCoaster.track = componentPieces;
+          newCoaster.trackTiles = componentTiles;
+          newCoaster.trains = createTrainsForCoaster(componentPieces.length, newCoaster.type);
+          
+          newCoasters.push(newCoaster);
+        }
+      }
+    }
+  }
+  
+  // Clean up coasters that no longer have any track
+  const coasterIdsWithTrack = new Set<string>();
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      const tile = newGrid[y][x];
+      if (tile.trackPiece && tile.coasterTrackId) {
+        coasterIdsWithTrack.add(tile.coasterTrackId);
+      }
+    }
+  }
+  
+  const filteredCoasters = newCoasters.filter(c => coasterIdsWithTrack.has(c.id));
+  if (filteredCoasters.length !== newCoasters.length) {
+    changed = true;
+    newCoasters = filteredCoasters;
+  }
+  
+  return { grid: newGrid, coasters: newCoasters, changed };
 }
 
 // Configuration for train creation
@@ -438,23 +553,51 @@ function createDefaultTrain(config: TrainConfig = {}): CoasterTrain {
 }
 
 /**
- * Create multiple trains for a coaster based on track length
- * Larger tracks get more trains to keep capacity up
+ * Create multiple trains for a coaster based on track length and coaster type
+ * Uses the coaster type stats to determine min/max trains and scales by track length
  */
 function createTrainsForCoaster(trackLength: number, coasterType: string = 'steel_sit_down'): CoasterTrain[] {
   if (trackLength === 0) return [createDefaultTrain()];
   
-  // Determine number of trains based on track length
-  // Minimum 1 train, max 3 trains for very large coasters
-  let numTrains = 1;
-  if (trackLength >= 20) numTrains = 2;
-  if (trackLength >= 40) numTrains = 3;
+  // Get coaster type stats for train limits
+  const typeStats = COASTER_TYPE_STATS[coasterType as CoasterType];
+  const minTrains = typeStats?.trainsPerTrack?.min ?? 1;
+  const maxTrains = typeStats?.trainsPerTrack?.max ?? 3;
+  const minCars = typeStats?.trainLength?.min ?? 4;
+  const maxCars = typeStats?.trainLength?.max ?? 8;
   
-  // Ensure minimum spacing between trains (at least 1/4 of track)
-  const minSpacing = trackLength / numTrains;
-  if (minSpacing < 6) {
-    numTrains = Math.max(1, Math.floor(trackLength / 6));
+  // Calculate number of trains based on track length
+  // Scale linearly from min at 8 tiles to max at 30+ tiles
+  let numTrains: number;
+  if (trackLength <= 8) {
+    numTrains = minTrains;
+  } else if (trackLength >= 30) {
+    numTrains = maxTrains;
+  } else {
+    // Linear interpolation between min and max
+    const t = (trackLength - 8) / (30 - 8);
+    numTrains = Math.round(minTrains + t * (maxTrains - minTrains));
   }
+  
+  // Clamp to coaster type limits
+  numTrains = Math.max(minTrains, Math.min(maxTrains, numTrains));
+  
+  // Ensure minimum spacing between trains (at least 5 tiles per train)
+  const minSpacingPerTrain = 5;
+  const maxTrainsForSpacing = Math.max(1, Math.floor(trackLength / minSpacingPerTrain));
+  numTrains = Math.min(numTrains, maxTrainsForSpacing);
+  
+  // Calculate cars per train based on track length (longer tracks = longer trains)
+  let numCars: number;
+  if (trackLength <= 10) {
+    numCars = minCars;
+  } else if (trackLength >= 40) {
+    numCars = maxCars;
+  } else {
+    const t = (trackLength - 10) / (40 - 10);
+    numCars = Math.round(minCars + t * (maxCars - minCars));
+  }
+  numCars = Math.max(minCars, Math.min(maxCars, numCars));
   
   const trains: CoasterTrain[] = [];
   for (let i = 0; i < numTrains; i++) {
@@ -462,7 +605,7 @@ function createTrainsForCoaster(trackLength: number, coasterType: string = 'stee
     const startProgress = (i * trackLength) / numTrains;
     const train = createDefaultTrain({ 
       startProgress,
-      numCars: 6,
+      numCars,
     });
     // First train starts loading, others running
     train.state = i === 0 ? 'loading' : 'running';
@@ -551,10 +694,21 @@ export function CoasterProvider({
         }
 
         if (parsed && parsed.grid && parsed.gridSize) {
-          setState(normalizeLoadedState(parsed));
+          const normalizedState = normalizeLoadedState(parsed);
+          // Fix any disconnected tracks that share the same coasterTrackId
+          const { grid: fixedGrid, coasters: fixedCoasters } = ensureAllTracksHaveCoasters(
+            normalizedState.grid,
+            normalizedState.coasters
+          );
+          const finalState = {
+            ...normalizedState,
+            grid: fixedGrid,
+            coasters: fixedCoasters,
+          };
+          setState(finalState);
           setHasSavedGame(true);
           // Ensure this save appears in the saved parks index
-          persistCoasterSave(parsed);
+          persistCoasterSave(finalState);
         }
       } catch (e) {
         console.error('Failed to load coaster game state:', e);
@@ -565,6 +719,28 @@ export function CoasterProvider({
     
     checkSaved();
   }, [startFresh, loadParkId, persistCoasterSave]);
+  
+  // Fix disconnected tracks after state is ready (handles existing sessions)
+  useEffect(() => {
+    if (!isStateReady) return;
+    
+    setState(prev => {
+      const { grid: fixedGrid, coasters: fixedCoasters, changed } = ensureAllTracksHaveCoasters(
+        prev.grid,
+        prev.coasters
+      );
+      
+      if (changed) {
+        console.log('Fixed disconnected coaster tracks');
+        return {
+          ...prev,
+          grid: fixedGrid,
+          coasters: fixedCoasters,
+        };
+      }
+      return prev;
+    });
+  }, [isStateReady]);
   
   // Auto-save periodically
   useEffect(() => {
@@ -1113,30 +1289,56 @@ export function CoasterProvider({
           endDirection = rotateDirection(startDirection, 'right');
         } else if (tool === 'coaster_slope_up') {
           pieceType = 'slope_up_small';
+          // For slopes, drawSlopeTrack interprets direction as the EXIT direction:
+          // direction='south' → enter from north (at startHeight), exit to south (at endHeight)
+          //
+          // For slope_up: startHeight < endHeight, so the slope rises toward the exit.
+          //
+          // When connecting to existing track:
+          // - Exit connection: adjacent exits toward us, we receive at our entry
+          //   To properly continue the track flow, we use the OPPOSITE direction
+          //   so our entry edge (at startHeight) faces the connection
+          // - Entry connection: we feed into adjacent's entry
+          //   Use adjacentDirection as-is since it already points toward them
+          if (adjacentDirection) {
+            if (connectingToEntry) {
+              startDirection = adjacentDirection;
+            } else {
+              // Flip for exit connection - this ensures the slope visually
+              // rises in the correct direction relative to track flow
+              const oppDir: Record<TrackDirection, TrackDirection> = {
+                north: 'south', south: 'north', east: 'west', west: 'east'
+              };
+              startDirection = oppDir[adjacentDirection];
+            }
+          }
           if (connectingToEntry && targetEntryHeight > 0) {
-            // Only use entry-matching logic if we can create a valid slope
-            // Our exit needs to match adjacent's entry height
             endHeight = targetEntryHeight;
             startHeight = clampHeight(targetEntryHeight - 1);
           } else {
-            // Default: slope up from current height
-            // If targetEntryHeight is 0, we can't slope up into it (would need negative height)
-            // So just create a normal slope from current position
             endHeight = clampHeight(startHeight + 1);
           }
-          chainLift = true; // Chain lift pulls coaster UP
+          chainLift = true;
         } else if (tool === 'coaster_slope_down') {
           pieceType = 'slope_down_small';
+          // Same direction logic as slope_up - flip for exit connections
+          if (adjacentDirection) {
+            if (connectingToEntry) {
+              startDirection = adjacentDirection;
+            } else {
+              const oppDir: Record<TrackDirection, TrackDirection> = {
+                north: 'south', south: 'north', east: 'west', west: 'east'
+              };
+              startDirection = oppDir[adjacentDirection];
+            }
+          }
           if (connectingToEntry && targetEntryHeight < 10) {
-            // Only use entry-matching logic if we can create a valid slope
-            // Our exit needs to match adjacent's entry height
             endHeight = targetEntryHeight;
             startHeight = clampHeight(targetEntryHeight + 1);
           } else {
-            // Default: slope down from current height
             endHeight = clampHeight(startHeight - 1);
           }
-          chainLift = false; // No chain on downward slopes - gravity does the work
+          chainLift = false;
         } else if (tool === 'coaster_loop') {
           pieceType = 'loop_vertical';
         } else if (tool === 'coaster_build') {
@@ -1174,7 +1376,38 @@ export function CoasterProvider({
           }
         }
         
-        const coasterId = prev.buildingCoasterId ?? generateUUID();
+        // Determine if this tile is connected to any existing track with buildingCoasterId
+        // If not connected and buildingCoasterId exists, we're starting a NEW track - generate new ID
+        let coasterId = prev.buildingCoasterId ?? generateUUID();
+        let startedNewCoaster = false;
+        
+        if (prev.buildingCoasterId) {
+          // Check if this tile is adjacent to any existing track with this coaster ID
+          const hasConnectedTrack = adjacentOffsets.some(({ dx, dy }) => {
+            const adjX = x + dx;
+            const adjY = y + dy;
+            if (adjX >= 0 && adjY >= 0 && adjX < prev.gridSize && adjY < prev.gridSize) {
+              const adjTile = prev.grid[adjY]?.[adjX];
+              return adjTile?.coasterTrackId === prev.buildingCoasterId;
+            }
+            return false;
+          });
+          
+          // Also check if we're on the building path (continuing from where we left off)
+          const isOnBuildingPath = prev.buildingCoasterPath.some(p => {
+            // Check if this tile is adjacent to any tile on the path
+            return adjacentOffsets.some(({ dx, dy }) => {
+              return p.x === x + dx && p.y === y + dy;
+            });
+          }) || prev.buildingCoasterPath.length === 0;
+          
+          // If not connected to existing track AND not continuing the building path, start a NEW coaster
+          if (!hasConnectedTrack && !isOnBuildingPath) {
+            coasterId = generateUUID();
+            startedNewCoaster = true;
+          }
+        }
+        
         // Get coaster type for strut style (use existing coaster's type if available)
         const existingCoasterForStyle = prev.coasters.find(c => c.id === coasterId);
         const coasterTypeForStyle: CoasterType = existingCoasterForStyle?.type ?? 'steel_sit_down';
@@ -1193,9 +1426,12 @@ export function CoasterProvider({
         tile.hasCoasterTrack = true;
         tile.coasterTrackId = coasterId;
         
-        const updatedPath = buildPath.some(point => point.x === x && point.y === y)
-          ? buildPath
-          : [...buildPath, { x, y }];
+        // If we started a new coaster, reset the path; otherwise append to existing path
+        const updatedPath = startedNewCoaster
+          ? [{ x, y }]
+          : (buildPath.some(point => point.x === x && point.y === y)
+              ? buildPath
+              : [...buildPath, { x, y }]);
         
         // Collect ALL track tiles for this coaster from the grid (not just building path)
         const { tiles: trackTiles, pieces: trackPieces } = collectCoasterTrack(newGrid, coasterId);
@@ -1279,6 +1515,34 @@ export function CoasterProvider({
         'trash_can_basic': 'trash_can_basic',
         'trash_can_fancy': 'trash_can_fancy',
         'trash_can_themed': 'trash_can_themed',
+        // Fountains
+        'fountain_small_1': 'fountain_small_1',
+        'fountain_small_2': 'fountain_small_2',
+        'fountain_small_3': 'fountain_small_3',
+        'fountain_small_4': 'fountain_small_4',
+        'fountain_small_5': 'fountain_small_5',
+        'fountain_medium_1': 'fountain_medium_1',
+        'fountain_medium_2': 'fountain_medium_2',
+        'fountain_medium_3': 'fountain_medium_3',
+        'fountain_medium_4': 'fountain_medium_4',
+        'fountain_medium_5': 'fountain_medium_5',
+        'fountain_large_1': 'fountain_large_1',
+        'fountain_large_2': 'fountain_large_2',
+        'fountain_large_3': 'fountain_large_3',
+        'fountain_large_4': 'fountain_large_4',
+        'fountain_large_5': 'fountain_large_5',
+        // Ponds
+        'pond_small': 'pond_small',
+        'pond_medium': 'pond_medium',
+        'pond_large': 'pond_large',
+        'pond_koi': 'pond_koi',
+        'pond_lily': 'pond_lily',
+        // Water features
+        'splash_pad': 'splash_pad',
+        'water_jets': 'water_jets',
+        'mist_fountain': 'mist_fountain',
+        'interactive_fountain': 'interactive_fountain',
+        'dancing_fountain': 'dancing_fountain',
         // Food
         'food_hotdog': 'food_hotdog',
         'food_burger': 'food_burger',
@@ -1418,14 +1682,53 @@ export function CoasterProvider({
     
     setState(prev => {
       const newGrid = prev.grid.map(row => row.map(tile => ({ ...tile })));
-      const coasterId = prev.buildingCoasterId ?? generateUUID();
+      
+      // Determine if the first tile is connected to existing track with buildingCoasterId
+      // If not, we're starting a NEW track - generate new ID
+      let coasterId = prev.buildingCoasterId ?? generateUUID();
+      let startedNewCoaster = false;
+      
+      if (tiles.length > 0 && prev.buildingCoasterId) {
+        const firstTile = tiles[0];
+        const adjacentOffsets = [
+          { dx: -1, dy: 0 },
+          { dx: 1, dy: 0 },
+          { dx: 0, dy: -1 },
+          { dx: 0, dy: 1 },
+        ];
+        
+        // Check if first tile is adjacent to any existing track with this coaster ID
+        const hasConnectedTrack = adjacentOffsets.some(({ dx, dy }) => {
+          const adjX = firstTile.x + dx;
+          const adjY = firstTile.y + dy;
+          if (adjX >= 0 && adjY >= 0 && adjX < prev.gridSize && adjY < prev.gridSize) {
+            const adjTile = prev.grid[adjY]?.[adjX];
+            return adjTile?.coasterTrackId === prev.buildingCoasterId;
+          }
+          return false;
+        });
+        
+        // Also check if we're continuing from the building path
+        const isOnBuildingPath = prev.buildingCoasterPath.some(p => {
+          return adjacentOffsets.some(({ dx, dy }) => {
+            return p.x === firstTile.x + dx && p.y === firstTile.y + dy;
+          });
+        }) || prev.buildingCoasterPath.length === 0;
+        
+        // If not connected, start a new coaster
+        if (!hasConnectedTrack && !isOnBuildingPath) {
+          coasterId = generateUUID();
+          startedNewCoaster = true;
+        }
+      }
+      
       // Get coaster type for strut style
       const existingCoasterForLine = prev.coasters.find(c => c.id === coasterId);
       const coasterTypeForLine: CoasterType = existingCoasterForLine?.type ?? 'steel_sit_down';
       const strutStyleForLine = getStrutStyleForCoasterType(coasterTypeForLine);
-      let currentHeight = prev.buildingCoasterHeight;
-      let lastDirection: TrackDirection | null = prev.buildingCoasterLastDirection;
-      const updatedPath = [...prev.buildingCoasterPath];
+      let currentHeight = startedNewCoaster ? 0 : prev.buildingCoasterHeight;
+      let lastDirection: TrackDirection | null = startedNewCoaster ? null : prev.buildingCoasterLastDirection;
+      const updatedPath = startedNewCoaster ? [] : [...prev.buildingCoasterPath];
       
       // If continuing from existing path, inherit height from the last track piece
       if (updatedPath.length > 0) {
@@ -1642,8 +1945,19 @@ export function CoasterProvider({
     try {
       const parsed = loadCoasterStateFromStorage(COASTER_AUTOSAVE_KEY);
       if (parsed && parsed.grid && parsed.gridSize) {
-        setState(normalizeLoadedState(parsed));
-        persistCoasterSave(parsed);
+        const normalizedState = normalizeLoadedState(parsed);
+        // Fix any disconnected tracks that share the same coasterTrackId
+        const { grid: fixedGrid, coasters: fixedCoasters } = ensureAllTracksHaveCoasters(
+          normalizedState.grid,
+          normalizedState.coasters
+        );
+        const finalState = {
+          ...normalizedState,
+          grid: fixedGrid,
+          coasters: fixedCoasters,
+        };
+        setState(finalState);
+        persistCoasterSave(finalState);
         return true;
       }
     } catch (e) {
