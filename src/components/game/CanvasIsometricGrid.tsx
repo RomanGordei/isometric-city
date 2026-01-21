@@ -1642,25 +1642,34 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         }
       }
       
-      // Draw fire effect
+      // Draw fire effect - PERF: Skip detailed fire rendering when zoomed out
       if (tile.building.onFire) {
         const fireX = x + w / 2;
         const fireY = y - 10;
         
-        ctx.fillStyle = 'rgba(255, 100, 0, 0.5)';
-        ctx.beginPath();
-        ctx.ellipse(fireX, fireY, 18, 25, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = 'rgba(255, 200, 0, 0.8)';
-        ctx.beginPath();
-        ctx.ellipse(fireX, fireY + 5, 10, 15, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = 'rgba(255, 255, 200, 0.9)';
-        ctx.beginPath();
-        ctx.ellipse(fireX, fireY + 8, 5, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
+        // PERF: At low zoom, draw simplified fire effect (single ellipse)
+        if (zoom < 0.5) {
+          ctx.fillStyle = 'rgba(255, 150, 0, 0.7)';
+          ctx.beginPath();
+          ctx.ellipse(fireX, fireY, 12, 18, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Full detail fire effect at higher zoom levels
+          ctx.fillStyle = 'rgba(255, 100, 0, 0.5)';
+          ctx.beginPath();
+          ctx.ellipse(fireX, fireY, 18, 25, 0, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.fillStyle = 'rgba(255, 200, 0, 0.8)';
+          ctx.beginPath();
+          ctx.ellipse(fireX, fireY + 5, 10, 15, 0, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.fillStyle = 'rgba(255, 255, 200, 0.9)';
+          ctx.beginPath();
+          ctx.ellipse(fireX, fireY + 8, 5, 8, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
     
@@ -2045,17 +2054,21 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
         }
         
         // Draw service radius circles and building highlights for the active overlay
-        if (overlayMode !== 'none' && overlayMode !== 'subway') {
+        // PERF: Skip overlay rendering when zoomed out too far (details not visible)
+        if (overlayMode !== 'none' && overlayMode !== 'subway' && zoom >= 0.3) {
           const serviceBuildingTypes = OVERLAY_TO_BUILDING_TYPES[overlayMode];
           const circleColor = OVERLAY_CIRCLE_COLORS[overlayMode];
           const circleFillColor = OVERLAY_CIRCLE_FILL_COLORS[overlayMode];
           const highlightColor = OVERLAY_HIGHLIGHT_COLORS[overlayMode];
           
+          // PERF: Convert to Set for O(1) lookup instead of array.includes()
+          const serviceBuildingTypeSet = new Set(serviceBuildingTypes);
+          
           // Find all service buildings of this type and draw their radii
           for (let y = 0; y < gridSize; y++) {
             for (let x = 0; x < gridSize; x++) {
               const tile = grid[y][x];
-              if (!serviceBuildingTypes.includes(tile.building.type)) continue;
+              if (!serviceBuildingTypeSet.has(tile.building.type)) continue;
               
               // Skip buildings under construction
               if (tile.building.constructionProgress !== undefined && tile.building.constructionProgress < 100) continue;
@@ -2122,7 +2135,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
     }
     
     // Draw water body names (after everything else so they're on top)
-    if (waterBodies && waterBodies.length > 0) {
+    // PERF: Skip water body names when zoomed out too far (text becomes unreadable)
+    if (waterBodies && waterBodies.length > 0 && zoom >= 0.4) {
       ctx.save();
       ctx.font = `${Math.max(10, 12 / zoom)}px sans-serif`;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';

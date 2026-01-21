@@ -251,9 +251,11 @@ export function drawFoundationPlot(
   ctx.fill();
   
   // Add some texture/detail to the dirt (small dots/pebbles) when zoomed in
+  // PERF: Reduce dot count at medium zoom levels for better performance
   if (currentZoom >= 0.8) {
     ctx.fillStyle = '#8b6914';
-    const dotCount = 10;
+    // PERF: Use fewer dots at lower zoom levels (5 dots at 0.8-1.0 zoom, 10 dots at higher zoom)
+    const dotCount = currentZoom >= 1.0 ? 10 : 5;
     for (let i = 0; i < dotCount; i++) {
       // Use deterministic positions based on coordinates
       const seed = (x * 17 + y * 31 + i * 7) % 100;
