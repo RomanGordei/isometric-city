@@ -2132,19 +2132,47 @@ export function CoasterProvider({
         }
         
         // Update previous tile for auto-build turns
-        if (tool === 'coaster_build' && lastTile && prev.buildingCoasterLastDirection && deltaDir) {
+        // This applies to all track tools when direction changes, not just coaster_build
+        const isTrackPlacementTool = trackTools.includes(tool);
+        // DEBUG: Log turn creation conditions
+        console.log('TURN_DEBUG:', {
+          tool,
+          isTrackPlacementTool,
+          lastTile,
+          buildingCoasterLastDirection: prev.buildingCoasterLastDirection,
+          deltaDir,
+          currentTile: { x, y },
+          willCheckTurn: !!(isTrackPlacementTool && lastTile && prev.buildingCoasterLastDirection && deltaDir),
+          directionsDiffer: prev.buildingCoasterLastDirection !== deltaDir,
+        });
+        if (isTrackPlacementTool && lastTile && prev.buildingCoasterLastDirection && deltaDir) {
           if (prev.buildingCoasterLastDirection !== deltaDir) {
+            console.log('TURN_CREATE:', {
+              fromDirection: prev.buildingCoasterLastDirection,
+              toDirection: deltaDir,
+              lastTile,
+              currentTile: { x, y },
+            });
+            // Determine turn type - need to match getExitDirection semantics
+            // getExitDirection uses "clockwise on map" where turn_left_flat from north exits west
+            // So if we want to exit to deltaDir, we check which turn type achieves that
             const turnType: TrackPieceType =
               rotateDirection(prev.buildingCoasterLastDirection, 'right') === deltaDir
-                ? 'turn_right_flat'
-                : 'turn_left_flat';
+                ? 'turn_left_flat'  // Physical right turn = map-left turn
+                : 'turn_right_flat'; // Physical left turn = map-right turn
             const previousTile = newGrid[lastTile.y][lastTile.x];
             // Get coaster type for strut style - prefer buildingCoasterType, fall back to existing coaster
             const existingCoasterForStrut = prev.coasters.find(c => c.id === prev.buildingCoasterId);
             const coasterTypeForStrut: CoasterType = prev.buildingCoasterType ?? existingCoasterForStrut?.type ?? 'steel_sit_down';
+            // For turn pieces, direction is the ENTRY direction (where track comes FROM)
+            // The entry direction is the opposite of where the previous straight was going
+            const oppositeDir: Record<TrackDirection, TrackDirection> = {
+              north: 'south', south: 'north', east: 'west', west: 'east'
+            };
+            const entryDirection = oppositeDir[prev.buildingCoasterLastDirection];
             previousTile.trackPiece = {
               type: turnType,
-              direction: prev.buildingCoasterLastDirection,
+              direction: entryDirection,
               startHeight: clampHeight(prev.buildingCoasterHeight),
               endHeight: clampHeight(prev.buildingCoasterHeight),
               bankAngle: 0,
@@ -2976,18 +3004,22 @@ export function CoasterProvider({
           const prev = tiles[i - 1];
           const dx = x - prev.x;
           const dy = y - prev.y;
-          if (dx === 1 && dy === 0) direction = 'east';
-          else if (dx === -1 && dy === 0) direction = 'west';
-          else if (dx === 0 && dy === 1) direction = 'south';
-          else if (dx === 0 && dy === -1) direction = 'north';
+          // Use consistent direction mapping with rest of codebase (see directionFromDelta)
+          // dx=1 means moving to higher x = south, dx=-1 = north
+          // dy=1 means moving to higher y = west, dy=-1 = east
+          if (dx === 1 && dy === 0) direction = 'south';
+          else if (dx === -1 && dy === 0) direction = 'north';
+          else if (dx === 0 && dy === 1) direction = 'west';
+          else if (dx === 0 && dy === -1) direction = 'east';
         } else if (updatedPath.length > 0) {
           const prevTile = updatedPath[updatedPath.length - 1];
           const dx = x - prevTile.x;
           const dy = y - prevTile.y;
-          if (dx === 1 && dy === 0) direction = 'east';
-          else if (dx === -1 && dy === 0) direction = 'west';
-          else if (dx === 0 && dy === 1) direction = 'south';
-          else if (dx === 0 && dy === -1) direction = 'north';
+          // Use consistent direction mapping with rest of codebase (see directionFromDelta)
+          if (dx === 1 && dy === 0) direction = 'south';
+          else if (dx === -1 && dy === 0) direction = 'north';
+          else if (dx === 0 && dy === 1) direction = 'west';
+          else if (dx === 0 && dy === -1) direction = 'east';
         }
         
         // Determine track piece type
@@ -3001,13 +3033,23 @@ export function CoasterProvider({
             const prevTile = newGrid[prevTileCoord.y]?.[prevTileCoord.x];
             if (prevTile && prevTile.trackPiece) {
               // Determine turn type based on direction change
+              // Need to match getExitDirection semantics (clockwise on map)
+              // Physical right turn = map-left turn in the drawing code
               const turnType: TrackPieceType = 
                 rotateDirection(lastDirection, 'right') === direction
-                  ? 'turn_right_flat'
-                  : 'turn_left_flat';
+                  ? 'turn_left_flat'  // Physical right turn = map-left turn
+                  : 'turn_right_flat'; // Physical left turn = map-right turn
+              // For turn pieces, direction is the ENTRY direction (where track comes FROM)
+              // For straight pieces, direction is the EXIT direction (where track goes TO)
+              // The entry direction is the opposite of where the previous straight was going
+              const oppositeDir: Record<TrackDirection, TrackDirection> = {
+                north: 'south', south: 'north', east: 'west', west: 'east'
+              };
+              const entryDirection = oppositeDir[lastDirection];
               prevTile.trackPiece = {
                 ...prevTile.trackPiece,
                 type: turnType,
+                direction: entryDirection,
               };
             }
           }
