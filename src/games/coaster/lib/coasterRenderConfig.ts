@@ -40,7 +40,7 @@ export interface SpriteMapping {
 
 const STATIONS_SHEET: SpriteSheet = {
   id: 'stations',
-  src: '/assets/coaster/stations.png',
+  src: '/assets/coaster/stations.webp',
   cols: 5,
   rows: 6,
   sprites: [
@@ -85,7 +85,7 @@ const STATIONS_SHEET: SpriteSheet = {
 
 const TREES_SHEET: SpriteSheet = {
   id: 'trees',
-  src: '/assets/coaster/trees.png',
+  src: '/assets/coaster/trees.webp',
   cols: 6,
   rows: 6,
   sprites: [
@@ -136,7 +136,7 @@ const TREES_SHEET: SpriteSheet = {
 
 const FURNITURE_SHEET: SpriteSheet = {
   id: 'path_furniture',
-  src: '/assets/coaster/path_furniture.png',
+  src: '/assets/coaster/path_furniture.webp',
   cols: 5,
   rows: 6,
   sprites: [
@@ -181,7 +181,7 @@ const FURNITURE_SHEET: SpriteSheet = {
 
 const FOOD_SHEET: SpriteSheet = {
   id: 'food',
-  src: '/assets/coaster/food.png',
+  src: '/assets/coaster/food.webp',
   cols: 5,
   rows: 6,
   sprites: [
@@ -226,7 +226,7 @@ const FOOD_SHEET: SpriteSheet = {
 
 const FOUNTAINS_SHEET: SpriteSheet = {
   id: 'fountains',
-  src: '/assets/coaster/fountains.png',
+  src: '/assets/coaster/fountains.webp',
   cols: 5,
   rows: 6,
   sprites: [
@@ -271,7 +271,7 @@ const FOUNTAINS_SHEET: SpriteSheet = {
 
 const SHOPS_SHEET: SpriteSheet = {
   id: 'shops',
-  src: '/assets/coaster/shops.png',
+  src: '/assets/coaster/shops.webp',
   cols: 5,
   rows: 6,
   sprites: [
@@ -316,7 +316,7 @@ const SHOPS_SHEET: SpriteSheet = {
 
 const RIDES_SMALL_SHEET: SpriteSheet = {
   id: 'rides_small',
-  src: '/assets/coaster/rides_small.png',
+  src: '/assets/coaster/rides_small.webp',
   cols: 5,
   rows: 6,
   sprites: [
@@ -361,7 +361,7 @@ const RIDES_SMALL_SHEET: SpriteSheet = {
 
 const RIDES_LARGE_SHEET: SpriteSheet = {
   id: 'rides_large',
-  src: '/assets/coaster/rides_large.png',
+  src: '/assets/coaster/rides_large.webp',
   cols: 5,
   rows: 6,
   sprites: [
@@ -406,7 +406,7 @@ const RIDES_LARGE_SHEET: SpriteSheet = {
 
 const THEME_CLASSIC_SHEET: SpriteSheet = {
   id: 'theme_classic',
-  src: '/assets/coaster/theme_classic.png',
+  src: '/assets/coaster/theme_classic.webp',
   cols: 5,
   rows: 6,
   sprites: [
@@ -451,7 +451,7 @@ const THEME_CLASSIC_SHEET: SpriteSheet = {
 
 const THEME_MODERN_SHEET: SpriteSheet = {
   id: 'theme_modern',
-  src: '/assets/coaster/theme_modern.png',
+  src: '/assets/coaster/theme_modern.webp',
   cols: 5,
   rows: 6,
   sprites: [
@@ -496,7 +496,7 @@ const THEME_MODERN_SHEET: SpriteSheet = {
 
 const QUEUE_ELEMENTS_SHEET: SpriteSheet = {
   id: 'queue_elements',
-  src: '/assets/coaster/queue_elements.png',
+  src: '/assets/coaster/queue_elements.webp',
   cols: 5,
   rows: 6,
   sprites: [
@@ -541,7 +541,7 @@ const QUEUE_ELEMENTS_SHEET: SpriteSheet = {
 
 const INFRASTRUCTURE_SHEET: SpriteSheet = {
   id: 'infrastructure',
-  src: '/assets/coaster/infrastructure.png',
+  src: '/assets/coaster/infrastructure.webp',
   cols: 5,
   rows: 6,
   sprites: [

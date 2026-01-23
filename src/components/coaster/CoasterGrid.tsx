@@ -2174,30 +2174,32 @@ export function CoasterGrid({
   const [trackDragPreviewTiles, setTrackDragPreviewTiles] = useState<{ x: number; y: number }[]>([]);
   const placedTrackTilesRef = useRef<Set<string>>(new Set());
   
-  // Load sprite sheets
+  // Load sprite sheets in parallel for faster loading
   useEffect(() => {
     const loadSheets = async () => {
-      const newSheets = new Map<string, HTMLCanvasElement>();
-      
-      for (const sheet of COASTER_SPRITE_PACK.sheets) {
-        try {
+      const loadPromises = COASTER_SPRITE_PACK.sheets.map(sheet => 
+        new Promise<{ id: string; canvas: HTMLCanvasElement } | null>((resolve) => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
-          
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => {
-              const filtered = filterBackgroundColor(img);
-              newSheets.set(sheet.id, filtered);
-              resolve();
-            };
-            img.onerror = reject;
-            img.src = sheet.src;
-          });
-        } catch (e) {
-          console.error(`Failed to load sprite sheet ${sheet.id}:`, e);
+          img.onload = () => {
+            const filtered = filterBackgroundColor(img);
+            resolve({ id: sheet.id, canvas: filtered });
+          };
+          img.onerror = () => {
+            console.error(`Failed to load sprite sheet ${sheet.id}`);
+            resolve(null);
+          };
+          img.src = sheet.src;
+        })
+      );
+      
+      const results = await Promise.all(loadPromises);
+      const newSheets = new Map<string, HTMLCanvasElement>();
+      for (const result of results) {
+        if (result) {
+          newSheets.set(result.id, result.canvas);
         }
       }
-      
       setSpriteSheets(newSheets);
     };
     
