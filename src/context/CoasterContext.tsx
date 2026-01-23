@@ -2134,8 +2134,15 @@ export function CoasterProvider({
         // Update previous tile for auto-build turns
         if (tool === 'coaster_build' && lastTile && prev.buildingCoasterLastDirection && deltaDir) {
           if (prev.buildingCoasterLastDirection !== deltaDir) {
+            // Convert travel directions to entry/exit edge directions
+            // Entry edge is OPPOSITE of the travel direction we used to enter the tile
+            // Exit edge is the direction we're now traveling (same as travel direction)
+            const entryEdge = oppositeDir[prev.buildingCoasterLastDirection];  // Where we entered FROM
+            const exitEdge = deltaDir;  // Where we're exiting TO
+            
+            // Determine turn type based on edge directions (not travel directions)
             const turnType: TrackPieceType =
-              rotateDirection(prev.buildingCoasterLastDirection, 'right') === deltaDir
+              rotateDirection(entryEdge, 'right') === exitEdge
                 ? 'turn_right_flat'
                 : 'turn_left_flat';
             const previousTile = newGrid[lastTile.y][lastTile.x];
@@ -2144,7 +2151,7 @@ export function CoasterProvider({
             const coasterTypeForStrut: CoasterType = prev.buildingCoasterType ?? existingCoasterForStrut?.type ?? 'steel_sit_down';
             previousTile.trackPiece = {
               type: turnType,
-              direction: prev.buildingCoasterLastDirection,
+              direction: entryEdge,  // Store entry edge (drawing code expects "entering FROM")
               startHeight: clampHeight(prev.buildingCoasterHeight),
               endHeight: clampHeight(prev.buildingCoasterHeight),
               bankAngle: 0,
@@ -2976,18 +2983,22 @@ export function CoasterProvider({
           const prev = tiles[i - 1];
           const dx = x - prev.x;
           const dy = y - prev.y;
-          if (dx === 1 && dy === 0) direction = 'east';
-          else if (dx === -1 && dy === 0) direction = 'west';
-          else if (dx === 0 && dy === 1) direction = 'south';
-          else if (dx === 0 && dy === -1) direction = 'north';
+          // Use directionFromDelta mappings for consistency:
+          // dx=1 (gridX increased) = moving toward bottom-right = south
+          // dy=1 (gridY increased) = moving toward bottom-left = west
+          if (dx === 1 && dy === 0) direction = 'south';
+          else if (dx === -1 && dy === 0) direction = 'north';
+          else if (dx === 0 && dy === 1) direction = 'west';
+          else if (dx === 0 && dy === -1) direction = 'east';
         } else if (updatedPath.length > 0) {
           const prevTile = updatedPath[updatedPath.length - 1];
           const dx = x - prevTile.x;
           const dy = y - prevTile.y;
-          if (dx === 1 && dy === 0) direction = 'east';
-          else if (dx === -1 && dy === 0) direction = 'west';
-          else if (dx === 0 && dy === 1) direction = 'south';
-          else if (dx === 0 && dy === -1) direction = 'north';
+          // Use directionFromDelta mappings for consistency
+          if (dx === 1 && dy === 0) direction = 'south';
+          else if (dx === -1 && dy === 0) direction = 'north';
+          else if (dx === 0 && dy === 1) direction = 'west';
+          else if (dx === 0 && dy === -1) direction = 'east';
         }
         
         // Determine track piece type
@@ -3000,14 +3011,28 @@ export function CoasterProvider({
           if (prevTileCoord) {
             const prevTile = newGrid[prevTileCoord.y]?.[prevTileCoord.x];
             if (prevTile && prevTile.trackPiece) {
-              // Determine turn type based on direction change
+              // Convert travel directions to entry/exit edge directions
+              // Entry edge is OPPOSITE of the travel direction we used to enter the tile
+              // Exit edge is the direction we're now traveling (same as travel direction)
+              const oppositeDir: Record<TrackDirection, TrackDirection> = {
+                north: 'south', south: 'north', east: 'west', west: 'east'
+              };
+              const entryEdge = oppositeDir[lastDirection];  // Where we entered FROM
+              const exitEdge = direction;  // Where we're exiting TO
+              
+              // Determine turn type based on edge directions (not travel directions)
+              // From entry edge, rotating right gives the clockwise next edge
+              // entryEdge='north', rotateRight='east', rotateLeft='west'
               const turnType: TrackPieceType = 
-                rotateDirection(lastDirection, 'right') === direction
+                rotateDirection(entryEdge, 'right') === exitEdge
                   ? 'turn_right_flat'
                   : 'turn_left_flat';
+              
+              // Store entry edge as direction (drawing code expects "entering FROM")
               prevTile.trackPiece = {
                 ...prevTile.trackPiece,
                 type: turnType,
+                direction: entryEdge,
               };
             }
           }
