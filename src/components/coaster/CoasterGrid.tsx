@@ -2839,18 +2839,20 @@ const tile = grid[y][x];
     
     // If it's a drag tool (track, scenery) and we're on a valid tile, start dragging
     if (isDragTool && isValidTile) {
-      setIsTrackDragging(true);
-      setTrackDragStartTile({ x: gridX, y: gridY });
-      setTrackDragDirection(null);
-      setTrackDragPreviewTiles([{ x: gridX, y: gridY }]);
+      // Place or bulldoze immediately on first click - do this FIRST before setting drag state
+      // to ensure the track placement is not affected by drag state setup
       placedTrackTilesRef.current.clear();
       placedTrackTilesRef.current.add(`${gridX},${gridY}`);
-      // Place or bulldoze immediately on first click
       if (selectedTool === 'bulldoze') {
         bulldozeTile(gridX, gridY);
       } else {
         placeAtTile(gridX, gridY);
       }
+      // Then set up drag state for potential drag operation
+      setIsTrackDragging(true);
+      setTrackDragStartTile({ x: gridX, y: gridY });
+      setTrackDragDirection(null);
+      setTrackDragPreviewTiles([{ x: gridX, y: gridY }]);
     } else if (selectedTool === 'select') {
       // Select tool just selects, doesn't pan
       setSelectedTile({ x: gridX, y: gridY });

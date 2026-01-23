@@ -1890,8 +1890,9 @@ export function CoasterProvider({
         const lastTile = buildPath.length > 0 ? buildPath[buildPath.length - 1] : null;
         const deltaDir = lastTile ? directionFromDelta(x - lastTile.x, y - lastTile.y) : null;
         
-        // For auto-build mode, require adjacency
-        if (tool === 'coaster_build' && lastTile && !deltaDir) return prev;
+        // For auto-build mode (coaster_build), if clicking on a non-adjacent tile, 
+        // don't return early - instead, let the code below start a new coaster at this location.
+        // This allows starting new track segments anywhere while in coaster_build mode.
         
         // ALWAYS check for adjacent existing track to inherit direction and height
         // When multiple adjacent tracks exist, prefer the one that matches the build path
