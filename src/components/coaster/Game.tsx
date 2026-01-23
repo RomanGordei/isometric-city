@@ -9,6 +9,7 @@ import { TopBar } from './TopBar';
 import { MiniMap } from './MiniMap';
 import { Panels } from './panels/Panels';
 import { CoasterCommandMenu } from '@/components/coaster/CommandMenu';
+import { T } from 'gt-next';
 
 interface GameProps {
   onExit?: () => void;
@@ -50,7 +51,7 @@ export default function CoasterGame({ onExit }: GameProps) {
   if (!isStateReady) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-950 via-indigo-900 to-purple-950">
-        <div className="text-white/60">Loading park...</div>
+        <T><div className="text-white/60">Loading park...</div></T>
       </div>
     );
   }

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
+import { T, msg, useMessages, useGT } from 'gt-next';
 
 // Global callback to open the command menu
 let openCoasterCommandMenuCallback: (() => void) | null = null;
@@ -30,20 +31,20 @@ interface MenuItem {
 }
 
 const MENU_CATEGORIES = [
-  { key: 'tools', label: 'Tools' },
-  { key: 'paths', label: 'Paths' },
-  { key: 'terrain', label: 'Terrain' },
-  { key: 'coasters', label: 'Coasters' },
-  { key: 'trees', label: 'Trees' },
-  { key: 'flowers', label: 'Flowers' },
-  { key: 'furniture', label: 'Furniture' },
-  { key: 'fountains', label: 'Fountains' },
-  { key: 'food', label: 'Food & Drink' },
-  { key: 'shops', label: 'Shops & Services' },
-  { key: 'rides_small', label: 'Small Rides' },
-  { key: 'rides_large', label: 'Large Rides' },
-  { key: 'infrastructure', label: 'Infrastructure' },
-  { key: 'panels', label: 'Panels' },
+  { key: 'tools', label: msg('Tools') },
+  { key: 'paths', label: msg('Paths') },
+  { key: 'terrain', label: msg('Terrain') },
+  { key: 'coasters', label: msg('Coasters') },
+  { key: 'trees', label: msg('Trees') },
+  { key: 'flowers', label: msg('Flowers') },
+  { key: 'furniture', label: msg('Furniture') },
+  { key: 'fountains', label: msg('Fountains') },
+  { key: 'food', label: msg('Food & Drink') },
+  { key: 'shops', label: msg('Shops & Services') },
+  { key: 'rides_small', label: msg('Small Rides') },
+  { key: 'rides_large', label: msg('Large Rides') },
+  { key: 'infrastructure', label: msg('Infrastructure') },
+  { key: 'panels', label: msg('Panels') },
 ] as const;
 
 const CATEGORY_LABELS = MENU_CATEGORIES.reduce<Record<string, string>>((acc, category) => {
@@ -104,14 +105,14 @@ function buildMenuItems(): MenuItem[] {
   const panels = [
     {
       panel: 'finances' as const,
-      name: 'Finances',
-      description: 'Review park finances and income',
+      name: msg('Finances'),
+      description: msg('Review park finances and income'),
       keywords: ['finances', 'money', 'profit', 'budget', 'cash'],
     },
     {
       panel: 'settings' as const,
-      name: 'Settings',
-      description: 'Update park settings and game tools',
+      name: msg('Settings'),
+      description: msg('Update park settings and game tools'),
       keywords: ['settings', 'options', 'preferences', 'export', 'import'],
     },
   ];
@@ -137,6 +138,8 @@ export function CoasterCommandMenu() {
   const { isMobileDevice } = useMobile();
   const { state, setTool, setActivePanel, startCoasterBuild } = useCoaster();
   const { finances } = state;
+  const m = useMessages();
+  const gt = useGT();
 
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -271,7 +274,7 @@ export function CoasterCommandMenu() {
         onKeyDown={handleKeyDown}
       >
         <VisuallyHidden.Root>
-          <DialogTitle>Command Menu</DialogTitle>
+          <DialogTitle><T>Command Menu</T></DialogTitle>
         </VisuallyHidden.Root>
         
         <div className="flex items-center border-b border-sidebar-border px-3">
@@ -287,7 +290,7 @@ export function CoasterCommandMenu() {
             ref={inputRef}
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search tools, rides, panels..."
+            placeholder={gt('Search tools, rides, panels...')}
             className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent h-12 text-sm"
           />
           <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-sidebar-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
@@ -298,9 +301,11 @@ export function CoasterCommandMenu() {
         <ScrollArea className="max-h-[360px]">
           <div ref={listRef} className="p-2">
             {flatItems.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                No results found.
-              </div>
+              <T>
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  No results found.
+                </div>
+              </T>
             ) : (
               MENU_CATEGORIES.map(category => {
                 const items = groupedItems[category.key];
@@ -309,7 +314,7 @@ export function CoasterCommandMenu() {
                 return (
                   <div key={category.key} className="mb-2">
                     <div className="px-2 py-1.5 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-                      {category.label}
+                      {m(category.label)}
                     </div>
                     <div className="flex flex-col gap-0.5">
                       {items.map((item) => {
@@ -332,12 +337,12 @@ export function CoasterCommandMenu() {
                             )}
                           >
                             <div className="flex flex-col gap-0.5 min-w-0">
-                              <span className="font-medium truncate">{item.name}</span>
+                              <span className="font-medium truncate">{m(item.name)}</span>
                               <span className={cn(
                                 'text-xs truncate',
                                 isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'
                               )}>
-                                {item.description}
+                                {m(item.description)}
                               </span>
                             </div>
                             {item.cost !== undefined && item.cost > 0 && (
@@ -364,17 +369,17 @@ export function CoasterCommandMenu() {
             <span className="flex items-center gap-1">
               <kbd className="inline-flex h-4 items-center rounded border border-sidebar-border bg-muted px-1 font-mono text-[10px]">↑</kbd>
               <kbd className="inline-flex h-4 items-center rounded border border-sidebar-border bg-muted px-1 font-mono text-[10px]">↓</kbd>
-              <span>navigate</span>
+              <span>{gt('navigate')}</span>
             </span>
             <span className="flex items-center gap-1">
               <kbd className="inline-flex h-4 items-center rounded border border-sidebar-border bg-muted px-1 font-mono text-[10px]">↵</kbd>
-              <span>select</span>
+              <span>{gt('select')}</span>
             </span>
           </div>
           <span className="flex items-center gap-1">
             <kbd className="inline-flex h-4 items-center rounded border border-sidebar-border bg-muted px-1 font-mono text-[10px]">⌘</kbd>
             <kbd className="inline-flex h-4 items-center rounded border border-sidebar-border bg-muted px-1 font-mono text-[10px]">K</kbd>
-            <span>to toggle</span>
+            <span>{gt('to toggle')}</span>
           </span>
         </div>
       </DialogContent>
