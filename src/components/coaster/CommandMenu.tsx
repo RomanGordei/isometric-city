@@ -1,0 +1,385 @@
+ 'use client';
+ 
+ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+ import { useCoaster } from '@/context/CoasterContext';
+ import { Tool, TOOL_INFO } from '@/games/coaster/types';
+ import { CoasterType } from '@/games/coaster/types/tracks';
+ import { useMobile } from '@/hooks/useMobile';
+ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+ import { Input } from '@/components/ui/input';
+ import { ScrollArea } from '@/components/ui/scroll-area';
+ import { cn } from '@/lib/utils';
+ import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
+ 
+ let openCoasterCommandMenuCallback: (() => void) | null = null;
+ 
+ export function openCoasterCommandMenu() {
+   openCoasterCommandMenuCallback?.();
+ }
+ 
+ interface MenuItem {
+   id: string;
+   type: 'tool' | 'panel';
+   tool?: Tool;
+   panel?: 'finances' | 'settings';
+   name: string;
+   description: string;
+   cost?: number;
+   category: string;
+   keywords: string[];
+ }
+ 
+ const MENU_CATEGORIES = [
+   { key: 'tools', label: 'Tools' },
+   { key: 'paths', label: 'Paths' },
+   { key: 'terrain', label: 'Terrain' },
+   { key: 'coasters', label: 'Coasters' },
+   { key: 'trees', label: 'Trees' },
+   { key: 'flowers', label: 'Flowers' },
+   { key: 'furniture', label: 'Furniture' },
+   { key: 'fountains', label: 'Fountains' },
+   { key: 'food', label: 'Food & Drink' },
+   { key: 'shops', label: 'Shops & Services' },
+   { key: 'rides_small', label: 'Small Rides' },
+   { key: 'rides_large', label: 'Large Rides' },
+   { key: 'infrastructure', label: 'Infrastructure' },
+   { key: 'panels', label: 'Panels' },
+ ] as const;
+ 
+ const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+   MENU_CATEGORIES.map(({ key, label }) => [key, label])
+ );
+ 
+ const COASTER_TYPE_PREFIX = 'coaster_type_';
+ 
+ function buildMenuItems(): MenuItem[] {
+   const items: MenuItem[] = [];
+ 
+   Object.entries(TOOL_INFO).forEach(([toolId, info]) => {
+     const categoryLabel = CATEGORY_LABELS[info.category] ?? info.category;
+     const keywords = new Set<string>([
+       toolId,
+       info.name,
+       info.description,
+       info.category,
+       categoryLabel,
+       categoryLabel.toLowerCase(),
+     ]);
+ 
+     if (info.category.startsWith('rides_')) {
+       keywords.add('ride');
+       keywords.add('rides');
+     }
+ 
+     if (info.category === 'coasters') {
+       keywords.add('coaster');
+       keywords.add('track');
+     }
+ 
+     if (toolId.startsWith(COASTER_TYPE_PREFIX)) {
+       keywords.add('coaster type');
+       keywords.add('type');
+     }
+ 
+     items.push({
+       id: toolId,
+       type: 'tool',
+       tool: toolId as Tool,
+       name: info.name,
+       description: info.description,
+       cost: info.cost,
+       category: info.category,
+       keywords: Array.from(keywords, keyword => keyword.toLowerCase()),
+     });
+   });
+ 
+   const panels: { panel: 'finances' | 'settings'; name: string; description: string; keywords: string[] }[] = [
+     {
+       panel: 'finances',
+       name: 'Finances',
+       description: 'Review cash flow, income, and expenses',
+       keywords: ['money', 'cash', 'profit', 'budget', 'finances'],
+     },
+     {
+       panel: 'settings',
+       name: 'Settings',
+       description: 'Manage park settings and save data',
+       keywords: ['settings', 'options', 'preferences', 'save', 'load'],
+     },
+   ];
+ 
+   panels.forEach(({ panel, name, description, keywords }) => {
+     items.push({
+       id: `panel-${panel}`,
+       type: 'panel',
+       panel,
+       name,
+       description,
+       category: 'panels',
+       keywords: [name, description, panel, ...keywords].map(keyword => keyword.toLowerCase()),
+     });
+   });
+ 
+   return items;
+ }
+ 
+ const ALL_MENU_ITEMS = buildMenuItems();
+ 
+ export function CoasterCommandMenu() {
+   const { isMobileDevice } = useMobile();
+   const { state, setTool, setActivePanel, startCoasterBuild } = useCoaster();
+   const { finances } = state;
+ 
+   const [open, setOpen] = useState(false);
+   const [search, setSearch] = useState('');
+   const [selectedIndex, setSelectedIndex] = useState(0);
+   const inputRef = useRef<HTMLInputElement>(null);
+   const listRef = useRef<HTMLDivElement>(null);
+ 
+   const handleSearchChange = useCallback((value: string) => {
+     setSearch(value);
+     setSelectedIndex(0);
+   }, []);
+ 
+   const handleOpenChange = useCallback((newOpen: boolean) => {
+     setOpen(newOpen);
+     if (newOpen) {
+       setSearch('');
+       setSelectedIndex(0);
+       setTimeout(() => inputRef.current?.focus(), 50);
+     }
+   }, []);
+ 
+   useEffect(() => {
+     openCoasterCommandMenuCallback = () => handleOpenChange(true);
+     return () => {
+       openCoasterCommandMenuCallback = null;
+     };
+   }, [handleOpenChange]);
+ 
+   const filteredItems = useMemo(() => {
+     if (!search.trim()) return ALL_MENU_ITEMS;
+ 
+     const searchLower = search.toLowerCase().trim();
+     return ALL_MENU_ITEMS.filter(item => {
+       if (item.name.toLowerCase().includes(searchLower)) return true;
+       if (item.description.toLowerCase().includes(searchLower)) return true;
+       if (item.keywords.some(keyword => keyword.includes(searchLower))) return true;
+       if (item.category.includes(searchLower)) return true;
+       return false;
+     });
+   }, [search]);
+ 
+   const groupedItems = useMemo(() => {
+     const groups: Record<string, MenuItem[]> = {};
+     filteredItems.forEach(item => {
+       if (!groups[item.category]) {
+         groups[item.category] = [];
+       }
+       groups[item.category].push(item);
+     });
+     return groups;
+   }, [filteredItems]);
+ 
+   const flatItems = useMemo(() => {
+     const result: MenuItem[] = [];
+     MENU_CATEGORIES.forEach(category => {
+       if (groupedItems[category.key]) {
+         result.push(...groupedItems[category.key]);
+       }
+     });
+     return result;
+   }, [groupedItems]);
+ 
+   useEffect(() => {
+     if (selectedIndex >= flatItems.length) {
+       setSelectedIndex(Math.max(0, flatItems.length - 1));
+     }
+   }, [flatItems.length, selectedIndex]);
+ 
+   useEffect(() => {
+     if (isMobileDevice) return;
+ 
+     const handleKeyDown = (e: KeyboardEvent) => {
+       const target = e.target as HTMLElement;
+       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+         return;
+       }
+ 
+       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+         e.preventDefault();
+         setOpen(prev => !prev);
+       }
+     };
+ 
+     window.addEventListener('keydown', handleKeyDown);
+     return () => window.removeEventListener('keydown', handleKeyDown);
+   }, [isMobileDevice]);
+ 
+   const handleSelect = useCallback((item: MenuItem) => {
+     if (item.type === 'tool' && item.tool) {
+       if (item.tool.startsWith(COASTER_TYPE_PREFIX)) {
+         const coasterType = item.tool.replace(COASTER_TYPE_PREFIX, '') as CoasterType;
+         startCoasterBuild(coasterType);
+         setTool('coaster_build');
+       } else {
+         setTool(item.tool);
+       }
+     } else if (item.type === 'panel' && item.panel) {
+       setActivePanel(state.activePanel === item.panel ? 'none' : item.panel);
+     }
+     setOpen(false);
+   }, [setTool, setActivePanel, startCoasterBuild, state.activePanel]);
+ 
+   useEffect(() => {
+     if (!listRef.current || flatItems.length === 0) return;
+ 
+     const selectedElement = listRef.current.querySelector(`[data-index="${selectedIndex}"]`);
+     if (selectedElement) {
+       selectedElement.scrollIntoView({ block: 'nearest' });
+     }
+   }, [selectedIndex, flatItems.length]);
+ 
+   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+     switch (e.key) {
+       case 'ArrowDown':
+         if (flatItems.length === 0) return;
+         e.preventDefault();
+         setSelectedIndex(prev => (prev + 1) % flatItems.length);
+         break;
+       case 'ArrowUp':
+         if (flatItems.length === 0) return;
+         e.preventDefault();
+         setSelectedIndex(prev => (prev - 1 + flatItems.length) % flatItems.length);
+         break;
+       case 'Enter':
+         if (flatItems.length === 0) return;
+         e.preventDefault();
+         if (flatItems[selectedIndex]) {
+           handleSelect(flatItems[selectedIndex]);
+         }
+         break;
+       case 'Escape':
+         e.preventDefault();
+         setOpen(false);
+         break;
+     }
+   }, [flatItems, selectedIndex, handleSelect]);
+ 
+   if (isMobileDevice) return null;
+ 
+   return (
+     <Dialog open={open} onOpenChange={handleOpenChange}>
+       <DialogContent
+         className="p-0 gap-0 max-w-lg overflow-hidden bg-sidebar border-sidebar-border shadow-2xl"
+         onKeyDown={handleKeyDown}
+       >
+         <VisuallyHidden.Root>
+           <DialogTitle>Command Menu</DialogTitle>
+         </VisuallyHidden.Root>
+ 
+         <div className="flex items-center border-b border-sidebar-border px-3">
+           <svg
+             className="w-4 h-4 text-muted-foreground shrink-0"
+             fill="none"
+             viewBox="0 0 24 24"
+             stroke="currentColor"
+           >
+             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+           </svg>
+           <Input
+             ref={inputRef}
+             value={search}
+             onChange={(e) => handleSearchChange(e.target.value)}
+             placeholder="Search tools, rides, panels..."
+             className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent h-12 text-sm"
+           />
+           <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-sidebar-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+             ESC
+           </kbd>
+         </div>
+ 
+         <ScrollArea className="max-h-[360px]">
+           <div ref={listRef} className="p-2">
+             {flatItems.length === 0 ? (
+               <div className="py-6 text-center text-sm text-muted-foreground">
+                 No results found.
+               </div>
+             ) : (
+               MENU_CATEGORIES.map(category => {
+                 const items = groupedItems[category.key];
+                 if (!items || items.length === 0) return null;
+ 
+                 return (
+                   <div key={category.key} className="mb-2">
+                     <div className="px-2 py-1.5 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+                       {category.label}
+                     </div>
+                     <div className="flex flex-col gap-0.5">
+                       {items.map(item => {
+                         const globalIndex = flatItems.indexOf(item);
+                         const isSelected = globalIndex === selectedIndex;
+                         const canAfford = item.cost === undefined || item.cost === 0 || finances.cash >= item.cost;
+ 
+                         return (
+                           <button
+                             key={item.id}
+                             data-index={globalIndex}
+                             onClick={() => handleSelect(item)}
+                             disabled={!canAfford}
+                             className={cn(
+                               'flex items-center justify-between gap-2 px-3 py-2 rounded-sm text-sm transition-colors text-left w-full',
+                               isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/60',
+                               !canAfford && 'opacity-50 cursor-not-allowed'
+                             )}
+                           >
+                             <div className="flex flex-col gap-0.5 min-w-0">
+                               <span className="font-medium truncate">{item.name}</span>
+                               <span className={cn(
+                                 'text-xs truncate',
+                                 isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                               )}>
+                                 {item.description}
+                               </span>
+                             </div>
+                             {item.cost !== undefined && item.cost > 0 && (
+                               <span className={cn(
+                                 'text-xs shrink-0',
+                                 isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                               )}>
+                                 ${item.cost.toLocaleString()}
+                               </span>
+                             )}
+                           </button>
+                         );
+                       })}
+                     </div>
+                   </div>
+                 );
+               })
+             )}
+           </div>
+         </ScrollArea>
+ 
+         <div className="flex items-center justify-between border-t border-sidebar-border px-3 py-2 text-xs text-muted-foreground">
+           <div className="flex items-center gap-3">
+             <span className="flex items-center gap-1">
+               <kbd className="inline-flex h-4 items-center rounded border border-sidebar-border bg-muted px-1 font-mono text-[10px]">Up</kbd>
+               <kbd className="inline-flex h-4 items-center rounded border border-sidebar-border bg-muted px-1 font-mono text-[10px]">Down</kbd>
+               <span>navigate</span>
+             </span>
+             <span className="flex items-center gap-1">
+               <kbd className="inline-flex h-4 items-center rounded border border-sidebar-border bg-muted px-1 font-mono text-[10px]">Enter</kbd>
+               <span>select</span>
+             </span>
+           </div>
+           <span className="flex items-center gap-1">
+             <kbd className="inline-flex h-4 items-center rounded border border-sidebar-border bg-muted px-1 font-mono text-[10px]">Cmd</kbd>
+             <kbd className="inline-flex h-4 items-center rounded border border-sidebar-border bg-muted px-1 font-mono text-[10px]">K</kbd>
+             <span>to toggle</span>
+           </span>
+         </div>
+       </DialogContent>
+     </Dialog>
+   );
+ }
