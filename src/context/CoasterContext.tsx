@@ -280,6 +280,16 @@ function rotateDirection(direction: TrackDirection, turn: 'left' | 'right'): Tra
   return DIRECTION_ORDER[(index + delta + DIRECTION_ORDER.length) % DIRECTION_ORDER.length];
 }
 
+function getOppositeDirection(direction: TrackDirection): TrackDirection {
+  const opposite: Record<TrackDirection, TrackDirection> = {
+    north: 'south',
+    south: 'north',
+    east: 'west',
+    west: 'east',
+  };
+  return opposite[direction];
+}
+
 function directionFromDelta(dx: number, dy: number): TrackDirection | null {
   if (dx === 1 && dy === 0) return 'south';
   if (dx === -1 && dy === 0) return 'north';
@@ -2134,8 +2144,9 @@ export function CoasterProvider({
         // Update previous tile for auto-build turns
         if (tool === 'coaster_build' && lastTile && prev.buildingCoasterLastDirection && deltaDir) {
           if (prev.buildingCoasterLastDirection !== deltaDir) {
+            const entryDirection = getOppositeDirection(prev.buildingCoasterLastDirection);
             const turnType: TrackPieceType =
-              rotateDirection(prev.buildingCoasterLastDirection, 'right') === deltaDir
+              rotateDirection(entryDirection, 'right') === deltaDir
                 ? 'turn_right_flat'
                 : 'turn_left_flat';
             const previousTile = newGrid[lastTile.y][lastTile.x];
@@ -2144,7 +2155,7 @@ export function CoasterProvider({
             const coasterTypeForStrut: CoasterType = prev.buildingCoasterType ?? existingCoasterForStrut?.type ?? 'steel_sit_down';
             previousTile.trackPiece = {
               type: turnType,
-              direction: prev.buildingCoasterLastDirection,
+              direction: entryDirection,
               startHeight: clampHeight(prev.buildingCoasterHeight),
               endHeight: clampHeight(prev.buildingCoasterHeight),
               bankAngle: 0,
@@ -2974,20 +2985,12 @@ export function CoasterProvider({
         let direction: TrackDirection = lastDirection ?? 'south';
         if (i > 0) {
           const prev = tiles[i - 1];
-          const dx = x - prev.x;
-          const dy = y - prev.y;
-          if (dx === 1 && dy === 0) direction = 'east';
-          else if (dx === -1 && dy === 0) direction = 'west';
-          else if (dx === 0 && dy === 1) direction = 'south';
-          else if (dx === 0 && dy === -1) direction = 'north';
+          const delta = directionFromDelta(x - prev.x, y - prev.y);
+          if (delta) direction = delta;
         } else if (updatedPath.length > 0) {
           const prevTile = updatedPath[updatedPath.length - 1];
-          const dx = x - prevTile.x;
-          const dy = y - prevTile.y;
-          if (dx === 1 && dy === 0) direction = 'east';
-          else if (dx === -1 && dy === 0) direction = 'west';
-          else if (dx === 0 && dy === 1) direction = 'south';
-          else if (dx === 0 && dy === -1) direction = 'north';
+          const delta = directionFromDelta(x - prevTile.x, y - prevTile.y);
+          if (delta) direction = delta;
         }
         
         // Determine track piece type
@@ -3001,13 +3004,15 @@ export function CoasterProvider({
             const prevTile = newGrid[prevTileCoord.y]?.[prevTileCoord.x];
             if (prevTile && prevTile.trackPiece) {
               // Determine turn type based on direction change
+              const entryDirection = getOppositeDirection(lastDirection);
               const turnType: TrackPieceType = 
-                rotateDirection(lastDirection, 'right') === direction
+                rotateDirection(entryDirection, 'right') === direction
                   ? 'turn_right_flat'
                   : 'turn_left_flat';
               prevTile.trackPiece = {
                 ...prevTile.trackPiece,
                 type: turnType,
+                direction: entryDirection,
               };
             }
           }
