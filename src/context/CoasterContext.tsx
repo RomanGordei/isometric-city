@@ -2837,15 +2837,29 @@ export function CoasterProvider({
     if (tiles.length === 0) return;
     
     setState(prev => {
+      const tool = prev.selectedTool;
+      const trackLineTools: Tool[] = ['coaster_build', 'coaster_track'];
+      if (!trackLineTools.includes(tool)) return prev;
+      
+      const toolInfo = TOOL_INFO[tool];
+      if (!toolInfo) return prev;
+      
+      const boundedTiles = tiles.filter(({ x, y }) =>
+        x >= 0 && y >= 0 && x < prev.gridSize && y < prev.gridSize
+      );
+      if (boundedTiles.length === 0) return prev;
+      
       const newGrid = prev.grid.map(row => row.map(tile => ({ ...tile })));
+      let remainingCash = prev.finances.cash;
+      const costPerTile = toolInfo.cost;
       
       // Determine if the first tile is connected to existing track with buildingCoasterId
       // If not, we're starting a NEW track - generate new ID
       let coasterId = prev.buildingCoasterId ?? generateUUID();
       let startedNewCoaster = false;
       
-      if (tiles.length > 0 && prev.buildingCoasterId) {
-        const firstTile = tiles[0];
+      if (boundedTiles.length > 0 && prev.buildingCoasterId) {
+        const firstTile = boundedTiles[0];
         const adjacentOffsets = [
           { dx: -1, dy: 0 },
           { dx: 1, dy: 0 },
@@ -2896,6 +2910,8 @@ export function CoasterProvider({
       let currentHeight = startedNewCoaster ? 0 : prev.buildingCoasterHeight;
       let lastDirection: TrackDirection | null = startedNewCoaster ? null : prev.buildingCoasterLastDirection;
       const updatedPath = startedNewCoaster ? [] : [...prev.buildingCoasterPath];
+      let lastPlacedTile: { x: number; y: number } | null =
+        updatedPath.length > 0 ? updatedPath[updatedPath.length - 1] : null;
       
       // If continuing from existing path, inherit height from the last track piece
       if (updatedPath.length > 0) {
@@ -2908,8 +2924,8 @@ export function CoasterProvider({
       }
       
       // Also check if first tile we're placing is adjacent to existing track
-      if (tiles.length > 0 && updatedPath.length === 0) {
-        const firstTile = tiles[0];
+      if (boundedTiles.length > 0 && updatedPath.length === 0) {
+        const firstTile = boundedTiles[0];
         // Check all 4 adjacent tiles for existing track
         const adjacentOffsets = [
           { dx: -1, dy: 0, fromDir: 'west' as TrackDirection },
@@ -2960,30 +2976,27 @@ export function CoasterProvider({
         }
       }
       
-      for (let i = 0; i < tiles.length; i++) {
-        const { x, y } = tiles[i];
+      let placedTiles = 0;
+      
+      for (const { x, y } of boundedTiles) {
+        if (costPerTile > 0 && remainingCash < costPerTile) {
+          break;
+        }
         
-        // Skip if out of bounds
-        if (x < 0 || y < 0 || x >= prev.gridSize || y >= prev.gridSize) continue;
-        
-        // Skip if already has track
         const tile = newGrid[y][x];
-        if (tile.hasCoasterTrack) continue;
+        if (tile.terrain === 'water') {
+          continue;
+        }
         
-        // Determine direction from previous tile
+        // Determine direction from previous placed tile
         let direction: TrackDirection = lastDirection ?? 'south';
-        if (i > 0) {
-          const prev = tiles[i - 1];
-          const dx = x - prev.x;
-          const dy = y - prev.y;
-          if (dx === 1 && dy === 0) direction = 'east';
-          else if (dx === -1 && dy === 0) direction = 'west';
-          else if (dx === 0 && dy === 1) direction = 'south';
-          else if (dx === 0 && dy === -1) direction = 'north';
-        } else if (updatedPath.length > 0) {
-          const prevTile = updatedPath[updatedPath.length - 1];
-          const dx = x - prevTile.x;
-          const dy = y - prevTile.y;
+        if (lastPlacedTile) {
+          const dx = x - lastPlacedTile.x;
+          const dy = y - lastPlacedTile.y;
+          const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
+          if (tool === 'coaster_build' && !isAdjacent) {
+            continue;
+          }
           if (dx === 1 && dy === 0) direction = 'east';
           else if (dx === -1 && dy === 0) direction = 'west';
           else if (dx === 0 && dy === 1) direction = 'south';
@@ -2991,25 +3004,20 @@ export function CoasterProvider({
         }
         
         // Determine track piece type
-        let pieceType: TrackPieceType = 'straight_flat';
+        const pieceType: TrackPieceType = 'straight_flat';
         
         // Check if we need a turn from the previous direction
-        if (lastDirection && lastDirection !== direction) {
-          // Update the PREVIOUS tile to be a turn
-          const prevTileCoord = i > 0 ? tiles[i - 1] : updatedPath[updatedPath.length - 1];
-          if (prevTileCoord) {
-            const prevTile = newGrid[prevTileCoord.y]?.[prevTileCoord.x];
-            if (prevTile && prevTile.trackPiece) {
-              // Determine turn type based on direction change
-              const turnType: TrackPieceType = 
-                rotateDirection(lastDirection, 'right') === direction
-                  ? 'turn_right_flat'
-                  : 'turn_left_flat';
-              prevTile.trackPiece = {
-                ...prevTile.trackPiece,
-                type: turnType,
-              };
-            }
+        if (lastPlacedTile && lastDirection && lastDirection !== direction) {
+          const prevTile = newGrid[lastPlacedTile.y]?.[lastPlacedTile.x];
+          if (prevTile?.trackPiece) {
+            const turnType: TrackPieceType = 
+              rotateDirection(lastDirection, 'right') === direction
+                ? 'turn_right_flat'
+                : 'turn_left_flat';
+            prevTile.trackPiece = {
+              ...prevTile.trackPiece,
+              type: turnType,
+            };
           }
         }
         
@@ -3029,8 +3037,17 @@ export function CoasterProvider({
         tile.hasCoasterTrack = true;
         tile.coasterTrackId = coasterId;
         
-        updatedPath.push({ x, y });
+        if (!updatedPath.some(point => point.x === x && point.y === y)) {
+          updatedPath.push({ x, y });
+        }
+        lastPlacedTile = { x, y };
         lastDirection = direction;
+        placedTiles += 1;
+        remainingCash -= costPerTile;
+      }
+      
+      if (placedTiles === 0) {
+        return prev;
       }
       
       // Collect ALL track tiles for this coaster from the grid (not just building path)
@@ -3116,13 +3133,19 @@ export function CoasterProvider({
         updatedCoasters.push(coaster);
       }
       
+      const lastPlacedTrackPiece = lastPlacedTile
+        ? newGrid[lastPlacedTile.y]?.[lastPlacedTile.x]?.trackPiece
+        : null;
+      const finalHeight = lastPlacedTrackPiece?.endHeight ?? currentHeight;
+      
       return {
         ...prev,
         grid: newGrid,
+        finances: { ...prev.finances, cash: remainingCash },
         buildingCoasterId: coasterId,
         buildingCoasterPath: updatedPath,
-        buildingCoasterHeight: currentHeight,
-        buildingCoasterLastDirection: lastDirection,
+        buildingCoasterHeight: finalHeight,
+        buildingCoasterLastDirection: lastDirection ?? prev.buildingCoasterLastDirection,
         coasters: updatedCoasters,
       };
     });

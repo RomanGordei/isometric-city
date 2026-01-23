@@ -26,6 +26,11 @@ const TRACK_DRAG_TOOLS: Tool[] = [
   'bulldoze',
 ];
 
+const TRACK_LINE_TOOLS: Tool[] = [
+  'coaster_build',
+  'coaster_track',
+];
+
 // Scenery tools that support drag-to-draw (flowers, bushes, trees)
 const SCENERY_DRAG_TOOLS: Tool[] = [
   // Trees
@@ -2145,6 +2150,7 @@ export function CoasterGrid({
   const isTrackDragTool = useMemo(() => TRACK_DRAG_TOOLS.includes(selectedTool), [selectedTool]);
   const isSceneryDragTool = useMemo(() => SCENERY_DRAG_TOOLS.includes(selectedTool), [selectedTool]);
   const isDragTool = isTrackDragTool || isSceneryDragTool;
+  const isTrackLineTool = useMemo(() => TRACK_LINE_TOOLS.includes(selectedTool), [selectedTool]);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lightingCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -2848,6 +2854,8 @@ const tile = grid[y][x];
       // Place or bulldoze immediately on first click
       if (selectedTool === 'bulldoze') {
         bulldozeTile(gridX, gridY);
+      } else if (isTrackLineTool) {
+        placeTrackLine([{ x: gridX, y: gridY }]);
       } else {
         placeAtTile(gridX, gridY);
       }
@@ -2858,7 +2866,7 @@ const tile = grid[y][x];
       // Other tools (shops, decorations, etc.) - place on click
       placeAtTile(gridX, gridY);
     }
-  }, [offset, zoom, gridSize, isDragTool, selectedTool, placeAtTile, bulldozeTile, setSelectedTile]);
+  }, [offset, zoom, gridSize, isDragTool, selectedTool, isTrackLineTool, placeAtTile, placeTrackLine, bulldozeTile, setSelectedTile]);
   
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -2899,13 +2907,24 @@ const tile = grid[y][x];
       setTrackDragPreviewTiles(lineTiles);
       
       // Place track or bulldoze on new tiles as we drag
+      const newTiles: { x: number; y: number }[] = [];
       for (const tile of lineTiles) {
         const key = `${tile.x},${tile.y}`;
         if (!placedTrackTilesRef.current.has(key)) {
           placedTrackTilesRef.current.add(key);
-          if (selectedTool === 'bulldoze') {
+          newTiles.push(tile);
+        }
+      }
+
+      if (newTiles.length > 0) {
+        if (selectedTool === 'bulldoze') {
+          for (const tile of newTiles) {
             bulldozeTile(tile.x, tile.y);
-          } else {
+          }
+        } else if (isTrackLineTool) {
+          placeTrackLine(newTiles);
+        } else {
+          for (const tile of newTiles) {
             placeAtTile(tile.x, tile.y);
           }
         }
@@ -2917,7 +2936,7 @@ const tile = grid[y][x];
         y: e.clientY - dragStart.y,
       });
     }
-  }, [isDragging, isTrackDragging, dragStart, offset, zoom, gridSize, trackDragStartTile, trackDragDirection, calculateLineTiles, placeAtTile, bulldozeTile, selectedTool]);
+  }, [isDragging, isTrackDragging, dragStart, offset, zoom, gridSize, trackDragStartTile, trackDragDirection, calculateLineTiles, placeAtTile, placeTrackLine, bulldozeTile, selectedTool, isTrackLineTool]);
   
   const handleMouseUp = useCallback(() => {
     if (isTrackDragging) {
