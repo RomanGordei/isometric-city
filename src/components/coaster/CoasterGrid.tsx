@@ -1612,11 +1612,12 @@ function getTrackPoint(
   
   const heightOffset = (trackPiece.startHeight + (trackPiece.endHeight - trackPiece.startHeight) * t) * HEIGHT_UNIT;
   
-  // Edge midpoints - MUST match track drawing exactly
-  const northEdge = { x: startX + w * 0.25, y: startY + h * 0.25 - heightOffset };
-  const eastEdge = { x: startX + w * 0.75, y: startY + h * 0.25 - heightOffset };
-  const southEdge = { x: startX + w * 0.75, y: startY + h * 0.75 - heightOffset };
-  const westEdge = { x: startX + w * 0.25, y: startY + h * 0.75 - heightOffset };
+  // Edge midpoints at isometric diamond corners for proper curve connections
+  // Top (north), Right (east), Bottom (south), Left (west) of the isometric tile
+  const northEdge = { x: startX + w / 2, y: startY - heightOffset };
+  const eastEdge = { x: startX + w, y: startY + h / 2 - heightOffset };
+  const southEdge = { x: startX + w / 2, y: startY + h - heightOffset };
+  const westEdge = { x: startX, y: startY + h / 2 - heightOffset };
   const center = { x: startX + w / 2, y: startY + h / 2 - heightOffset };
   
   const { type, direction } = trackPiece;

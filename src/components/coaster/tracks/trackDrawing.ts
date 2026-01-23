@@ -355,20 +355,24 @@ export function drawStraightTrack(
   startY: number,
   direction: TrackDirection,
   height: number,
-  trackColor: string = COLORS.rail,
+  trackColorParam?: string,
   strutStyle: StrutStyle = 'metal',
   coasterCategory?: CoasterCategory,
   tick: number = 0
 ) {
+  // Handle undefined trackColor by defaulting to COLORS.rail
+  const trackColor = trackColorParam ?? COLORS.rail;
+  
   const w = TILE_WIDTH;
   const h = TILE_HEIGHT;
   const heightOffset = height * HEIGHT_UNIT;
   
-  // Edge midpoints - MUST match curve endpoints (like city game's rail system)
-  const northEdge = { x: startX + w * 0.25, y: startY + h * 0.25 - heightOffset };
-  const eastEdge = { x: startX + w * 0.75, y: startY + h * 0.25 - heightOffset };
-  const southEdge = { x: startX + w * 0.75, y: startY + h * 0.75 - heightOffset };
-  const westEdge = { x: startX + w * 0.25, y: startY + h * 0.75 - heightOffset };
+  // Edge midpoints at isometric diamond corners for proper curve connections
+  // Top (north), Right (east), Bottom (south), Left (west) of the isometric tile
+  const northEdge = { x: startX + w / 2, y: startY - heightOffset };
+  const eastEdge = { x: startX + w, y: startY + h / 2 - heightOffset };
+  const southEdge = { x: startX + w / 2, y: startY + h - heightOffset };
+  const westEdge = { x: startX, y: startY + h / 2 - heightOffset };
   const center = { x: startX + w / 2, y: startY + h / 2 - heightOffset };
   
   // Determine endpoints based on direction
@@ -464,20 +468,25 @@ export function drawCurvedTrack(
   startDir: TrackDirection,
   turnRight: boolean,
   height: number,
-  trackColor: string = COLORS.rail,
+  trackColorParam?: string,
   strutStyle: StrutStyle = 'metal',
   coasterCategory?: CoasterCategory,
   _tick: number = 0
 ) {
+  // Handle undefined trackColor by defaulting to COLORS.rail
+  const trackColor = trackColorParam ?? COLORS.rail;
+  
   const w = TILE_WIDTH;
   const h = TILE_HEIGHT;
   const heightOffset = height * HEIGHT_UNIT;
   
-  // Edge midpoints - MUST match where straight tracks end (like city game's rail system)
-  const northEdge = { x: startX + w * 0.25, y: startY + h * 0.25 - heightOffset };
-  const eastEdge = { x: startX + w * 0.75, y: startY + h * 0.25 - heightOffset };
-  const southEdge = { x: startX + w * 0.75, y: startY + h * 0.75 - heightOffset };
-  const westEdge = { x: startX + w * 0.25, y: startY + h * 0.75 - heightOffset };
+  
+  // Edge midpoints at isometric diamond corners for proper curve connections
+  // Top (north), Right (east), Bottom (south), Left (west) of the isometric tile
+  const northEdge = { x: startX + w / 2, y: startY - heightOffset };
+  const eastEdge = { x: startX + w, y: startY + h / 2 - heightOffset };
+  const southEdge = { x: startX + w / 2, y: startY + h - heightOffset };
+  const westEdge = { x: startX, y: startY + h / 2 - heightOffset };
   const center = { x: startX + w / 2, y: startY + h / 2 - heightOffset };
   
   // Determine which edges to connect based on direction and turn
@@ -603,19 +612,23 @@ export function drawSlopeTrack(
   direction: TrackDirection,
   startHeight: number,
   endHeight: number,
-  trackColor: string = COLORS.rail,
+  trackColorParam?: string,
   strutStyle: StrutStyle = 'metal',
   coasterCategory?: CoasterCategory,
   _tick: number = 0
 ) {
+  // Handle undefined trackColor by defaulting to COLORS.rail
+  const trackColor = trackColorParam ?? COLORS.rail;
+  
   const w = TILE_WIDTH;
   const h = TILE_HEIGHT;
   
-  // Use edge midpoints like straight track for proper alignment
-  const northEdge = { x: startX + w * 0.25, y: startY + h * 0.25 };
-  const eastEdge = { x: startX + w * 0.75, y: startY + h * 0.25 };
-  const southEdge = { x: startX + w * 0.75, y: startY + h * 0.75 };
-  const westEdge = { x: startX + w * 0.25, y: startY + h * 0.75 };
+  // Edge midpoints at isometric diamond corners for proper curve connections
+  // Top (north), Right (east), Bottom (south), Left (west) of the isometric tile
+  const northEdge = { x: startX + w / 2, y: startY };
+  const eastEdge = { x: startX + w, y: startY + h / 2 };
+  const southEdge = { x: startX + w / 2, y: startY + h };
+  const westEdge = { x: startX, y: startY + h / 2 };
   const center = { x: startX + w / 2, y: startY + h / 2 };
   void center; // Unused but kept for symmetry
   
@@ -1110,11 +1123,12 @@ export function drawLoopTrack(
   const w = TILE_WIDTH;
   const h = TILE_HEIGHT;
   
-  // Edge midpoints - MUST match straight track endpoints for proper connections
-  const northEdge = { x: startX + w * 0.25, y: startY + h * 0.25 };
-  const eastEdge = { x: startX + w * 0.75, y: startY + h * 0.25 };
-  const southEdge = { x: startX + w * 0.75, y: startY + h * 0.75 };
-  const westEdge = { x: startX + w * 0.25, y: startY + h * 0.75 };
+  // Edge midpoints at isometric diamond corners for proper curve connections
+  // Top (north), Right (east), Bottom (south), Left (west) of the isometric tile
+  const northEdge = { x: startX + w / 2, y: startY };
+  const eastEdge = { x: startX + w, y: startY + h / 2 };
+  const southEdge = { x: startX + w / 2, y: startY + h };
+  const westEdge = { x: startX, y: startY + h / 2 };
   const tileCenter = { x: startX + w / 2, y: startY + h / 2 };
   
   // Determine entry and exit edges based on direction
