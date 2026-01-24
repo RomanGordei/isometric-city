@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useCoaster } from '@/context/CoasterContext';
+import { useCoasterMultiplayerSync } from '@/hooks/useCoasterMultiplayerSync';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { CoasterGrid } from './CoasterGrid';
 import { Sidebar } from './Sidebar';
@@ -16,6 +17,9 @@ interface GameProps {
 
 export default function CoasterGame({ onExit }: GameProps) {
   const { state, isStateReady, setTool, setSpeed } = useCoaster();
+  
+  // Multiplayer sync - automatically syncs actions when in multiplayer mode
+  const { isMultiplayer, playerCount, roomCode, players } = useCoasterMultiplayerSync();
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState<{
     offset: { x: number; y: number };

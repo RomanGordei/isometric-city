@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CoasterProvider } from '@/context/CoasterContext';
 import CoasterGame from '@/components/coaster/Game';
 import { X } from 'lucide-react';
+import Link from 'next/link';
 import {
   buildSavedParkMeta,
   COASTER_AUTOSAVE_KEY,
@@ -354,12 +355,19 @@ export default function CoasterPage() {
               Load Example
             </Button>
             
-            <a
+            <Link
+              href="/coaster/coop"
+              className="w-64 text-center py-3 text-lg font-light tracking-wide bg-transparent hover:bg-white/10 text-white/50 hover:text-white/80 border border-white/20 rounded-none transition-all duration-300 block"
+            >
+              Co-op Multiplayer
+            </Link>
+            
+            <Link
               href="/"
               className="w-64 text-center py-2 text-sm font-light tracking-wide text-white/40 hover:text-white/70 transition-colors duration-200"
             >
               Back to IsoCity
-            </a>
+            </Link>
           </div>
           
           {/* Saved Parks */}
