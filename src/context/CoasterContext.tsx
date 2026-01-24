@@ -14,6 +14,7 @@ import { ParkFinances, ParkStats, ParkSettings, Guest, Staff, DEFAULT_PRICES, We
 import { Coaster, CoasterTrain, CoasterCar, TrackDirection, TrackHeight, TrackPiece, TrackPieceType, CoasterType, COASTER_TYPE_STATS, getStrutStyleForCoasterType, getCoasterCategory, areCoasterTypesCompatible } from '@/games/coaster/types/tracks';
 import { Building, BuildingType } from '@/games/coaster/types/buildings';
 import { spawnGuests, updateGuest } from '@/components/coaster/guests';
+import { generateParkLakes } from '@/games/coaster/lib/terrain';
 import {
   COASTER_AUTOSAVE_KEY,
   COASTER_SAVED_PARK_PREFIX,
@@ -360,22 +361,10 @@ function createInitialGameState(parkName: string = 'My Theme Park', gridSize: nu
     }
     grid.push(row);
   }
-  
-  // Add some water tiles for variety (a small lake in the corner)
-  const lakeX = Math.floor(gridSize * 0.7);
-  const lakeY = Math.floor(gridSize * 0.7);
-  const lakeRadius = 5;
-  for (let y = lakeY - lakeRadius; y <= lakeY + lakeRadius; y++) {
-    for (let x = lakeX - lakeRadius; x <= lakeX + lakeRadius; x++) {
-      if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
-        const dist = Math.sqrt(Math.pow(x - lakeX, 2) + Math.pow(y - lakeY, 2));
-        if (dist <= lakeRadius) {
-          grid[y][x].terrain = 'water';
-          grid[y][x].building = { ...createEmptyBuilding(), type: 'water' };
-        }
-      }
-    }
-  }
+
+  // Add random lakes to match IsoCity's terrain variety.
+  const terrainSeed = Math.random() * 1000;
+  generateParkLakes(grid, gridSize, terrainSeed);
   
   return {
     id: generateUUID(),
