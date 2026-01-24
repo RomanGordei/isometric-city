@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Home, RollerCoaster, SplitSquareHorizontal, SplitSquareVertical, X, Loader2 } from 'lucide-react';
+import { T, msg, useMessages, useGT } from 'gt-next';
 
 // Game types
 type GameType = 'iso-city' | 'iso-coaster';
@@ -15,14 +16,14 @@ interface GameConfig {
 const GAMES: Record<GameType, GameConfig> = {
   'iso-city': {
     id: 'iso-city',
-    name: 'IsoCity',
+    name: msg('IsoCity'),
     url: 'https://iso-city.com',
     icon: <Home />,
     color: '#3b82f6',
   },
   'iso-coaster': {
     id: 'iso-coaster',
-    name: 'IsoCoaster',
+    name: msg('IsoCoaster'),
     url: 'https://iso-coaster.com',
     icon: <RollerCoaster />,
     color: '#10b981',
@@ -112,6 +113,7 @@ function ResizeHandle({ direction, onResize }: ResizeHandleProps) {
 }
 
 function App() {
+  const m = useMessages();
   const [activeGame, setActiveGame] = useState<GameType>('iso-city');
   const [paneTree, setPaneTree] = useState<PaneNode>({
     type: 'leaf',
@@ -127,10 +129,10 @@ function App() {
   const leafPanes = useMemo(() => collectActiveLeafPanes(paneTree), [paneTree]);
 
   // Count total panes
-  const countPanes = useCallback((node: PaneNode): number => {
+  const countPanes = (node: PaneNode): number => {
     if (node.type === 'leaf') return 1;
     return node.children.reduce((sum, child) => sum + countPanes(child), 0);
-  }, []);
+  };
 
   // Split a pane
   const splitPane = useCallback((paneId: string, direction: 'horizontal' | 'vertical') => {
@@ -337,7 +339,7 @@ function App() {
             onClick={() => handleGameSelect(game.id)}
             onMouseEnter={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
-              setTooltip({ text: game.name, y: rect.top + rect.height / 2 });
+              setTooltip({ text: m(game.name), y: rect.top + rect.height / 2 });
             }}
             onMouseLeave={() => setTooltip(null)}
           >
@@ -381,7 +383,9 @@ interface PanePlaceholderProps {
 }
 
 const PanePlaceholder = React.forwardRef<HTMLDivElement, PanePlaceholderProps>(
-  ({ pane, onSplit, onClose, onSelectGame, canClose }, ref) => {
+  function PanePlaceholder({ pane, onSplit, onClose, onSelectGame, canClose }, ref) {
+    const m = useMessages();
+    const gt = useGT();
     const game = pane.gameType ? GAMES[pane.gameType] : null;
 
     // Show game picker if no game selected
@@ -390,14 +394,14 @@ const PanePlaceholder = React.forwardRef<HTMLDivElement, PanePlaceholderProps>(
         <div className="pane">
           <div className="pane-header">
             <div className="pane-title" style={{ color: '#888' }}>
-              <span>Select a Game</span>
+              <T><span>Select a Game</span></T>
             </div>
             <div className="pane-controls">
               {canClose && (
                 <button
                   className="pane-control-btn close"
                   onClick={() => onClose(pane.id)}
-                  title="Close"
+                  title={gt('Close')}
                 >
                   <X />
                 </button>
@@ -416,20 +420,20 @@ const PanePlaceholder = React.forwardRef<HTMLDivElement, PanePlaceholderProps>(
         <div className="pane-header">
           <div className="pane-title" style={{ color: game.color }}>
             {game.icon}
-            <span>{game.name}</span>
+            <span>{m(game.name)}</span>
           </div>
           <div className="pane-controls">
             <button
               className="pane-control-btn"
               onClick={() => onSplit(pane.id, 'horizontal')}
-              title="Split Right"
+              title={gt('Split Right')}
             >
               <SplitSquareHorizontal />
             </button>
             <button
               className="pane-control-btn"
               onClick={() => onSplit(pane.id, 'vertical')}
-              title="Split Down"
+              title={gt('Split Down')}
             >
               <SplitSquareVertical />
             </button>
@@ -437,7 +441,7 @@ const PanePlaceholder = React.forwardRef<HTMLDivElement, PanePlaceholderProps>(
               <button
                 className="pane-control-btn close"
                 onClick={() => onClose(pane.id)}
-                title="Close"
+                title={gt('Close')}
               >
                 <X />
               </button>
