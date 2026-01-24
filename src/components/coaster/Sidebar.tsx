@@ -8,6 +8,7 @@ import { COASTER_TYPE_STATS, CoasterType, getCoasterCategory } from '@/games/coa
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { openCoasterCommandMenu } from '@/components/coaster/CommandMenu';
+import { COASTER_TYPE_TOOL_MAP } from '@/components/coaster/toolUtils';
 import {
   Dialog,
   DialogContent,
@@ -567,25 +568,6 @@ interface SidebarProps {
 }
 
 // Map coaster type tools to their CoasterType values
-const COASTER_TYPE_TOOL_MAP: Record<string, string> = {
-  'coaster_type_wooden_classic': 'wooden_classic',
-  'coaster_type_wooden_twister': 'wooden_twister',
-  'coaster_type_steel_sit_down': 'steel_sit_down',
-  'coaster_type_steel_standup': 'steel_standup',
-  'coaster_type_steel_inverted': 'steel_inverted',
-  'coaster_type_steel_floorless': 'steel_floorless',
-  'coaster_type_steel_wing': 'steel_wing',
-  'coaster_type_steel_flying': 'steel_flying',
-  'coaster_type_steel_4d': 'steel_4d',
-  'coaster_type_steel_spinning': 'steel_spinning',
-  'coaster_type_launch_coaster': 'launch_coaster',
-  'coaster_type_hyper_coaster': 'hyper_coaster',
-  'coaster_type_giga_coaster': 'giga_coaster',
-  'coaster_type_water_coaster': 'water_coaster',
-  'coaster_type_mine_train': 'mine_train',
-  'coaster_type_bobsled': 'bobsled',
-  'coaster_type_suspended': 'suspended',
-};
 
 // Primary colors for each coaster type (for UI display)
 const COASTER_TYPE_PRIMARY_COLORS: Record<string, string> = {

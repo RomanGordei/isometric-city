@@ -115,7 +115,7 @@ export default function CoopPage() {
       <MultiplayerContextProvider>
         <GameProvider startFresh={startFreshGame}>
           <main className="h-screen w-screen overflow-hidden">
-            <Game onExit={handleExitGame} />
+            <Game onExitAction={handleExitGame} />
           </main>
         </GameProvider>
       </MultiplayerContextProvider>

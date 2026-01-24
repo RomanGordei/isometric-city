@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useCoaster } from '@/context/CoasterContext';
 import { Tool, TOOL_INFO, ToolInfo } from '@/games/coaster/types';
+import { COASTER_MENU_CATEGORIES, COASTER_CATEGORY_LABELS, COASTER_TYPE_TOOL_MAP } from '@/components/coaster/toolUtils';
 import { useMobile } from '@/hooks/useMobile';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -29,55 +30,13 @@ interface MenuItem {
   keywords: string[];
 }
 
-const MENU_CATEGORIES = [
-  { key: 'tools', label: 'Tools' },
-  { key: 'paths', label: 'Paths' },
-  { key: 'terrain', label: 'Terrain' },
-  { key: 'coasters', label: 'Coasters' },
-  { key: 'trees', label: 'Trees' },
-  { key: 'flowers', label: 'Flowers' },
-  { key: 'furniture', label: 'Furniture' },
-  { key: 'fountains', label: 'Fountains' },
-  { key: 'food', label: 'Food & Drink' },
-  { key: 'shops', label: 'Shops & Services' },
-  { key: 'rides_small', label: 'Small Rides' },
-  { key: 'rides_large', label: 'Large Rides' },
-  { key: 'infrastructure', label: 'Infrastructure' },
-  { key: 'panels', label: 'Panels' },
-] as const;
-
-const CATEGORY_LABELS = MENU_CATEGORIES.reduce<Record<string, string>>((acc, category) => {
-  acc[category.key] = category.label;
-  return acc;
-}, {});
-
-// Map coaster type tools to their CoasterType values
-const COASTER_TYPE_TOOL_MAP: Record<string, string> = {
-  coaster_type_wooden_classic: 'wooden_classic',
-  coaster_type_wooden_twister: 'wooden_twister',
-  coaster_type_steel_sit_down: 'steel_sit_down',
-  coaster_type_steel_standup: 'steel_standup',
-  coaster_type_steel_inverted: 'steel_inverted',
-  coaster_type_steel_floorless: 'steel_floorless',
-  coaster_type_steel_wing: 'steel_wing',
-  coaster_type_steel_flying: 'steel_flying',
-  coaster_type_steel_4d: 'steel_4d',
-  coaster_type_steel_spinning: 'steel_spinning',
-  coaster_type_launch_coaster: 'launch_coaster',
-  coaster_type_hyper_coaster: 'hyper_coaster',
-  coaster_type_giga_coaster: 'giga_coaster',
-  coaster_type_water_coaster: 'water_coaster',
-  coaster_type_mine_train: 'mine_train',
-  coaster_type_bobsled: 'bobsled',
-  coaster_type_suspended: 'suspended',
-};
 
 function buildMenuItems(): MenuItem[] {
   const items: MenuItem[] = [];
 
   const toolEntries = Object.entries(TOOL_INFO) as [Tool, ToolInfo][];
   toolEntries.forEach(([tool, info]) => {
-    const categoryLabel = CATEGORY_LABELS[info.category] ?? info.category;
+    const categoryLabel = COASTER_CATEGORY_LABELS[info.category] ?? info.category;
     const keywords = [
       info.name.toLowerCase(),
       tool,
@@ -191,7 +150,7 @@ export function CoasterCommandMenu() {
 
   const flatItems = useMemo(() => {
     const result: MenuItem[] = [];
-    MENU_CATEGORIES.forEach(cat => {
+    COASTER_MENU_CATEGORIES.forEach(cat => {
       if (groupedItems[cat.key]) {
         result.push(...groupedItems[cat.key]);
       }
@@ -302,7 +261,7 @@ export function CoasterCommandMenu() {
                 No results found.
               </div>
             ) : (
-              MENU_CATEGORIES.map(category => {
+              COASTER_MENU_CATEGORIES.map(category => {
                 const items = groupedItems[category.key];
                 if (!items || items.length === 0) return null;
 

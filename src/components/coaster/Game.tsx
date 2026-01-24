@@ -9,6 +9,10 @@ import { TopBar } from './TopBar';
 import { MiniMap } from './MiniMap';
 import { Panels } from './panels/Panels';
 import { CoasterCommandMenu } from '@/components/coaster/CommandMenu';
+import { useMobile } from '@/hooks/useMobile';
+import { MobileGameLayout } from '@/components/mobile/MobileGameLayout';
+import { CoasterMobileTopBar } from '@/components/coaster/mobile/CoasterMobileTopBar';
+import { CoasterMobileToolbar } from '@/components/coaster/mobile/CoasterMobileToolbar';
 
 interface GameProps {
   onExit?: () => void;
@@ -23,6 +27,8 @@ export default function CoasterGame({ onExit }: GameProps) {
     canvasSize: { width: number; height: number };
   } | null>(null);
   const [navigationTarget, setNavigationTarget] = useState<{ x: number; y: number } | null>(null);
+  const { isMobileDevice, isSmallScreen } = useMobile();
+  const isMobile = isMobileDevice || isSmallScreen;
   
   // Keyboard shortcuts
   useEffect(() => {
@@ -57,6 +63,36 @@ export default function CoasterGame({ onExit }: GameProps) {
       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-950 via-indigo-900 to-purple-950">
         <div className="text-white/60">Loading park...</div>
       </div>
+    );
+  }
+
+  if (isMobile) {
+    const selectedTileData = selectedTile ? state.grid[selectedTile.y]?.[selectedTile.x] ?? null : null;
+    
+    return (
+      <TooltipProvider>
+        <MobileGameLayout
+          topBar={
+            <CoasterMobileTopBar
+              selectedTile={selectedTileData}
+              onCloseTileAction={() => setSelectedTile(null)}
+              onExitAction={onExit}
+            />
+          }
+          bottomBar={<CoasterMobileToolbar />}
+        >
+          <CoasterGrid
+            selectedTile={selectedTile}
+            setSelectedTile={setSelectedTile}
+            navigationTarget={navigationTarget}
+            onNavigationComplete={() => setNavigationTarget(null)}
+            onViewportChange={setViewport}
+          />
+        </MobileGameLayout>
+        
+        <Panels />
+        <CoasterCommandMenu />
+      </TooltipProvider>
     );
   }
   

@@ -9,9 +9,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
+import { MobileSpeedControls } from '@/components/mobile/MobileSpeedControls';
 import {
-  PlayIcon,
-  PauseIcon,
   PopulationIcon,
   MoneyIcon,
   HappyIcon,
@@ -109,15 +108,15 @@ function DemandBar({ label, demand, color }: { label: string; demand: number; co
 export function MobileTopBar({ 
   selectedTile, 
   services, 
-  onCloseTile,
-  onShare,
-  onExit,
+  onCloseTileAction,
+  onShareAction,
+  onExitAction,
 }: { 
   selectedTile: Tile | null;
   services: { police: number[][]; fire: number[][]; health: number[][]; education: number[][]; power: boolean[][]; water: boolean[][] };
-  onCloseTile: () => void;
-  onShare?: () => void;
-  onExit?: () => void;
+  onCloseTileAction: () => void;
+  onShareAction?: () => void;
+  onExitAction?: () => void;
 }) {
   const { state, setSpeed, setTaxRate, visualHour, saveCity } = useGame();
   const { stats, year, month, speed, taxRate, cityName } = state;
@@ -129,13 +128,13 @@ export function MobileTopBar({
   const handleSaveAndExit = useCallback(() => {
     saveCity();
     setShowExitDialog(false);
-    onExit?.();
-  }, [saveCity, onExit]);
+    onExitAction?.();
+  }, [saveCity, onExitAction]);
 
   const handleExitWithoutSaving = useCallback(() => {
     setShowExitDialog(false);
-    onExit?.();
-  }, [onExit]);
+    onExitAction?.();
+  }, [onExitAction]);
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -175,59 +174,15 @@ export function MobileTopBar({
 
           {/* Speed controls and exit button */}
           <div className="flex items-center gap-1">
-            <div className="flex items-center gap-0 bg-secondary rounded-sm h-6 overflow-hidden p-0 m-0">
-              <button
-                onClick={() => setSpeed(0)}
-                className={`h-6 w-6 min-w-6 p-0 m-0 flex items-center justify-center rounded-none ${
-                  speed === 0 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent/20'
-                }`}
-                title="Pause"
-              >
-                <PauseIcon size={12} />
-              </button>
-              <button
-                onClick={() => setSpeed(1)}
-                className={`h-6 w-6 min-w-6 p-0 m-0 flex items-center justify-center rounded-none ${
-                  speed === 1 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent/20'
-                }`}
-                title="Normal speed"
-              >
-                <PlayIcon size={12} />
-              </button>
-              <button
-                onClick={() => setSpeed(2)}
-                className={`h-6 w-6 min-w-6 p-0 m-0 flex items-center justify-center rounded-none ${
-                  speed === 2 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent/20'
-                }`}
-                title="2x speed"
-              >
-                <div className="flex items-center -space-x-[5px]">
-                  <PlayIcon size={12} />
-                  <PlayIcon size={12} />
-                </div>
-              </button>
-              <button
-                onClick={() => setSpeed(3)}
-                className={`h-6 w-6 min-w-6 p-0 m-0 flex items-center justify-center rounded-none ${
-                  speed === 3 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent/20'
-                }`}
-                title="3x speed"
-              >
-                <div className="flex items-center -space-x-[7px]">
-                  <PlayIcon size={12} />
-                  <PlayIcon size={12} />
-                  <PlayIcon size={12} />
-                </div>
-              </button>
-            </div>
+            <MobileSpeedControls speed={speed} onChange={setSpeed} />
 
             {/* Language selector, Share, and Exit button group */}
             <div className="flex items-center -space-x-0.5">
               <LanguageSelector useDrawer iconSize={12} />
 
-              {onShare && (
+              {onShareAction && (
                 <button
-                  onClick={onShare}
+                  onClick={onShareAction}
                   className="h-6 w-4 p-0 m-0 flex items-center justify-center text-muted-foreground hover:text-foreground"
                   title="Invite Players"
                 >
@@ -235,7 +190,7 @@ export function MobileTopBar({
                 </button>
               )}
 
-              {onExit && (
+              {onExitAction && (
                 <button
                   onClick={() => setShowExitDialog(true)}
                   className="h-6 w-4 p-0 m-0 flex items-center justify-center text-muted-foreground hover:text-foreground"
@@ -270,7 +225,7 @@ export function MobileTopBar({
               const newShowTaxSlider = !showTaxSlider;
               setShowTaxSlider(newShowTaxSlider);
               if (newShowTaxSlider && selectedTile) {
-                onCloseTile();
+                onCloseTileAction();
               }
             }}
           >
@@ -368,7 +323,7 @@ export function MobileTopBar({
             
             {/* Close button */}
             <button 
-              onClick={onCloseTile} 
+              onClick={onCloseTileAction} 
               className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
             >
               <CloseIcon size={12} />

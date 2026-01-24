@@ -453,7 +453,7 @@ export default function HomePage() {
   if (showGame) {
     const gameContent = (
       <main className="h-screen w-screen overflow-hidden">
-        <Game onExit={handleExitGame} />
+        <Game onExitAction={handleExitGame} />
       </main>
     );
 

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useCoaster } from '@/context/CoasterContext';
+import { useMobile } from '@/hooks/useMobile';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -15,6 +16,29 @@ function formatCurrency(value: number) {
 }
 
 function PanelWrapper({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  const { isMobileDevice, isSmallScreen } = useMobile();
+  const isMobile = isMobileDevice || isSmallScreen;
+
+  if (isMobile) {
+    return (
+      <Dialog open={true} onOpenChange={() => onClose()}>
+        <DialogContent className="w-full max-w-[calc(100vw-16px)] h-[calc(100vh-16px)] max-h-[calc(100vh-16px)] overflow-hidden p-0">
+          <DialogHeader className="px-4 py-3 border-b border-border">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-sm font-semibold tracking-wide uppercase">{title}</DialogTitle>
+              <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
+                ✕
+              </Button>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="h-[calc(100vh-100px)]">
+            <div className="p-4 space-y-4">{children}</div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Card className="absolute top-20 right-8 w-[360px] bg-slate-950/95 border-slate-700 shadow-xl z-50">
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
@@ -128,6 +152,8 @@ async function loadExampleState(
 function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { state, setParkSettings, exportState, loadState, setActivePanel, newGame, addMoney, clearGuests } = useCoaster();
   const { settings, gridSize } = state;
+  const { isMobileDevice, isSmallScreen } = useMobile();
+  const isMobile = isMobileDevice || isSmallScreen;
   
   const [importValue, setImportValue] = useState('');
   const [exportCopied, setExportCopied] = useState(false);
@@ -160,7 +186,13 @@ function SettingsPanel({ onClose }: { onClose: () => void }) {
   
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-[400px] max-h-[85vh] overflow-y-auto">
+      <DialogContent
+        className={
+          isMobile
+            ? 'w-full max-w-[calc(100vw-16px)] h-[calc(100vh-16px)] max-h-[calc(100vh-16px)] overflow-y-auto'
+            : 'max-w-[400px] max-h-[85vh] overflow-y-auto'
+        }
+      >
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>

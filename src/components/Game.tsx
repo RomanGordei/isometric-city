@@ -6,6 +6,7 @@ import { Tool } from '@/types/game';
 import { useMobile } from '@/hooks/useMobile';
 import { MobileToolbar } from '@/components/mobile/MobileToolbar';
 import { MobileTopBar } from '@/components/mobile/MobileTopBar';
+import { MobileGameLayout } from '@/components/mobile/MobileGameLayout';
 import { msg, useMessages, useGT } from 'gt-next';
 
 // Import shadcn components
@@ -38,7 +39,7 @@ import { CanvasIsometricGrid } from '@/components/game/CanvasIsometricGrid';
 // Cargo type names for notifications
 const CARGO_TYPE_NAMES = [msg('containers'), msg('bulk materials'), msg('oil')];
 
-export default function Game({ onExit }: { onExit?: () => void }) {
+export default function Game({ onExitAction }: { onExitAction?: () => void }) {
   const gt = useGT();
   const m = useMessages();
   const { state, setTool, setActivePanel, addMoney, addNotification, setSpeed } = useGame();
@@ -249,16 +250,24 @@ export default function Game({ onExit }: { onExit?: () => void }) {
   if (isMobile) {
     return (
       <TooltipProvider>
-        <div className="w-full h-full overflow-hidden bg-background flex flex-col">
-          {/* Mobile Top Bar */}
-          <MobileTopBar 
-            selectedTile={selectedTile && state.selectedTool === 'select' ? state.grid[selectedTile.y][selectedTile.x] : null}
-            services={state.services}
-            onCloseTile={() => setSelectedTile(null)}
-            onShare={() => setShowShareModal(true)}
-            onExit={onExit}
-          />
-          
+        <MobileGameLayout
+          topBar={
+            <MobileTopBar 
+              selectedTile={selectedTile && state.selectedTool === 'select' ? state.grid[selectedTile.y][selectedTile.x] : null}
+              services={state.services}
+              onCloseTileAction={() => setSelectedTile(null)}
+              onShareAction={() => setShowShareModal(true)}
+              onExitAction={onExitAction}
+            />
+          }
+          bottomBar={
+            <MobileToolbar 
+              onOpenPanel={(panel) => setActivePanel(panel)}
+              overlayMode={overlayMode}
+              setOverlayMode={setOverlayMode}
+            />
+          }
+        >
           {/* Share Modal for mobile co-op */}
           {multiplayer && (
             <ShareModal
@@ -267,76 +276,66 @@ export default function Game({ onExit }: { onExit?: () => void }) {
             />
           )}
           
-          {/* Main canvas area - fills remaining space, with padding for top/bottom bars */}
-          <div className="flex-1 relative overflow-hidden" style={{ paddingTop: '72px', paddingBottom: '76px' }}>
-            <CanvasIsometricGrid 
-              overlayMode={overlayMode} 
-              selectedTile={selectedTile} 
-              setSelectedTile={setSelectedTile}
-              isMobile={true}
-              onBargeDelivery={handleBargeDelivery}
-            />
-            
-            {/* Multiplayer Players Indicator - Mobile */}
-            {isMultiplayer && (
-              <div className="absolute top-2 right-2 z-20">
-                <div className="bg-slate-900/90 border border-slate-700 rounded-lg px-2 py-1.5 shadow-lg">
-                  <div className="flex items-center gap-1.5 text-xs text-white">
-                    {roomCode && (
-                      <>
-                        <span className="font-mono tracking-wider">{roomCode}</span>
-                        <button
-                          onClick={handleCopyRoomLink}
-                          className="p-0.5 hover:bg-white/10 rounded transition-colors"
-                          title="Copy invite link"
-                        >
-                          {copiedRoomLink ? (
-                            <Check className="w-3 h-3 text-green-400" />
-                          ) : (
-                            <Copy className="w-3 h-3 text-slate-400" />
-                          )}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  {players.length > 0 && (
-                    <div className="mt-1 space-y-0.5">
-                      {players.map((player) => (
-                        <div key={player.id} className="flex items-center gap-1 text-[10px] text-slate-400">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                          {player.name}
-                        </div>
-                      ))}
-                    </div>
+          <CanvasIsometricGrid 
+            overlayMode={overlayMode} 
+            selectedTile={selectedTile} 
+            setSelectedTile={setSelectedTile}
+            isMobile={true}
+            onBargeDelivery={handleBargeDelivery}
+          />
+          
+          {/* Multiplayer Players Indicator - Mobile */}
+          {isMultiplayer && (
+            <div className="absolute top-2 right-2 z-20">
+              <div className="bg-slate-900/90 border border-slate-700 rounded-lg px-2 py-1.5 shadow-lg">
+                <div className="flex items-center gap-1.5 text-xs text-white">
+                  {roomCode && (
+                    <>
+                      <span className="font-mono tracking-wider">{roomCode}</span>
+                      <button
+                        onClick={handleCopyRoomLink}
+                        className="p-0.5 hover:bg-white/10 rounded transition-colors"
+                        title="Copy invite link"
+                      >
+                        {copiedRoomLink ? (
+                          <Check className="w-3 h-3 text-green-400" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-slate-400" />
+                        )}
+                      </button>
+                    </>
                   )}
                 </div>
+                {players.length > 0 && (
+                  <div className="mt-1 space-y-0.5">
+                    {players.map((player) => (
+                      <div key={player.id} className="flex items-center gap-1 text-[10px] text-slate-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        {player.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          
-          {/* Mobile Bottom Toolbar */}
-          <MobileToolbar 
-            onOpenPanel={(panel) => setActivePanel(panel)}
-            overlayMode={overlayMode}
-            setOverlayMode={setOverlayMode}
-          />
-          
-          {/* Panels - render as fullscreen modals on mobile */}
-          {state.activePanel === 'budget' && <BudgetPanel />}
-          {state.activePanel === 'statistics' && <StatisticsPanel />}
-          {state.activePanel === 'advisors' && <AdvisorsPanel />}
-          {state.activePanel === 'settings' && <SettingsPanel />}
-          
-          <VinnieDialog open={showVinnieDialog} onOpenChange={setShowVinnieDialog} />
-          
-          {/* Tip Toast for helping new players */}
-          <TipToast
-            message={currentTip || ''}
-            isVisible={isTipVisible}
-            onContinue={onTipContinue}
-            onSkipAll={onTipSkipAll}
-          />
-        </div>
+            </div>
+          )}
+        </MobileGameLayout>
+        
+        {/* Panels - render as fullscreen modals on mobile */}
+        {state.activePanel === 'budget' && <BudgetPanel />}
+        {state.activePanel === 'statistics' && <StatisticsPanel />}
+        {state.activePanel === 'advisors' && <AdvisorsPanel />}
+        {state.activePanel === 'settings' && <SettingsPanel />}
+        
+        <VinnieDialog open={showVinnieDialog} onOpenChange={setShowVinnieDialog} />
+        
+        {/* Tip Toast for helping new players */}
+        <TipToast
+          message={currentTip || ''}
+          isVisible={isTipVisible}
+          onContinue={onTipContinue}
+          onSkipAll={onTipSkipAll}
+        />
       </TooltipProvider>
     );
   }
@@ -345,7 +344,7 @@ export default function Game({ onExit }: { onExit?: () => void }) {
   return (
     <TooltipProvider>
       <div className="w-full h-full min-h-[720px] overflow-hidden bg-background flex">
-        <Sidebar onExit={onExit} />
+        <Sidebar onExit={onExitAction} />
         
         <div className="flex-1 flex flex-col ml-56">
           <TopBar />
