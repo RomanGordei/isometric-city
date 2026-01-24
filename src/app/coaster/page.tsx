@@ -299,7 +299,7 @@ export default function CoasterPage() {
         
         {/* Left - Title and Buttons */}
         <div className="flex flex-col items-center lg:items-start justify-center space-y-12">
-          <h1 className="text-8xl font-light tracking-wider text-white/90">
+          <h1 className="text-5xl sm:text-6xl lg:text-8xl font-light tracking-wider text-white/90 text-center lg:text-left break-words">
             IsoCoaster
           </h1>
           
