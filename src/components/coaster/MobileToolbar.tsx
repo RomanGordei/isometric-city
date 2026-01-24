@@ -235,7 +235,7 @@ const TRACK_BUILD_TOOLS: Tool[] = [
 // =============================================================================
 
 interface MobileCoasterToolbarProps {
-  onOpenPanel: (panel: 'finances' | 'guests' | 'rides' | 'staff' | 'settings') => void;
+  onOpenPanel: (panel: 'finances' | 'settings') => void;
 }
 
 export function MobileCoasterToolbar({ onOpenPanel }: MobileCoasterToolbarProps) {
@@ -426,7 +426,7 @@ export function MobileCoasterToolbar({ onOpenPanel }: MobileCoasterToolbarProps)
               <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
                 Park Management
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -434,22 +434,6 @@ export function MobileCoasterToolbar({ onOpenPanel }: MobileCoasterToolbarProps)
                   onClick={() => { onOpenPanel('finances'); setShowMenu(false); }}
                 >
                   Finances
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-10 w-full text-xs"
-                  onClick={() => { onOpenPanel('guests'); setShowMenu(false); }}
-                >
-                  Guests
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-10 w-full text-xs"
-                  onClick={() => { onOpenPanel('rides'); setShowMenu(false); }}
-                >
-                  Rides
                 </Button>
                 <Button
                   variant="ghost"
