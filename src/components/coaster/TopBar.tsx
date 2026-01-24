@@ -90,7 +90,7 @@ export function TopBar() {
           size="icon"
           className="h-8 w-8"
           onClick={() => setSpeed(1)}
-          title="Normal speed"
+          title="1x speed"
         >
           <PlayIcon />
         </Button>
@@ -99,7 +99,7 @@ export function TopBar() {
           size="icon"
           className="h-8 w-8"
           onClick={() => setSpeed(2)}
-          title="Fast"
+          title="2x speed"
         >
           <FastForwardIcon />
         </Button>
@@ -108,7 +108,7 @@ export function TopBar() {
           size="icon"
           className="h-8 w-8"
           onClick={() => setSpeed(3)}
-          title="Super fast"
+          title="3x speed"
         >
           <SuperFastIcon />
         </Button>

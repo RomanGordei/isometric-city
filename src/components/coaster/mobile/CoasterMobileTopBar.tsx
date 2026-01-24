@@ -188,7 +188,7 @@ export function CoasterMobileTopBar({
                 className={`h-6 w-6 min-w-6 p-0 m-0 flex items-center justify-center rounded-none ${
                   speed === 1 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent/20'
                 }`}
-                title="Normal speed"
+                title="1x speed"
               >
                 <PlayIcon size={12} />
               </button>
