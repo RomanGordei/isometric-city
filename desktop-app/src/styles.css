@@ -1,15 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+
 :root {
   --sidebar-width: 68px;
-  --sidebar-bg: #1a1a1a;
-  --sidebar-hover: #2a2a2a;
-  --sidebar-active: #333333;
-  --pane-bg: #1e1e1e;
-  --pane-border: #333;
-  --split-button-bg: rgba(255, 255, 255, 0.1);
-  --split-button-hover: rgba(255, 255, 255, 0.2);
-  --icon-color: #888;
-  --icon-active: #fff;
-  --titlebar-height: 28px;
+  --sidebar-bg: hsl(220 20% 6%);
+  --sidebar-hover: hsl(220 15% 15%);
+  --sidebar-active: hsl(220 18% 11%);
+  --pane-bg: hsl(220 20% 8%);
+  --pane-border: hsl(220 15% 20%);
+  --split-button-bg: rgba(255, 255, 255, 0.05);
+  --split-button-hover: rgba(255, 255, 255, 0.1);
+  --icon-color: hsl(220 10% 55%);
+  --icon-active: hsl(210 20% 92%);
+  --titlebar-height: 0px;
 }
 
 * {
@@ -26,8 +28,8 @@ html, body, #root {
 
 body {
   background: var(--pane-bg);
-  color: #fff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: hsl(210 20% 92%);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 .app-container {
@@ -45,7 +47,7 @@ body {
   flex-direction: column;
   align-items: center;
   padding: 12px 0;
-  padding-top: calc(var(--titlebar-height) + 12px); /* Space for traffic lights */
+  padding-top: 40px; /* Space for macOS traffic lights */
   gap: 4px;
   flex-shrink: 0;
   border-right: 1px solid var(--pane-border);
@@ -126,7 +128,6 @@ a {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding-top: var(--titlebar-height); /* Space for drag region */
 }
 
 /* Pane Container */
@@ -145,6 +146,28 @@ a {
   flex-direction: column;
 }
 
+/* Resize Handle */
+.resize-handle {
+  flex-shrink: 0;
+  background: transparent;
+  transition: background 0.15s ease;
+  z-index: 10;
+}
+
+.resize-handle.horizontal {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.resize-handle.vertical {
+  height: 6px;
+  cursor: row-resize;
+}
+
+.resize-handle:hover {
+  background: hsl(210 60% 50%);
+}
+
 /* Individual Pane */
 .pane {
   flex: 1;
@@ -159,13 +182,17 @@ a {
 /* Pane Header with split controls */
 .pane-header {
   height: 32px;
-  background: #252525;
+  background: hsl(220 18% 11%);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 8px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--pane-border);
+  position: relative;
+  z-index: 50;
+  -webkit-app-region: drag;
+  app-region: drag;
 }
 
 .pane-title {
@@ -339,7 +366,7 @@ a {
   width: 0;
   height: 0;
   pointer-events: none;
-  z-index: 1;
+  z-index: 0;
 }
 
 .stable-iframe-wrapper {
@@ -364,69 +391,45 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: hsl(220 20% 8%);
 }
 
 .game-picker {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 32px;
+  justify-content: center;
+  gap: 20px;
   padding: 32px;
-}
-
-.game-picker-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #fff;
-  margin: 0;
-}
-
-.game-picker-options {
-  display: flex;
-  gap: 24px;
 }
 
 .game-picker-option {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 32px 48px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  background: hsl(220 18% 11%);
+  border: 1px solid hsl(220 15% 20%);
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: #fff;
+  transition: all 0.15s ease;
+  color: hsl(220 10% 55%);
 }
 
 .game-picker-option:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: hsl(220 15% 15%);
   border-color: var(--game-color);
-  transform: translateY(-4px);
-}
-
-.game-picker-option:hover .game-picker-icon {
   color: var(--game-color);
+  transform: scale(1.05);
 }
 
 .game-picker-icon {
-  width: 64px;
-  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #888;
-  transition: color 0.2s ease;
 }
 
 .game-picker-icon svg {
-  width: 48px;
-  height: 48px;
-}
-
-.game-picker-name {
-  font-size: 18px;
-  font-weight: 500;
+  width: 32px;
+  height: 32px;
 }

@@ -58,6 +58,59 @@ const collectActiveLeafPanes = (node: PaneNode): PaneLeaf[] => {
   return node.children.flatMap(collectActiveLeafPanes);
 };
 
+// Resize handle component
+interface ResizeHandleProps {
+  direction: 'horizontal' | 'vertical';
+  onResize: (delta: number) => void;
+}
+
+function ResizeHandle({ direction, onResize }: ResizeHandleProps) {
+  const handleRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startPos = useRef(0);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    startPos.current = direction === 'horizontal' ? e.clientX : e.clientY;
+    document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
+    document.body.style.userSelect = 'none';
+  }, [direction]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const currentPos = direction === 'horizontal' ? e.clientX : e.clientY;
+      const delta = currentPos - startPos.current;
+      if (Math.abs(delta) > 2) {
+        onResize(delta);
+        startPos.current = currentPos;
+      }
+    };
+
+    const handleMouseUp = () => {
+      isDragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [direction, onResize]);
+
+  return (
+    <div
+      ref={handleRef}
+      className={`resize-handle ${direction}`}
+      onMouseDown={handleMouseDown}
+    />
+  );
+}
+
 function App() {
   const [activeGame, setActiveGame] = useState<GameType>('iso-city');
   const [paneTree, setPaneTree] = useState<PaneNode>({
@@ -118,6 +171,34 @@ function App() {
       const updateNode = (node: PaneNode): PaneNode => {
         if (node.type === 'leaf' && node.id === paneId) {
           return { ...node, gameType };
+        }
+        if (node.type === 'split') {
+          return {
+            ...node,
+            children: node.children.map(updateNode),
+          };
+        }
+        return node;
+      };
+      return updateNode(prevTree);
+    });
+  }, []);
+
+  // Resize panes within a split
+  const resizePanes = useCallback((splitId: string, childIndex: number, delta: number, containerSize: number) => {
+    setPaneTree((prevTree) => {
+      const updateNode = (node: PaneNode): PaneNode => {
+        if (node.type === 'split' && node.id === splitId) {
+          const totalSize = node.sizes.reduce((a, b) => a + b, 0);
+          const deltaRatio = (delta / containerSize) * totalSize;
+          const newSizes = [...node.sizes];
+          
+          // Adjust the sizes of adjacent panes
+          const minSize = 0.1; // minimum 10%
+          newSizes[childIndex] = Math.max(minSize, newSizes[childIndex] + deltaRatio);
+          newSizes[childIndex + 1] = Math.max(minSize, newSizes[childIndex + 1] - deltaRatio);
+          
+          return { ...node, sizes: newSizes };
         }
         if (node.type === 'split') {
           return {
@@ -204,24 +285,42 @@ function App() {
       );
     }
 
+    const containerRef = React.createRef<HTMLDivElement>();
+
     return (
       <div
         key={node.id}
+        ref={containerRef}
         className={`pane-container ${node.direction}`}
         style={{ flex: 1 }}
       >
         {node.children.map((child, index) => (
-          <div
-            key={child.id}
-            style={{
-              flex: node.sizes[index],
-              display: 'flex',
-              minWidth: 0,
-              minHeight: 0,
-            }}
-          >
-            {renderPaneLayout(child)}
-          </div>
+          <React.Fragment key={child.id}>
+            <div
+              style={{
+                flex: node.sizes[index],
+                display: 'flex',
+                minWidth: 0,
+                minHeight: 0,
+              }}
+            >
+              {renderPaneLayout(child)}
+            </div>
+            {index < node.children.length - 1 && (
+              <ResizeHandle
+                direction={node.direction}
+                onResize={(delta) => {
+                  const container = containerRef.current;
+                  if (container) {
+                    const size = node.direction === 'horizontal' 
+                      ? container.offsetWidth 
+                      : container.offsetHeight;
+                    resizePanes(node.id, index, delta, size);
+                  }
+                }}
+              />
+            )}
+          </React.Fragment>
         ))}
       </div>
     );
@@ -229,9 +328,6 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Drag region for moving window */}
-      <div className="drag-region" />
-      
       {/* Sidebar */}
       <div className="sidebar">
         {Object.values(GAMES).map((game) => (
@@ -364,22 +460,18 @@ interface GamePickerProps {
 function GamePicker({ onSelect }: GamePickerProps) {
   return (
     <div className="game-picker">
-      <h2 className="game-picker-title">Choose a Game</h2>
-      <div className="game-picker-options">
-        {Object.values(GAMES).map((game) => (
-          <button
-            key={game.id}
-            className="game-picker-option"
-            onClick={() => onSelect(game.id)}
-            style={{ '--game-color': game.color } as React.CSSProperties}
-          >
-            <div className="game-picker-icon">
-              {game.icon}
-            </div>
-            <div className="game-picker-name">{game.name}</div>
-          </button>
-        ))}
-      </div>
+      {Object.values(GAMES).map((game) => (
+        <button
+          key={game.id}
+          className="game-picker-option"
+          onClick={() => onSelect(game.id)}
+          style={{ '--game-color': game.color } as React.CSSProperties}
+        >
+          <div className="game-picker-icon">
+            {game.icon}
+          </div>
+        </button>
+      ))}
     </div>
   );
 }
@@ -392,32 +484,72 @@ interface StableIframeContainerProps {
 
 function StableIframeContainer({ panes, paneRefs }: StableIframeContainerProps) {
   const [positions, setPositions] = useState<Map<string, DOMRect>>(new Map());
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const observedElementsRef = useRef<Set<HTMLDivElement>>(new Set());
+  
+  // Update positions function
+  const updatePositions = useCallback(() => {
+    const newPositions = new Map<string, DOMRect>();
+    paneRefs.current.forEach((el, id) => {
+      newPositions.set(id, el.getBoundingClientRect());
+    });
+    setPositions(newPositions);
+  }, [paneRefs]);
   
   // Update positions on resize and when panes change
   useEffect(() => {
-    const updatePositions = () => {
-      const newPositions = new Map<string, DOMRect>();
-      paneRefs.current.forEach((el, id) => {
-        newPositions.set(id, el.getBoundingClientRect());
+    // Create ResizeObserver once
+    if (!observerRef.current) {
+      observerRef.current = new ResizeObserver(() => {
+        updatePositions();
       });
-      setPositions(newPositions);
+    }
+    const observer = observerRef.current;
+
+    // Function to sync observed elements with current refs
+    const syncObservedElements = () => {
+      const currentElements = new Set(paneRefs.current.values());
+      
+      // Observe new elements
+      currentElements.forEach((el) => {
+        if (!observedElementsRef.current.has(el)) {
+          observer.observe(el);
+          observedElementsRef.current.add(el);
+        }
+      });
+      
+      // Unobserve removed elements
+      observedElementsRef.current.forEach((el) => {
+        if (!currentElements.has(el)) {
+          observer.unobserve(el);
+          observedElementsRef.current.delete(el);
+        }
+      });
     };
 
-    // Initial position calculation
-    updatePositions();
+    // Use requestAnimationFrame to ensure refs are set after React renders
+    const rafId = requestAnimationFrame(() => {
+      syncObservedElements();
+      updatePositions();
+    });
 
-    // Listen for resize
+    // Listen for window resize
     window.addEventListener('resize', updatePositions);
-    
-    // Use ResizeObserver for more accurate tracking
-    const observer = new ResizeObserver(updatePositions);
-    paneRefs.current.forEach((el) => observer.observe(el));
 
     return () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener('resize', updatePositions);
-      observer.disconnect();
     };
-  }, [panes, paneRefs]);
+  }, [panes, paneRefs, updatePositions]);
+  
+  // Cleanup observer on unmount
+  useEffect(() => {
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, []);
 
   return (
     <div className="stable-iframe-container">
