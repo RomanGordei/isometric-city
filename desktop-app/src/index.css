@@ -1,0 +1,216 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: #1e1e1e;
+  color: #fff;
+}
+
+/* Sidebar styles */
+.sidebar {
+  width: 48px;
+  background: #2d2d2d;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  border-right: 1px solid #404040;
+}
+
+.sidebar-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  margin-bottom: 4px;
+  color: #888;
+}
+
+.sidebar-icon:hover {
+  background: #3d3d3d;
+  color: #fff;
+}
+
+.sidebar-icon.active {
+  background: #0078d4;
+  color: #fff;
+}
+
+.sidebar-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Main content area */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* App container */
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Split pane styles */
+.pane-container {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 200px;
+  min-height: 150px;
+  border: 1px solid #404040;
+}
+
+.pane-horizontal {
+  flex-direction: row;
+}
+
+.pane-vertical {
+  flex-direction: column;
+}
+
+.pane-header {
+  height: 32px;
+  background: #2d2d2d;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  border-bottom: 1px solid #404040;
+  flex-shrink: 0;
+}
+
+.pane-header-title {
+  font-size: 12px;
+  color: #ccc;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pane-header-title svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pane-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.pane-action {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #888;
+  background: transparent;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.pane-action:hover {
+  background: #3d3d3d;
+  color: #fff;
+}
+
+.pane-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pane-content {
+  flex: 1;
+  position: relative;
+  background: #1e1e1e;
+}
+
+.pane-content iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Resizer */
+.resizer {
+  background: #404040;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+}
+
+.resizer:hover {
+  background: #0078d4;
+}
+
+.resizer-horizontal {
+  width: 4px;
+  cursor: col-resize;
+}
+
+.resizer-vertical {
+  height: 4px;
+  cursor: row-resize;
+}
+
+/* Loading state */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1e1e1e;
+  color: #888;
+  font-size: 14px;
+}
+
+/* Tooltip */
+.tooltip {
+  position: fixed;
+  background: #2d2d2d;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Divider in sidebar */
+.sidebar-divider {
+  width: 32px;
+  height: 1px;
+  background: #404040;
+  margin: 8px 0;
+}
