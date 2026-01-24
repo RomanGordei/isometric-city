@@ -2540,6 +2540,14 @@ export function CoasterGrid({
   const cloudIdRef = useRef(0);
   const cloudSpawnTimerRef = useRef(0);
   
+  // Touch handling refs
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const initialPinchDistanceRef = useRef<number | null>(null);
+  const initialZoomRef = useRef(1);
+  const lastTouchCenterRef = useRef<{ x: number; y: number } | null>(null);
+  const isPinchZoomingRef = useRef(false);
+  const [isPanning, setIsPanning] = useState(false);
+  
   const [offset, setOffset] = useState({ x: 620, y: 160 });
   const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
@@ -3347,8 +3355,133 @@ const tile = grid[y][x];
     setZoom(newZoom);
   }, [zoom, offset]);
   
+  // Touch handlers for mobile
+  const getTouchDistance = useCallback((touch1: React.Touch, touch2: React.Touch) => {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }, []);
+
+  const getTouchCenter = useCallback((touch1: React.Touch, touch2: React.Touch) => {
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2,
+    };
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      // Single touch - could be pan or tap
+      const touch = e.touches[0];
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+      setDragStart({ x: touch.clientX - offset.x, y: touch.clientY - offset.y });
+      setIsPanning(true);
+      isPinchZoomingRef.current = false;
+    } else if (e.touches.length === 2) {
+      // Two finger touch - pinch to zoom
+      const distance = getTouchDistance(e.touches[0], e.touches[1]);
+      initialPinchDistanceRef.current = distance;
+      initialZoomRef.current = zoom;
+      lastTouchCenterRef.current = getTouchCenter(e.touches[0], e.touches[1]);
+      setIsPanning(false);
+      isPinchZoomingRef.current = true;
+    }
+  }, [offset, zoom, getTouchDistance, getTouchCenter]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+
+    if (e.touches.length === 1 && isPanning && !initialPinchDistanceRef.current) {
+      // Single touch pan
+      const touch = e.touches[0];
+      const newOffset = {
+        x: touch.clientX - dragStart.x,
+        y: touch.clientY - dragStart.y,
+      };
+      setOffset(newOffset);
+    } else if (e.touches.length === 2 && initialPinchDistanceRef.current !== null) {
+      // Pinch to zoom
+      const currentDistance = getTouchDistance(e.touches[0], e.touches[1]);
+      const scale = currentDistance / initialPinchDistanceRef.current;
+      const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, initialZoomRef.current * scale));
+
+      const currentCenter = getTouchCenter(e.touches[0], e.touches[1]);
+      const rect = containerRef.current?.getBoundingClientRect();
+      
+      if (rect && lastTouchCenterRef.current) {
+        // Calculate center position relative to canvas
+        const centerX = currentCenter.x - rect.left;
+        const centerY = currentCenter.y - rect.top;
+
+        // World position at pinch center
+        const worldX = (centerX - offset.x) / zoom;
+        const worldY = (centerY - offset.y) / zoom;
+
+        // Keep the same world position under the pinch center after zoom
+        const newOffsetX = centerX - worldX * newZoom;
+        const newOffsetY = centerY - worldY * newZoom;
+
+        // Also account for pan movement during pinch
+        const panDeltaX = currentCenter.x - lastTouchCenterRef.current.x;
+        const panDeltaY = currentCenter.y - lastTouchCenterRef.current.y;
+
+        setOffset({ x: newOffsetX + panDeltaX, y: newOffsetY + panDeltaY });
+        setZoom(newZoom);
+        lastTouchCenterRef.current = currentCenter;
+      }
+    }
+  }, [isPanning, dragStart, zoom, offset, getTouchDistance, getTouchCenter]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const touchStart = touchStartRef.current;
+    
+    if (e.touches.length === 0) {
+      // All fingers lifted
+      if (touchStart && e.changedTouches.length === 1) {
+        const touch = e.changedTouches[0];
+        const deltaX = Math.abs(touch.clientX - touchStart.x);
+        const deltaY = Math.abs(touch.clientY - touchStart.y);
+        const deltaTime = Date.now() - touchStart.time;
+
+        // Detect tap (short duration, minimal movement)
+        if (deltaTime < 300 && deltaX < 10 && deltaY < 10) {
+          const rect = containerRef.current?.getBoundingClientRect();
+          if (rect) {
+            const screenX = (touch.clientX - rect.left) / zoom;
+            const screenY = (touch.clientY - rect.top) / zoom;
+            const { gridX, gridY } = screenToGrid(screenX, screenY, offset.x / zoom, offset.y / zoom);
+
+            if (gridX >= 0 && gridX < gridSize && gridY >= 0 && gridY < gridSize) {
+              if (selectedTool === 'select') {
+                setSelectedTile({ x: gridX, y: gridY });
+              } else {
+                placeAtTile(gridX, gridY);
+              }
+            }
+          }
+        }
+      }
+
+      // Reset all touch state
+      setIsPanning(false);
+      setIsDragging(false);
+      isPinchZoomingRef.current = false;
+      touchStartRef.current = null;
+      initialPinchDistanceRef.current = null;
+      lastTouchCenterRef.current = null;
+    } else if (e.touches.length === 1) {
+      // Went from 2 touches to 1 - reset to pan mode
+      const touch = e.touches[0];
+      setDragStart({ x: touch.clientX - offset.x, y: touch.clientY - offset.y });
+      setIsPanning(true);
+      isPinchZoomingRef.current = false;
+      initialPinchDistanceRef.current = null;
+      lastTouchCenterRef.current = null;
+    }
+  }, [zoom, offset, gridSize, selectedTool, placeAtTile, setSelectedTile]);
+  
   return (
-    <div ref={containerRef} className="w-full h-full relative">
+    <div ref={containerRef} className="w-full h-full relative touch-none">
       <canvas
         ref={canvasRef}
         className="block cursor-grab active:cursor-grabbing absolute inset-0"
@@ -3365,6 +3498,10 @@ const tile = grid[y][x];
           setHoveredTile(null);
         }}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       />
       {/* Cloud overlay canvas - renders atmospheric clouds */}
       <canvas
