@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Users } from 'lucide-react';
 
 // =============================================================================
 // ICONS
@@ -101,12 +102,14 @@ function StatItem({
 interface CoasterMobileTopBarProps {
   selectedTile: Tile | null;
   onCloseTile: () => void;
+  onShare?: () => void;
   onExit?: () => void;
 }
 
 export function CoasterMobileTopBar({ 
   selectedTile,
   onCloseTile,
+  onShare,
   onExit,
 }: CoasterMobileTopBarProps) {
   const { state, setSpeed, setParkSettings, saveGame } = useCoaster();
@@ -218,6 +221,16 @@ export function CoasterMobileTopBar({
                 </div>
               </button>
             </div>
+
+            {onShare && (
+              <button
+                onClick={onShare}
+                className="h-6 w-6 p-0 m-0 flex items-center justify-center text-muted-foreground hover:text-foreground"
+                title="Invite Players"
+              >
+                <Users className="w-3 h-3" />
+              </button>
+            )}
 
             {/* Exit button */}
             {onExit && (

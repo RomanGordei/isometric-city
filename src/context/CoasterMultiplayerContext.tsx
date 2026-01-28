@@ -13,60 +13,41 @@ import {
   createMultiplayerProvider,
 } from '@/lib/multiplayer/supabaseProvider';
 import {
-  GameAction,
-  GameActionInput,
-  Player,
   ConnectionState,
+  Player,
   RoomData,
+  generateRoomCode,
 } from '@/lib/multiplayer/types';
-import { GameState } from '@/types/game';
+import { CoasterActionInput } from '@/lib/multiplayer/coasterTypes';
+import { GameState } from '@/games/coaster/types';
 import { useGT } from 'gt-next';
 
-// Generate a random 5-character room code
-function generateRoomCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 5; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
-}
-
-interface MultiplayerContextValue {
-  // Connection state
+interface CoasterMultiplayerContextValue {
   connectionState: ConnectionState;
   roomCode: string | null;
   players: Player[];
   error: string | null;
 
-  // Actions
-  createRoom: (cityName: string, initialState: GameState) => Promise<string>;
+  createRoom: (parkName: string, initialState: GameState) => Promise<string>;
   joinRoom: (roomCode: string) => Promise<RoomData>;
   leaveRoom: () => void;
-  
-  // Game action dispatch
-  dispatchAction: (action: GameActionInput) => void;
-  
-  // Initial state for new players
+
+  dispatchAction: (action: CoasterActionInput) => void;
+
   initialState: GameState | null;
-  
-  // Callback for when remote actions are received
-  onRemoteAction: ((action: GameAction) => void) | null;
-  setOnRemoteAction: (callback: ((action: GameAction) => void) | null) => void;
-  
-  // Update the game state (any player can do this now)
+
+  onRemoteAction: ((action: CoasterActionInput & { timestamp: number; playerId: string }) => void) | null;
+  setOnRemoteAction: (callback: ((action: CoasterActionInput & { timestamp: number; playerId: string }) => void) | null) => void;
+
   updateGameState: (state: GameState) => void;
-  
-  // Provider instance (for advanced usage)
-  provider: MultiplayerProvider<GameState, GameActionInput> | null;
-  
-  // Legacy compatibility - always false now since there's no host
+
+  provider: MultiplayerProvider<GameState, CoasterActionInput> | null;
   isHost: boolean;
 }
 
-const MultiplayerContext = createContext<MultiplayerContextValue | null>(null);
+const CoasterMultiplayerContext = createContext<CoasterMultiplayerContextValue | null>(null);
 
-export function MultiplayerContextProvider({
+export function CoasterMultiplayerContextProvider({
   children,
 }: {
   children: React.ReactNode;
@@ -77,36 +58,35 @@ export function MultiplayerContextProvider({
   const [players, setPlayers] = useState<Player[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [initialState, setInitialState] = useState<GameState | null>(null);
-  const [provider, setProvider] = useState<MultiplayerProvider<GameState, GameActionInput> | null>(null);
-  const [onRemoteAction, setOnRemoteAction] = useState<((action: GameAction) => void) | null>(null);
+  const [provider, setProvider] = useState<MultiplayerProvider<GameState, CoasterActionInput> | null>(null);
+  const [onRemoteAction, setOnRemoteAction] = useState<
+    ((action: CoasterActionInput & { timestamp: number; playerId: string }) => void) | null
+  >(null);
 
-  const providerRef = useRef<MultiplayerProvider<GameState, GameActionInput> | null>(null);
-  const onRemoteActionRef = useRef<((action: GameAction) => void) | null>(null);
+  const providerRef = useRef<MultiplayerProvider<GameState, CoasterActionInput> | null>(null);
+  const onRemoteActionRef = useRef<
+    ((action: CoasterActionInput & { timestamp: number; playerId: string }) => void) | null
+  >(null);
 
-  // Set up remote action callback
   const handleSetOnRemoteAction = useCallback(
-    (callback: ((action: GameAction) => void) | null) => {
+    (callback: ((action: CoasterActionInput & { timestamp: number; playerId: string }) => void) | null) => {
       onRemoteActionRef.current = callback;
       setOnRemoteAction(callback);
     },
     []
   );
 
-  // Create a room (first player to start a session)
   const createRoom = useCallback(
-    async (cityName: string, gameState: GameState): Promise<string> => {
+    async (parkName: string, gameState: GameState): Promise<string> => {
       setConnectionState('connecting');
       setError(null);
 
       try {
-        // Generate room code
         const newRoomCode = generateRoomCode();
 
-        // Create multiplayer provider with initial state
-        // State will be saved to Supabase database
-        const provider = await createMultiplayerProvider<GameState, GameActionInput>({
+        const provider = await createMultiplayerProvider<GameState, CoasterActionInput>({
           roomCode: newRoomCode,
-          cityName,
+          cityName: parkName,
           initialGameState: gameState,
           onConnectionChange: (connected) => {
             setConnectionState(connected ? 'connected' : 'disconnected');
@@ -140,7 +120,6 @@ export function MultiplayerContextProvider({
     [gt]
   );
 
-  // Join an existing room
   const joinRoom = useCallback(
     async (code: string): Promise<RoomData> => {
       setConnectionState('connecting');
@@ -149,11 +128,9 @@ export function MultiplayerContextProvider({
       try {
         const normalizedCode = code.toUpperCase();
 
-        // Create multiplayer provider - state will be loaded from Supabase database
-        const provider = await createMultiplayerProvider<GameState, GameActionInput>({
+        const provider = await createMultiplayerProvider<GameState, CoasterActionInput>({
           roomCode: normalizedCode,
-          cityName: gt('Co-op City'),
-          // No initialGameState - we'll load from database
+          cityName: gt('Co-op Park'),
           onConnectionChange: (connected) => {
             setConnectionState(connected ? 'connected' : 'disconnected');
           },
@@ -166,7 +143,6 @@ export function MultiplayerContextProvider({
             }
           },
           onStateReceived: (state) => {
-            // State loaded from database
             setInitialState(state);
           },
           onError: (errorMsg) => {
@@ -180,11 +156,10 @@ export function MultiplayerContextProvider({
         setRoomCode(normalizedCode);
         setConnectionState('connected');
 
-        // Return room data
         const room: RoomData = {
           code: normalizedCode,
           hostId: '',
-          cityName: gt('Co-op City'),
+          cityName: gt('Co-op Park'),
           createdAt: Date.now(),
           playerCount: 1,
         };
@@ -199,7 +174,6 @@ export function MultiplayerContextProvider({
     [gt]
   );
 
-  // Leave the current room
   const leaveRoom = useCallback(() => {
     if (providerRef.current) {
       providerRef.current.destroy();
@@ -214,27 +188,18 @@ export function MultiplayerContextProvider({
     setInitialState(null);
   }, []);
 
-  // Dispatch a game action to all peers
-  const dispatchAction = useCallback(
-    (action: GameActionInput) => {
-      if (providerRef.current) {
-        providerRef.current.dispatchAction(action);
-      }
-    },
-    []
-  );
+  const dispatchAction = useCallback((action: CoasterActionInput) => {
+    if (providerRef.current) {
+      providerRef.current.dispatchAction(action);
+    }
+  }, []);
 
-  // Update the game state (any player can do this)
-  const updateGameState = useCallback(
-    (state: GameState) => {
-      if (providerRef.current) {
-        providerRef.current.updateGameState(state);
-      }
-    },
-    []
-  );
+  const updateGameState = useCallback((state: GameState) => {
+    if (providerRef.current) {
+      providerRef.current.updateGameState(state);
+    }
+  }, []);
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       if (providerRef.current) {
@@ -243,7 +208,7 @@ export function MultiplayerContextProvider({
     };
   }, []);
 
-  const value: MultiplayerContextValue = {
+  const value: CoasterMultiplayerContextValue = {
     connectionState,
     roomCode,
     players,
@@ -257,25 +222,24 @@ export function MultiplayerContextProvider({
     setOnRemoteAction: handleSetOnRemoteAction,
     updateGameState,
     provider,
-    isHost: false, // No longer meaningful - kept for compatibility
+    isHost: false,
   };
 
   return (
-    <MultiplayerContext.Provider value={value}>
+    <CoasterMultiplayerContext.Provider value={value}>
       {children}
-    </MultiplayerContext.Provider>
+    </CoasterMultiplayerContext.Provider>
   );
 }
 
-export function useMultiplayer() {
-  const context = useContext(MultiplayerContext);
+export function useCoasterMultiplayer() {
+  const context = useContext(CoasterMultiplayerContext);
   if (!context) {
-    throw new Error('useMultiplayer must be used within a MultiplayerContextProvider');
+    throw new Error('useCoasterMultiplayer must be used within a CoasterMultiplayerContextProvider');
   }
   return context;
 }
 
-// Optional hook that returns null if not in multiplayer context
-export function useMultiplayerOptional() {
-  return useContext(MultiplayerContext);
+export function useCoasterMultiplayerOptional() {
+  return useContext(CoasterMultiplayerContext);
 }

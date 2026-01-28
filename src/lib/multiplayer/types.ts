@@ -3,10 +3,12 @@
 import { Tool, GameState, Budget } from '@/types/game';
 
 // Base action properties
-interface BaseAction {
+export interface BaseAction {
   timestamp: number;
   playerId: string;
 }
+
+export type MultiplayerAction<T> = T & BaseAction;
 
 // Game actions that get synced via Supabase Realtime
 export type GameAction =

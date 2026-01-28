@@ -34,7 +34,6 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
-import { GameState } from '@/types/game';
 import { serializeAndCompressForDBAsync } from '@/lib/saveWorkerManager';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -88,10 +87,10 @@ export interface GameRoomRow {
  * PERF: Uses Web Worker for serialization + compression - no main thread blocking!
  * @throws CitySizeLimitError if the city size exceeds the maximum allowed size
  */
-export async function createGameRoom(
+export async function createGameRoom<TState>(
   roomCode: string,
   cityName: string,
-  gameState: GameState
+  gameState: TState
 ): Promise<boolean> {
   if (!supabase) return false;
   try {
@@ -129,9 +128,9 @@ export async function createGameRoom(
 /**
  * Load game state from a room
  */
-export async function loadGameRoom(
+export async function loadGameRoom<TState>(
   roomCode: string
-): Promise<{ gameState: GameState; cityName: string } | null> {
+): Promise<{ gameState: TState; cityName: string } | null> {
   if (!supabase) return null;
   try {
     const { data, error } = await supabase
@@ -151,7 +150,7 @@ export async function loadGameRoom(
       return null;
     }
 
-    const gameState = JSON.parse(decompressed) as GameState;
+    const gameState = JSON.parse(decompressed) as TState;
     return { gameState, cityName: data.city_name };
   } catch (e) {
     console.error('[Database] Error loading room:', e);
@@ -164,9 +163,9 @@ export async function loadGameRoom(
  * PERF: Uses Web Worker for serialization + compression - no main thread blocking!
  * @throws CitySizeLimitError if the city size exceeds the maximum allowed size
  */
-export async function updateGameRoom(
+export async function updateGameRoom<TState>(
   roomCode: string,
-  gameState: GameState
+  gameState: TState
 ): Promise<boolean> {
   if (!supabase) return false;
   try {

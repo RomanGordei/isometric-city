@@ -2,8 +2,7 @@
 
 import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 import {
-  GameAction,
-  GameActionInput,
+  MultiplayerAction,
   Player,
   generatePlayerId,
   generatePlayerColor,
@@ -16,7 +15,6 @@ import {
   updatePlayerCount,
   CitySizeLimitError,
 } from './database';
-import { GameState } from '@/types/game';
 import { msg } from 'gt-next';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -30,37 +28,37 @@ const supabase = supabaseUrl && supabaseKey
 // Throttle state saves to avoid excessive database writes
 const STATE_SAVE_INTERVAL = 3000; // Save state every 3 seconds max
 
-export interface MultiplayerProviderOptions {
+export interface MultiplayerProviderOptions<TState = unknown, TActionInput = Record<string, unknown>> {
   roomCode: string;
   cityName: string;
   playerName?: string; // Optional - auto-generated if not provided
-  initialGameState?: GameState; // If provided, this player is creating the room
+  initialGameState?: TState; // If provided, this player is creating the room
   onConnectionChange?: (connected: boolean, peerCount: number) => void;
   onPlayersChange?: (players: Player[]) => void;
-  onAction?: (action: GameAction) => void;
-  onStateReceived?: (state: GameState) => void;
+  onAction?: (action: MultiplayerAction<TActionInput>) => void;
+  onStateReceived?: (state: TState) => void;
   onError?: (error: string) => void;
 }
 
-export class MultiplayerProvider {
+export class MultiplayerProvider<TState = unknown, TActionInput = Record<string, unknown>> {
   public readonly roomCode: string;
   public readonly peerId: string;
   public readonly isCreator: boolean; // Whether this player created the room
 
   private channel: RealtimeChannel;
   private player: Player;
-  private options: MultiplayerProviderOptions;
+  private options: MultiplayerProviderOptions<TState, TActionInput>;
   private players: Map<string, Player> = new Map();
-  private gameState: GameState | null = null;
+  private gameState: unknown = null;
   private destroyed = false;
   private hasReceivedInitialState = false; // Prevent multiple state-sync overwrites
   
   // State save throttling
   private lastStateSave = 0;
-  private pendingStateSave: GameState | null = null;
+  private pendingStateSave: TState | null = null;
   private saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(options: MultiplayerProviderOptions) {
+  constructor(options: MultiplayerProviderOptions<TState, TActionInput>) {
     if (!supabase) {
       throw new Error('Multiplayer requires Supabase configuration');
     }
@@ -102,7 +100,7 @@ export class MultiplayerProvider {
         const success = await createGameRoom(
           this.roomCode,
           this.options.cityName,
-          this.gameState
+          this.gameState as TState
         );
         if (!success) {
           this.options.onError?.(msg('Failed to create room in database'));
@@ -117,16 +115,17 @@ export class MultiplayerProvider {
       }
     } else {
       // Joining an existing room - load state from database
-      const roomData = await loadGameRoom(this.roomCode);
+      const roomData = await loadGameRoom(this.roomCode) as unknown as { gameState: TState; cityName: string } | null;
       if (!roomData) {
         this.options.onError?.(msg('Room not found'));
         throw new Error(msg('Room not found'));
       }
-      this.gameState = roomData.gameState;
+      const loadedState = roomData.gameState as TState;
+      this.gameState = loadedState;
       // Note: We do NOT set hasReceivedInitialState here because we want to
       // receive state-sync from existing players (which will have fresher state)
       // Notify that we received state from the database
-      this.options.onStateReceived?.(roomData.gameState);
+      this.options.onStateReceived?.(loadedState);
     }
 
     // Set up all channel listeners in a single chain
@@ -169,7 +168,7 @@ export class MultiplayerProvider {
                     type: 'broadcast',
                     event: 'state-sync',
                     payload: { 
-                      state: this.gameState, 
+                      state: this.gameState as TState, 
                       to: key, 
                       from: this.peerId 
                     },
@@ -190,9 +189,9 @@ export class MultiplayerProvider {
       })
       // Broadcast: real-time game actions from other players
       .on('broadcast', { event: 'action' }, ({ payload }) => {
-        const action = payload as GameAction;
+        const action = payload as MultiplayerAction<TActionInput>;
         // Guard against malformed payloads
-        if (!action || !action.type || !action.playerId) {
+        if (!action || !('type' in action) || !action.playerId) {
           console.warn('[Multiplayer] Received invalid action payload:', payload);
           return;
         }
@@ -202,7 +201,7 @@ export class MultiplayerProvider {
       })
       // Broadcast: state sync from existing players (for new joiners)
       .on('broadcast', { event: 'state-sync' }, ({ payload }) => {
-        const { state, to, from } = payload as { state: GameState; to: string; from: string };
+        const { state, to, from } = payload as { state: TState; to: string; from: string };
         // Only process if:
         // 1. It's meant for us
         // 2. We're NOT the creator (creators have the canonical state, should never be overwritten)
@@ -230,10 +229,10 @@ export class MultiplayerProvider {
     });
   }
 
-  dispatchAction(action: GameActionInput): void {
+  dispatchAction(action: TActionInput): void {
     if (this.destroyed) return;
 
-    const fullAction: GameAction = {
+    const fullAction: MultiplayerAction<TActionInput> = {
       ...action,
       timestamp: Date.now(),
       playerId: this.peerId,
@@ -250,7 +249,7 @@ export class MultiplayerProvider {
   /**
    * Update the game state and save to database (throttled)
    */
-  updateGameState(state: GameState): void {
+  updateGameState(state: TState): void {
     this.gameState = state;
     
     const now = Date.now();
@@ -275,7 +274,7 @@ export class MultiplayerProvider {
     }
   }
 
-  private saveStateToDatabase(state: GameState): void {
+  private saveStateToDatabase(state: TState): void {
     this.lastStateSave = Date.now();
     updateGameRoom(this.roomCode, state).catch((e) => {
       if (e instanceof CitySizeLimitError) {
@@ -321,10 +320,10 @@ export class MultiplayerProvider {
 }
 
 // Create and connect a multiplayer provider
-export async function createMultiplayerProvider(
-  options: MultiplayerProviderOptions
-): Promise<MultiplayerProvider> {
-  const provider = new MultiplayerProvider(options);
+export async function createMultiplayerProvider<TState = unknown, TActionInput = Record<string, unknown>>(
+  options: MultiplayerProviderOptions<TState, TActionInput>
+): Promise<MultiplayerProvider<TState, TActionInput>> {
+  const provider = new MultiplayerProvider<TState, TActionInput>(options);
   await provider.connect();
   return provider;
 }
