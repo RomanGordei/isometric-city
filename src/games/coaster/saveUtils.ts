@@ -9,14 +9,15 @@ export const COASTER_SAVED_PARK_PREFIX = 'coaster-park-';
 export type SavedParkMeta = {
   id: string;
   name: string;
-  cash: number;
+  cash?: number;
   guests: number;
   rating: number;
-  gridSize: number;
+  gridSize?: number;
   year: number;
   month: number;
-  day: number;
+  day?: number;
   savedAt: number;
+  roomCode?: string; // For multiplayer parks
 };
 
 export function buildSavedParkMeta(state: GameState, savedAt: number = Date.now()): SavedParkMeta {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CoasterProvider } from '@/context/CoasterContext';
 import CoasterGame from '@/components/coaster/Game';
@@ -378,6 +379,13 @@ export default function CoasterPage() {
             >
               Load Example
             </Button>
+            
+            <Link
+              href="/coaster/coop/new"
+              className="w-full text-center py-4 sm:py-6 text-lg sm:text-xl font-light tracking-wide bg-teal-900/30 hover:bg-teal-800/40 text-teal-300 hover:text-teal-200 border border-teal-700/30 rounded-none transition-all duration-300 block"
+            >
+              Co-op Multiplayer
+            </Link>
             
             <a
               href="/"
