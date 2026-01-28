@@ -5,12 +5,7 @@
  import { useCoaster } from '@/context/CoasterContext';
  import { GameAction, GameActionInput, MultiplayerGameState } from '@/lib/multiplayer/types';
  import { Tool, GameState as CoasterGameState } from '@/games/coaster/types';
- import {
-   buildSavedParkMeta,
-   readSavedParksIndex,
-   upsertSavedParkMeta,
-   writeSavedParksIndex,
- } from '@/games/coaster/saveUtils';
+import { saveParkToIndex } from '@/games/coaster/saveUtils';
 
  // Batch placement buffer for reducing message count during drags
  const BATCH_FLUSH_INTERVAL = 100; // ms - flush every 100ms during drag
@@ -18,17 +13,6 @@
 
  function isCoasterState(state: MultiplayerGameState): state is CoasterGameState {
    return !!state && typeof state === 'object' && 'coasters' in state && 'finances' in state && 'grid' in state;
- }
-
- function updateSavedParksIndex(state: CoasterGameState, roomCode: string): void {
-   if (typeof window === 'undefined') return;
-   try {
-     const meta = buildSavedParkMeta(state, Date.now(), roomCode);
-     const updated = upsertSavedParkMeta(meta, readSavedParksIndex());
-     writeSavedParksIndex(updated);
-   } catch (e) {
-     console.error('Failed to update saved parks index:', e);
-   }
  }
 
  export function useCoasterMultiplayerSync() {
@@ -281,7 +265,7 @@
 
      if (multiplayer.roomCode && now - lastIndexUpdateRef.current > 10000) {
        lastIndexUpdateRef.current = now;
-       updateSavedParksIndex(coaster.state, multiplayer.roomCode);
+      saveParkToIndex(coaster.state, multiplayer.roomCode);
      }
    }, [multiplayer, coaster.state]);
 

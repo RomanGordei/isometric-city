@@ -8,24 +8,10 @@ import { CoasterCoopModal } from '@/components/coaster/multiplayer/CoasterCoopMo
 import { GameState as CoasterGameState } from '@/games/coaster/types';
 import {
   COASTER_AUTOSAVE_KEY,
-  buildSavedParkMeta,
-  readSavedParksIndex,
   saveCoasterStateToStorage,
-  upsertSavedParkMeta,
-  writeSavedParksIndex,
+  saveParkToIndex,
 } from '@/games/coaster/saveUtils';
 import { useParams, useRouter } from 'next/navigation';
-
-function saveParkToIndex(state: CoasterGameState, roomCode?: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const meta = buildSavedParkMeta(state, Date.now(), roomCode);
-    const updated = upsertSavedParkMeta(meta, readSavedParksIndex());
-    writeSavedParksIndex(updated);
-  } catch (e) {
-    console.error('Failed to save park to index:', e);
-  }
-}
 
 export default function CoasterCoopPage() {
   const params = useParams();
@@ -41,7 +27,7 @@ export default function CoasterCoopPage() {
     router.push('/coaster');
   };
 
-  const handleCoopStart = (isHost: boolean, initialState?: CoasterGameState, code?: string) => {
+  const handleCoopStart = (_isHost: boolean, initialState?: CoasterGameState, code?: string) => {
     isStartingGameRef.current = true;
 
     if (initialState) {
@@ -54,8 +40,6 @@ export default function CoasterCoopPage() {
         console.error('Failed to save co-op park state:', e);
       }
       setStartFresh(false);
-    } else if (isHost) {
-      setStartFresh(true);
     } else {
       setStartFresh(true);
     }
@@ -71,28 +55,24 @@ export default function CoasterCoopPage() {
     setShowCoopModal(open);
   };
 
-  if (showGame) {
-    return (
-      <MultiplayerContextProvider>
+  return (
+    <MultiplayerContextProvider>
+      {showGame ? (
         <CoasterProvider startFresh={startFresh}>
           <main className="h-screen w-screen overflow-hidden">
             <CoasterGame onExit={handleExitGame} />
           </main>
         </CoasterProvider>
-      </MultiplayerContextProvider>
-    );
-  }
-
-  return (
-    <MultiplayerContextProvider>
-      <main className="min-h-screen bg-gradient-to-br from-emerald-950 via-teal-950 to-emerald-950 flex items-center justify-center">
-        <CoasterCoopModal
-          open={showCoopModal}
-          onOpenChange={handleModalClose}
-          onStartGame={handleCoopStart}
-          pendingRoomCode={roomCode}
-        />
-      </main>
+      ) : (
+        <main className="min-h-screen bg-gradient-to-br from-emerald-950 via-teal-950 to-emerald-950 flex items-center justify-center">
+          <CoasterCoopModal
+            open={showCoopModal}
+            onOpenChange={handleModalClose}
+            onStartGame={handleCoopStart}
+            pendingRoomCode={roomCode}
+          />
+        </main>
+      )}
     </MultiplayerContextProvider>
   );
 }

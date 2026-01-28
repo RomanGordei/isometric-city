@@ -57,6 +57,17 @@ export function writeSavedParksIndex(parks: SavedParkMeta[]): void {
   }
 }
 
+export function saveParkToIndex(state: GameState, roomCode?: string, savedAt: number = Date.now()): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const meta = buildSavedParkMeta(state, savedAt, roomCode);
+    const updated = upsertSavedParkMeta(meta, readSavedParksIndex());
+    writeSavedParksIndex(updated);
+  } catch (e) {
+    console.error('Failed to save park to index:', e);
+  }
+}
+
 export function upsertSavedParkMeta(meta: SavedParkMeta, parks?: SavedParkMeta[]): SavedParkMeta[] {
   const list = parks ? [...parks] : readSavedParksIndex();
   const existingIndex = list.findIndex((park) => park.id === meta.id || (meta.roomCode && park.roomCode === meta.roomCode));
