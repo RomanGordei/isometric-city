@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useCoaster } from '@/context/CoasterContext';
-import { Tool, TOOL_INFO, ToolInfo } from '@/games/coaster/types';
+import { COASTER_MIN_GRID_SIZE, COASTER_TERRAIN_RESIZE_TILES, Tool, TOOL_INFO, ToolInfo } from '@/games/coaster/types';
 import { useMobile } from '@/hooks/useMobile';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -135,8 +135,9 @@ const ALL_MENU_ITEMS = buildMenuItems();
 
 export function CoasterCommandMenu() {
   const { isMobileDevice } = useMobile();
-  const { state, setTool, setActivePanel, startCoasterBuild } = useCoaster();
+  const { state, setTool, setActivePanel, startCoasterBuild, expandPark, shrinkPark } = useCoaster();
   const { finances } = state;
+  const canShrink = state.gridSize - COASTER_TERRAIN_RESIZE_TILES * 2 >= COASTER_MIN_GRID_SIZE;
 
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -215,6 +216,18 @@ export function CoasterCommandMenu() {
 
   const handleSelect = useCallback((item: MenuItem) => {
     if (item.type === 'tool' && item.tool) {
+      if (item.tool === 'expand_terrain') {
+        expandPark();
+        setOpen(false);
+        return;
+      }
+      if (item.tool === 'shrink_terrain') {
+        if (canShrink) {
+          shrinkPark();
+        }
+        setOpen(false);
+        return;
+      }
       const coasterType = COASTER_TYPE_TOOL_MAP[item.tool];
       if (coasterType) {
         startCoasterBuild(coasterType);
@@ -226,7 +239,7 @@ export function CoasterCommandMenu() {
       setActivePanel(state.activePanel === item.panel ? 'none' : item.panel);
     }
     setOpen(false);
-  }, [setTool, setActivePanel, startCoasterBuild, state.activePanel]);
+  }, [canShrink, expandPark, shrinkPark, setTool, setActivePanel, startCoasterBuild, state.activePanel]);
 
   useEffect(() => {
     if (!listRef.current || flatItems.length === 0) return;
@@ -316,19 +329,21 @@ export function CoasterCommandMenu() {
                         const globalIndex = flatItems.indexOf(item);
                         const isSelected = globalIndex === selectedIndex;
                         const canAfford = item.cost === undefined || item.cost === 0 || finances.cash >= item.cost;
+                        const canUseTool = item.tool === 'shrink_terrain' ? canShrink : true;
+                        const isDisabled = !canAfford || !canUseTool;
 
                         return (
                           <button
                             key={item.id}
                             data-index={globalIndex}
                             onClick={() => handleSelect(item)}
-                            disabled={!canAfford}
+                            disabled={isDisabled}
                             className={cn(
                               'flex items-center justify-between gap-2 px-3 py-2 rounded-sm text-sm transition-colors text-left w-full',
                               isSelected 
                                 ? 'bg-primary text-primary-foreground' 
                                 : 'hover:bg-muted/60',
-                              !canAfford && 'opacity-50 cursor-not-allowed'
+                              isDisabled && 'opacity-50 cursor-not-allowed'
                             )}
                           >
                             <div className="flex flex-col gap-0.5 min-w-0">

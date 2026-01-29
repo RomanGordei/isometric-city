@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useCoaster } from '@/context/CoasterContext';
 import { useMultiplayerOptional } from '@/context/MultiplayerContext';
-import { Tool, TOOL_INFO } from '@/games/coaster/types';
+import { COASTER_MIN_GRID_SIZE, COASTER_TERRAIN_RESIZE_TILES, Tool, TOOL_INFO } from '@/games/coaster/types';
 import { WEATHER_DISPLAY, WEATHER_EFFECTS } from '@/games/coaster/types/economy';
 import { COASTER_TYPE_STATS, CoasterType, getCoasterCategory } from '@/games/coaster/types/tracks';
 import { Button } from '@/components/ui/button';
@@ -113,6 +113,7 @@ const HoverSubmenu = React.memo(function HoverSubmenu({
   cash,
   onSelectTool,
   forceOpenUpward = false,
+  isToolDisabled,
 }: {
   label: string;
   tools: Tool[];
@@ -120,6 +121,7 @@ const HoverSubmenu = React.memo(function HoverSubmenu({
   cash: number;
   onSelectTool: (tool: Tool) => void;
   forceOpenUpward?: boolean;
+  isToolDisabled?: (tool: Tool) => boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, buttonHeight: 0, openUpward: false });
@@ -282,16 +284,18 @@ const HoverSubmenu = React.memo(function HoverSubmenu({
               if (!info) return null;
               const isSelected = selectedTool === tool;
               const canAfford = cash >= info.cost;
+              const disabledForState = isToolDisabled?.(tool) ?? false;
+              const isDisabled = (!canAfford && info.cost > 0) || disabledForState;
               
               return (
                 <Button
                   key={tool}
                   onClick={() => onSelectTool(tool)}
-                  disabled={!canAfford && info.cost > 0}
+                  disabled={isDisabled}
                   variant={isSelected ? 'default' : 'ghost'}
                   className={`w-full justify-start gap-2 px-3 py-2 h-auto text-sm transition-all duration-150 ${
                     isSelected ? 'bg-primary text-primary-foreground shadow-sm' : 'hover:bg-muted/60'
-                  }`}
+                  } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title={`${info.description} - Cost: $${info.cost.toLocaleString()}`}
                 >
                   <span className="flex-1 text-left truncate">{info.name}</span>
@@ -323,7 +327,7 @@ const SUBMENU_CATEGORIES: { key: string; label: string; tools: Tool[] }[] = [
   {
     key: 'terrain',
     label: 'Terrain',
-    tools: ['zone_water', 'zone_land'],
+    tools: ['expand_terrain', 'shrink_terrain', 'zone_water', 'zone_land'],
   },
   {
     key: 'trees',
@@ -588,12 +592,13 @@ const COASTER_TYPE_PRIMARY_COLORS: Record<string, string> = {
 };
 
 export function Sidebar({ onExit }: SidebarProps) {
-  const { state, setTool, saveGame, startCoasterBuild, cancelCoasterBuild } = useCoaster();
+  const { state, setTool, saveGame, startCoasterBuild, cancelCoasterBuild, expandPark, shrinkPark } = useCoaster();
   const { selectedTool, finances, weather, buildingCoasterType } = state;
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const multiplayer = useMultiplayerOptional();
   const hasShownShareModalRef = useRef(false);
+  const canShrink = state.gridSize - COASTER_TERRAIN_RESIZE_TILES * 2 >= COASTER_MIN_GRID_SIZE;
   
   const handleSaveAndExit = useCallback(() => {
     saveGame();
@@ -607,6 +612,16 @@ export function Sidebar({ onExit }: SidebarProps) {
   }, [onExit]);
   
   const handleSelectTool = useCallback((tool: Tool) => {
+    if (tool === 'expand_terrain') {
+      expandPark();
+      return;
+    }
+    if (tool === 'shrink_terrain') {
+      if (canShrink) {
+        shrinkPark();
+      }
+      return;
+    }
     // Check if this is a coaster type selection tool
     const coasterType = COASTER_TYPE_TOOL_MAP[tool];
     if (coasterType) {
@@ -617,7 +632,14 @@ export function Sidebar({ onExit }: SidebarProps) {
     } else {
       setTool(tool);
     }
-  }, [setTool, startCoasterBuild]);
+  }, [canShrink, expandPark, shrinkPark, setTool, startCoasterBuild]);
+
+  const isToolDisabled = useCallback((tool: Tool) => {
+    if (tool === 'shrink_terrain') {
+      return !canShrink;
+    }
+    return false;
+  }, [canShrink]);
 
   useEffect(() => {
     const isHost = multiplayer?.connectionState === 'connected' && multiplayer?.roomCode && !multiplayer?.initialState;
@@ -805,6 +827,7 @@ export function Sidebar({ onExit }: SidebarProps) {
               cash={finances.cash}
               onSelectTool={handleSelectTool}
               forceOpenUpward={index >= SUBMENU_CATEGORIES.length - 2}
+              isToolDisabled={isToolDisabled}
             />
           ))}
         </div>

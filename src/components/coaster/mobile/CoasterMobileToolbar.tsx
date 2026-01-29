@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useCoaster } from '@/context/CoasterContext';
-import { Tool, TOOL_INFO } from '@/games/coaster/types';
+import { COASTER_MIN_GRID_SIZE, COASTER_TERRAIN_RESIZE_TILES, Tool, TOOL_INFO } from '@/games/coaster/types';
 import { COASTER_TYPE_STATS, getCoasterCategory } from '@/games/coaster/types/tracks';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -65,7 +65,7 @@ const SUBMENU_CATEGORIES: { key: string; label: string; tools: Tool[] }[] = [
   {
     key: 'terrain',
     label: 'Terrain',
-    tools: ['zone_water', 'zone_land'],
+    tools: ['expand_terrain', 'shrink_terrain', 'zone_water', 'zone_land'],
   },
   {
     key: 'trees',
@@ -331,10 +331,11 @@ interface CoasterMobileToolbarProps {
 }
 
 export function CoasterMobileToolbar({ onOpenPanel }: CoasterMobileToolbarProps) {
-  const { state, setTool, startCoasterBuild } = useCoaster();
+  const { state, setTool, startCoasterBuild, expandPark, shrinkPark } = useCoaster();
   const { selectedTool, finances, buildingCoasterType } = state;
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const canShrink = state.gridSize - COASTER_TERRAIN_RESIZE_TILES * 2 >= COASTER_MIN_GRID_SIZE;
 
   const handleCategoryClick = (category: string) => {
     if (expandedCategory === category) {
@@ -345,6 +346,22 @@ export function CoasterMobileToolbar({ onOpenPanel }: CoasterMobileToolbarProps)
   };
 
   const handleToolSelect = useCallback((tool: Tool, closeMenu: boolean = false) => {
+    if (tool === 'expand_terrain') {
+      expandPark();
+      if (closeMenu) {
+        setShowMenu(false);
+      }
+      return;
+    }
+    if (tool === 'shrink_terrain') {
+      if (canShrink) {
+        shrinkPark();
+      }
+      if (closeMenu) {
+        setShowMenu(false);
+      }
+      return;
+    }
     // Check if this is a coaster type selection tool
     const coasterType = COASTER_TYPE_TOOL_MAP[tool];
     if (coasterType) {
@@ -359,7 +376,7 @@ export function CoasterMobileToolbar({ onOpenPanel }: CoasterMobileToolbarProps)
     if (closeMenu) {
       setShowMenu(false);
     }
-  }, [selectedTool, setTool, startCoasterBuild]);
+  }, [canShrink, expandPark, shrinkPark, selectedTool, setTool, startCoasterBuild]);
 
   return (
     <>
@@ -521,13 +538,14 @@ export function CoasterMobileToolbar({ onOpenPanel }: CoasterMobileToolbarProps)
                           const info = TOOL_INFO[tool];
                           if (!info) return null;
                           const canAfford = finances.cash >= info.cost;
+                          const canUseTool = tool === 'shrink_terrain' ? canShrink : true;
 
                           return (
                             <Button
                               key={tool}
                               variant={selectedTool === tool ? 'default' : 'ghost'}
                               className="w-full justify-start gap-3 h-11"
-                              disabled={!canAfford && info.cost > 0}
+                              disabled={(!canAfford && info.cost > 0) || !canUseTool}
                               onClick={() => handleToolSelect(tool, true)}
                             >
                               <span className="flex-1 text-left">{info.name}</span>

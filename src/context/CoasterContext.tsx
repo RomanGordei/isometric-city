@@ -9,6 +9,8 @@ import {
   createEmptyTile,
   createEmptyBuilding,
   TOOL_INFO,
+  COASTER_TERRAIN_RESIZE_TILES,
+  COASTER_MIN_GRID_SIZE,
 } from '@/games/coaster/types';
 import { ParkFinances, ParkStats, ParkSettings, Guest, Staff, DEFAULT_PRICES, WeatherState, WeatherType, WEATHER_EFFECTS, WEATHER_TRANSITIONS, getSeasonalWeatherBias, GuestThought } from '@/games/coaster/types/economy';
 import { Coaster, CoasterTrain, CoasterCar, TrackDirection, TrackHeight, TrackPiece, TrackPieceType, CoasterType, COASTER_TYPE_STATS, getStrutStyleForCoasterType, getCoasterCategory, areCoasterTypesCompatible } from '@/games/coaster/types/tracks';
@@ -396,6 +398,8 @@ interface CoasterContextValue {
   // Park management
   setParkSettings: (settings: Partial<ParkSettings>, isRemote?: boolean) => void;
   addMoney: (amount: number) => void;
+  expandPark: () => void;
+  shrinkPark: () => boolean;
   clearGuests: () => void;
   addNotification: (title: string, description: string, icon: Notification['icon']) => void;
   setParkSettingsCallback: (callback: ((settings: Partial<ParkSettings>) => void) | null) => void;
@@ -3431,6 +3435,216 @@ export function CoasterProvider({
     }));
   }, []);
 
+  const expandPark = useCallback(() => {
+    const offset = COASTER_TERRAIN_RESIZE_TILES;
+    setState(prev => {
+      const newSize = prev.gridSize + offset * 2;
+      const newGrid: Tile[][] = [];
+
+      for (let y = 0; y < newSize; y++) {
+        const row: Tile[] = [];
+        for (let x = 0; x < newSize; x++) {
+          const oldX = x - offset;
+          const oldY = y - offset;
+          if (oldX >= 0 && oldY >= 0 && oldX < prev.gridSize && oldY < prev.gridSize) {
+            const oldTile = prev.grid[oldY][oldX];
+            row.push({
+              ...oldTile,
+              x,
+              y,
+              building: { ...oldTile.building },
+            });
+          } else {
+            row.push(createEmptyTile(x, y));
+          }
+        }
+        newGrid.push(row);
+      }
+
+      const shiftPoint = (point: { x: number; y: number }) => ({
+        x: point.x + offset,
+        y: point.y + offset,
+      });
+
+      return {
+        ...prev,
+        grid: newGrid,
+        gridSize: newSize,
+        coasters: prev.coasters.map(coaster => ({
+          ...coaster,
+          trackTiles: coaster.trackTiles.map(shiftPoint),
+          stationTileX: coaster.stationTileX + offset,
+          stationTileY: coaster.stationTileY + offset,
+        })),
+        guests: prev.guests.map(guest => ({
+          ...guest,
+          tileX: guest.tileX + offset,
+          tileY: guest.tileY + offset,
+          targetTileX: guest.targetTileX + offset,
+          targetTileY: guest.targetTileY + offset,
+          path: guest.path.map(shiftPoint),
+        })),
+        staff: prev.staff.map(staff => ({
+          ...staff,
+          tileX: staff.tileX + offset,
+          tileY: staff.tileY + offset,
+          patrol: staff.patrol.map(shiftPoint),
+        })),
+        notifications: prev.notifications.map(notification => {
+          if (notification.tileX === undefined || notification.tileY === undefined) {
+            return notification;
+          }
+          return {
+            ...notification,
+            tileX: notification.tileX + offset,
+            tileY: notification.tileY + offset,
+          };
+        }),
+        buildingCoasterPath: prev.buildingCoasterPath.map(shiftPoint),
+        gameVersion: (prev.gameVersion ?? 0) + 1,
+      };
+    });
+  }, []);
+
+  const shrinkPark = useCallback((): boolean => {
+    let success = false;
+    setState(prev => {
+      const offset = COASTER_TERRAIN_RESIZE_TILES;
+      const newSize = prev.gridSize - offset * 2;
+      if (newSize < COASTER_MIN_GRID_SIZE) {
+        return prev;
+      }
+
+      success = true;
+
+      const newGrid: Tile[][] = [];
+      for (let y = 0; y < newSize; y++) {
+        const row: Tile[] = [];
+        for (let x = 0; x < newSize; x++) {
+          const oldTile = prev.grid[y + offset][x + offset];
+          row.push({
+            ...oldTile,
+            x,
+            y,
+            building: { ...oldTile.building },
+          });
+        }
+        newGrid.push(row);
+      }
+
+      const wasInBounds = (point: { x: number; y: number }) =>
+        point.x >= offset &&
+        point.y >= offset &&
+        point.x < prev.gridSize - offset &&
+        point.y < prev.gridSize - offset;
+
+      const shiftPoint = (point: { x: number; y: number }) => ({
+        x: point.x - offset,
+        y: point.y - offset,
+      });
+
+      const keptCoasters = prev.coasters.filter(coaster => coaster.trackTiles.every(wasInBounds));
+      const keptCoasterIds = new Set(keptCoasters.map(coaster => coaster.id));
+      const removedCoasterIds = new Set(
+        prev.coasters.filter(coaster => !keptCoasterIds.has(coaster.id)).map(coaster => coaster.id)
+      );
+
+      if (removedCoasterIds.size > 0) {
+        for (let y = 0; y < newSize; y++) {
+          for (let x = 0; x < newSize; x++) {
+            const tile = newGrid[y][x];
+            if (tile.coasterTrackId && removedCoasterIds.has(tile.coasterTrackId)) {
+              newGrid[y][x] = {
+                ...tile,
+                trackPiece: null,
+                hasCoasterTrack: false,
+                coasterTrackId: null,
+              };
+            }
+          }
+        }
+      }
+
+      const updatedCoasters = keptCoasters.map(coaster => ({
+        ...coaster,
+        trackTiles: coaster.trackTiles.map(shiftPoint),
+        stationTileX: coaster.stationTileX - offset,
+        stationTileY: coaster.stationTileY - offset,
+      }));
+
+      const updatedGuests = prev.guests
+        .filter(guest => wasInBounds({ x: guest.tileX, y: guest.tileY }))
+        .map(guest => {
+          const newTileX = guest.tileX - offset;
+          const newTileY = guest.tileY - offset;
+          const targetInBounds = wasInBounds({ x: guest.targetTileX, y: guest.targetTileY });
+
+          return {
+            ...guest,
+            tileX: newTileX,
+            tileY: newTileY,
+            targetTileX: targetInBounds ? guest.targetTileX - offset : newTileX,
+            targetTileY: targetInBounds ? guest.targetTileY - offset : newTileY,
+            targetBuildingId: targetInBounds ? guest.targetBuildingId : null,
+            targetBuildingKind: targetInBounds ? guest.targetBuildingKind : null,
+            path: [],
+            pathIndex: 0,
+          };
+        });
+
+      const updatedStaff = prev.staff
+        .filter(staff => wasInBounds({ x: staff.tileX, y: staff.tileY }))
+        .map(staff => {
+          const newTileX = staff.tileX - offset;
+          const newTileY = staff.tileY - offset;
+          const patrol = staff.patrol.filter(wasInBounds).map(shiftPoint);
+
+          return {
+            ...staff,
+            tileX: newTileX,
+            tileY: newTileY,
+            patrol: patrol.length > 0 ? patrol : [{ x: newTileX, y: newTileY }],
+          };
+        });
+
+      const updatedNotifications = prev.notifications.map(notification => {
+        if (notification.tileX === undefined || notification.tileY === undefined) {
+          return notification;
+        }
+        if (!wasInBounds({ x: notification.tileX, y: notification.tileY })) {
+          return { ...notification, tileX: undefined, tileY: undefined };
+        }
+        return {
+          ...notification,
+          tileX: notification.tileX - offset,
+          tileY: notification.tileY - offset,
+        };
+      });
+
+      const buildPathInBounds = prev.buildingCoasterPath.every(wasInBounds);
+      const buildingPath = buildPathInBounds ? prev.buildingCoasterPath.map(shiftPoint) : [];
+      const buildingCoasterRemoved = prev.buildingCoasterId ? removedCoasterIds.has(prev.buildingCoasterId) : false;
+      const keepBuildingState = buildPathInBounds && !buildingCoasterRemoved;
+
+      return {
+        ...prev,
+        grid: newGrid,
+        gridSize: newSize,
+        coasters: updatedCoasters,
+        guests: updatedGuests,
+        staff: updatedStaff,
+        notifications: updatedNotifications,
+        buildingCoasterPath: keepBuildingState ? buildingPath : [],
+        buildingCoasterId: keepBuildingState ? prev.buildingCoasterId : null,
+        buildingCoasterHeight: keepBuildingState ? prev.buildingCoasterHeight : 0,
+        buildingCoasterLastDirection: keepBuildingState ? prev.buildingCoasterLastDirection : null,
+        buildingCoasterType: keepBuildingState ? prev.buildingCoasterType : null,
+        gameVersion: (prev.gameVersion ?? 0) + 1,
+      };
+    });
+    return success;
+  }, []);
+
   const clearGuests = useCallback(() => {
     setState(prev => ({
       ...prev,
@@ -3553,6 +3767,8 @@ export function CoasterProvider({
 
     setParkSettings,
     addMoney,
+    expandPark,
+    shrinkPark,
     clearGuests,
     addNotification,
     setParkSettingsCallback,
