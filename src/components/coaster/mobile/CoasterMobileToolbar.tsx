@@ -65,7 +65,7 @@ const SUBMENU_CATEGORIES: { key: string; label: string; tools: Tool[] }[] = [
   {
     key: 'terrain',
     label: 'Terrain',
-    tools: ['zone_water', 'zone_land'],
+    tools: ['zone_water', 'zone_land', 'terrain_expand', 'terrain_shrink'],
   },
   {
     key: 'trees',
@@ -331,7 +331,7 @@ interface CoasterMobileToolbarProps {
 }
 
 export function CoasterMobileToolbar({ onOpenPanel }: CoasterMobileToolbarProps) {
-  const { state, setTool, startCoasterBuild } = useCoaster();
+  const { state, setTool, startCoasterBuild, expandPark, shrinkPark } = useCoaster();
   const { selectedTool, finances, buildingCoasterType } = state;
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -345,6 +345,24 @@ export function CoasterMobileToolbar({ onOpenPanel }: CoasterMobileToolbarProps)
   };
 
   const handleToolSelect = useCallback((tool: Tool, closeMenu: boolean = false) => {
+    // Handle terrain expand/shrink as immediate actions
+    if (tool === 'terrain_expand') {
+      expandPark();
+      setExpandedCategory(null);
+      if (closeMenu) {
+        setShowMenu(false);
+      }
+      return;
+    }
+    if (tool === 'terrain_shrink') {
+      shrinkPark();
+      setExpandedCategory(null);
+      if (closeMenu) {
+        setShowMenu(false);
+      }
+      return;
+    }
+    
     // Check if this is a coaster type selection tool
     const coasterType = COASTER_TYPE_TOOL_MAP[tool];
     if (coasterType) {
@@ -359,7 +377,7 @@ export function CoasterMobileToolbar({ onOpenPanel }: CoasterMobileToolbarProps)
     if (closeMenu) {
       setShowMenu(false);
     }
-  }, [selectedTool, setTool, startCoasterBuild]);
+  }, [selectedTool, setTool, startCoasterBuild, expandPark, shrinkPark]);
 
   return (
     <>

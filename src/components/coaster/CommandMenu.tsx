@@ -135,7 +135,7 @@ const ALL_MENU_ITEMS = buildMenuItems();
 
 export function CoasterCommandMenu() {
   const { isMobileDevice } = useMobile();
-  const { state, setTool, setActivePanel, startCoasterBuild } = useCoaster();
+  const { state, setTool, setActivePanel, startCoasterBuild, expandPark, shrinkPark } = useCoaster();
   const { finances } = state;
 
   const [open, setOpen] = useState(false);
@@ -215,6 +215,18 @@ export function CoasterCommandMenu() {
 
   const handleSelect = useCallback((item: MenuItem) => {
     if (item.type === 'tool' && item.tool) {
+      // Handle terrain expand/shrink as immediate actions
+      if (item.tool === 'terrain_expand') {
+        expandPark();
+        setOpen(false);
+        return;
+      }
+      if (item.tool === 'terrain_shrink') {
+        shrinkPark();
+        setOpen(false);
+        return;
+      }
+      
       const coasterType = COASTER_TYPE_TOOL_MAP[item.tool];
       if (coasterType) {
         startCoasterBuild(coasterType);
@@ -226,7 +238,7 @@ export function CoasterCommandMenu() {
       setActivePanel(state.activePanel === item.panel ? 'none' : item.panel);
     }
     setOpen(false);
-  }, [setTool, setActivePanel, startCoasterBuild, state.activePanel]);
+  }, [setTool, setActivePanel, startCoasterBuild, expandPark, shrinkPark, state.activePanel]);
 
   useEffect(() => {
     if (!listRef.current || flatItems.length === 0) return;

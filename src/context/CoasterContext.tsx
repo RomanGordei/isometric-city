@@ -401,6 +401,10 @@ interface CoasterContextValue {
   setParkSettingsCallback: (callback: ((settings: Partial<ParkSettings>) => void) | null) => void;
   setSpeedCallback: (callback: ((speed: 0 | 1 | 2 | 3) => void) | null) => void;
   
+  // Park expansion
+  expandPark: () => void;
+  shrinkPark: () => boolean;
+  
   // Save/Load
   saveGame: () => void;
   loadGame: () => boolean;
@@ -3453,6 +3457,208 @@ export function CoasterProvider({
     }));
   }, []);
   
+  // Expand the park grid by 15 tiles on each side (30x30 total increase)
+  const expandPark = useCallback(() => {
+    const EXPANSION = 15;
+    const EXPANSION_COST = 10000;
+    
+    setState(prev => {
+      // Check if player can afford it
+      if (prev.finances.cash < EXPANSION_COST) {
+        return prev;
+      }
+      
+      const currentSize = prev.gridSize;
+      const newSize = currentSize + EXPANSION * 2;
+      const newGrid: Tile[][] = [];
+      
+      // Create new grid with expanded size
+      for (let y = 0; y < newSize; y++) {
+        const row: Tile[] = [];
+        for (let x = 0; x < newSize; x++) {
+          const oldX = x - EXPANSION;
+          const oldY = y - EXPANSION;
+          
+          // If within old grid bounds, copy the tile with updated coordinates
+          if (oldX >= 0 && oldY >= 0 && oldX < currentSize && oldY < currentSize) {
+            const oldTile = prev.grid[oldY][oldX];
+            row.push({
+              ...oldTile,
+              x,
+              y,
+              building: { ...oldTile.building },
+              trackPiece: oldTile.trackPiece ? { ...oldTile.trackPiece } : null,
+            });
+          } else {
+            // Create new grass tile for expansion area
+            row.push(createEmptyTile(x, y));
+          }
+        }
+        newGrid.push(row);
+      }
+      
+      // Update guest positions
+      const updatedGuests = prev.guests.map(guest => ({
+        ...guest,
+        tileX: guest.tileX + EXPANSION,
+        tileY: guest.tileY + EXPANSION,
+        targetTileX: guest.targetTileX + EXPANSION,
+        targetTileY: guest.targetTileY + EXPANSION,
+        path: guest.path.map(p => ({ x: p.x + EXPANSION, y: p.y + EXPANSION })),
+      }));
+      
+      // Update staff positions
+      const updatedStaff = prev.staff.map(staff => ({
+        ...staff,
+        tileX: staff.tileX + EXPANSION,
+        tileY: staff.tileY + EXPANSION,
+        patrol: staff.patrol.map(p => ({ x: p.x + EXPANSION, y: p.y + EXPANSION })),
+      }));
+      
+      // Update coaster track positions
+      const updatedCoasters = prev.coasters.map(coaster => ({
+        ...coaster,
+        trackTiles: coaster.trackTiles.map(tile => ({
+          x: tile.x + EXPANSION,
+          y: tile.y + EXPANSION,
+        })),
+        stationTileX: coaster.stationTileX + EXPANSION,
+        stationTileY: coaster.stationTileY + EXPANSION,
+      }));
+      
+      // Update building coaster path if actively building
+      const updatedBuildingPath = prev.buildingCoasterPath.map(pos => ({
+        x: pos.x + EXPANSION,
+        y: pos.y + EXPANSION,
+      }));
+      
+      return {
+        ...prev,
+        grid: newGrid,
+        gridSize: newSize,
+        guests: updatedGuests,
+        staff: updatedStaff,
+        coasters: updatedCoasters,
+        buildingCoasterPath: updatedBuildingPath,
+        finances: {
+          ...prev.finances,
+          cash: prev.finances.cash - EXPANSION_COST,
+        },
+        gameVersion: prev.gameVersion + 1,
+      };
+    });
+  }, []);
+  
+  // Shrink the park grid by 15 tiles on each side (30x30 total reduction)
+  const shrinkPark = useCallback((): boolean => {
+    const SHRINK_AMOUNT = 15;
+    const MIN_SIZE = 30;
+    let success = false;
+    
+    setState(prev => {
+      const currentSize = prev.gridSize;
+      const newSize = currentSize - SHRINK_AMOUNT * 2;
+      
+      // Don't allow shrinking below minimum size
+      if (newSize < MIN_SIZE) {
+        return prev;
+      }
+      
+      // Check if any important content would be lost in the edges
+      // Check for buildings, paths, tracks, etc. in the shrink zone
+      for (let y = 0; y < currentSize; y++) {
+        for (let x = 0; x < currentSize; x++) {
+          const inShrinkZone = x < SHRINK_AMOUNT || x >= currentSize - SHRINK_AMOUNT ||
+                              y < SHRINK_AMOUNT || y >= currentSize - SHRINK_AMOUNT;
+          if (inShrinkZone) {
+            const tile = prev.grid[y][x];
+            // Block shrink if there's anything important in the shrink zone
+            if (tile.building.type !== 'empty' && tile.building.type !== 'grass' && tile.building.type !== 'water') {
+              return prev; // Has building
+            }
+            if (tile.path || tile.queue || tile.hasCoasterTrack) {
+              return prev; // Has paths or tracks
+            }
+          }
+        }
+      }
+      
+      success = true;
+      const newGrid: Tile[][] = [];
+      
+      // Copy tiles from the interior of the old grid
+      for (let y = 0; y < newSize; y++) {
+        const row: Tile[] = [];
+        for (let x = 0; x < newSize; x++) {
+          const oldX = x + SHRINK_AMOUNT;
+          const oldY = y + SHRINK_AMOUNT;
+          const oldTile = prev.grid[oldY][oldX];
+          
+          row.push({
+            ...oldTile,
+            x,
+            y,
+            building: { ...oldTile.building },
+            trackPiece: oldTile.trackPiece ? { ...oldTile.trackPiece } : null,
+          });
+        }
+        newGrid.push(row);
+      }
+      
+      // Update guest positions
+      const updatedGuests = prev.guests
+        .map(guest => ({
+          ...guest,
+          tileX: guest.tileX - SHRINK_AMOUNT,
+          tileY: guest.tileY - SHRINK_AMOUNT,
+          targetTileX: guest.targetTileX - SHRINK_AMOUNT,
+          targetTileY: guest.targetTileY - SHRINK_AMOUNT,
+          path: guest.path.map(p => ({ x: p.x - SHRINK_AMOUNT, y: p.y - SHRINK_AMOUNT })),
+        }))
+        .filter(guest => guest.tileX >= 0 && guest.tileY >= 0 && guest.tileX < newSize && guest.tileY < newSize);
+      
+      // Update staff positions
+      const updatedStaff = prev.staff
+        .map(staff => ({
+          ...staff,
+          tileX: staff.tileX - SHRINK_AMOUNT,
+          tileY: staff.tileY - SHRINK_AMOUNT,
+          patrol: staff.patrol.map(p => ({ x: p.x - SHRINK_AMOUNT, y: p.y - SHRINK_AMOUNT })),
+        }))
+        .filter(staff => staff.tileX >= 0 && staff.tileY >= 0 && staff.tileX < newSize && staff.tileY < newSize);
+      
+      // Update coaster track positions
+      const updatedCoasters = prev.coasters.map(coaster => ({
+        ...coaster,
+        trackTiles: coaster.trackTiles.map(tile => ({
+          x: tile.x - SHRINK_AMOUNT,
+          y: tile.y - SHRINK_AMOUNT,
+        })),
+        stationTileX: coaster.stationTileX - SHRINK_AMOUNT,
+        stationTileY: coaster.stationTileY - SHRINK_AMOUNT,
+      }));
+      
+      // Update building coaster path if actively building
+      const updatedBuildingPath = prev.buildingCoasterPath.map(pos => ({
+        x: pos.x - SHRINK_AMOUNT,
+        y: pos.y - SHRINK_AMOUNT,
+      }));
+      
+      return {
+        ...prev,
+        grid: newGrid,
+        gridSize: newSize,
+        guests: updatedGuests,
+        staff: updatedStaff,
+        coasters: updatedCoasters,
+        buildingCoasterPath: updatedBuildingPath,
+        gameVersion: prev.gameVersion + 1,
+      };
+    });
+    
+    return success;
+  }, []);
+  
   const saveGame = useCallback(() => {
     // Use async worker-based save to avoid blocking main thread
     persistCoasterSaveAsync(latestStateRef.current)
@@ -3557,6 +3763,9 @@ export function CoasterProvider({
     addNotification,
     setParkSettingsCallback,
     setSpeedCallback,
+    
+    expandPark,
+    shrinkPark,
     
     saveGame,
     loadGame,

@@ -323,7 +323,7 @@ const SUBMENU_CATEGORIES: { key: string; label: string; tools: Tool[] }[] = [
   {
     key: 'terrain',
     label: 'Terrain',
-    tools: ['zone_water', 'zone_land'],
+    tools: ['zone_water', 'zone_land', 'terrain_expand', 'terrain_shrink'],
   },
   {
     key: 'trees',
@@ -588,7 +588,7 @@ const COASTER_TYPE_PRIMARY_COLORS: Record<string, string> = {
 };
 
 export function Sidebar({ onExit }: SidebarProps) {
-  const { state, setTool, saveGame, startCoasterBuild, cancelCoasterBuild } = useCoaster();
+  const { state, setTool, saveGame, startCoasterBuild, cancelCoasterBuild, expandPark, shrinkPark } = useCoaster();
   const { selectedTool, finances, weather, buildingCoasterType } = state;
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -607,6 +607,16 @@ export function Sidebar({ onExit }: SidebarProps) {
   }, [onExit]);
   
   const handleSelectTool = useCallback((tool: Tool) => {
+    // Handle terrain expand/shrink as immediate actions
+    if (tool === 'terrain_expand') {
+      expandPark();
+      return;
+    }
+    if (tool === 'terrain_shrink') {
+      shrinkPark();
+      return;
+    }
+    
     // Check if this is a coaster type selection tool
     const coasterType = COASTER_TYPE_TOOL_MAP[tool];
     if (coasterType) {
@@ -617,7 +627,7 @@ export function Sidebar({ onExit }: SidebarProps) {
     } else {
       setTool(tool);
     }
-  }, [setTool, startCoasterBuild]);
+  }, [setTool, startCoasterBuild, expandPark, shrinkPark]);
 
   useEffect(() => {
     const isHost = multiplayer?.connectionState === 'connected' && multiplayer?.roomCode && !multiplayer?.initialState;

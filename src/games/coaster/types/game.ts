@@ -20,6 +20,8 @@ export type Tool =
   // Terrain/Zoning
   | 'zone_water'
   | 'zone_land'
+  | 'terrain_expand'
+  | 'terrain_shrink'
   
   // Coaster building - track pieces
   | 'coaster_build'
@@ -168,6 +170,8 @@ export const TOOL_INFO: Record<Tool, ToolInfo> = {
   // Terrain/Zoning
   zone_water: { name: 'Water Terraform', cost: 500, description: 'Terraform land into water', category: 'terrain' },
   zone_land: { name: 'Land Terraform', cost: 500, description: 'Terraform water into land', category: 'terrain' },
+  terrain_expand: { name: 'Expand Park', cost: 10000, description: 'Expand park by 15 tiles on each side', category: 'terrain' },
+  terrain_shrink: { name: 'Shrink Park', cost: 0, description: 'Shrink park by 15 tiles on each side', category: 'terrain' },
   
   coaster_build: { name: 'Coaster Build Mode', cost: 0, description: 'Start building a coaster', category: 'coasters' },
   coaster_track: { name: 'Track: Straight', cost: 20, description: 'Place straight track segments', category: 'coasters' },
