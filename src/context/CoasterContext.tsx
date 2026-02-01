@@ -11,7 +11,7 @@ import {
   TOOL_INFO,
 } from '@/games/coaster/types';
 import { ParkFinances, ParkStats, ParkSettings, Guest, Staff, DEFAULT_PRICES, WeatherState, WeatherType, WEATHER_EFFECTS, WEATHER_TRANSITIONS, getSeasonalWeatherBias, GuestThought } from '@/games/coaster/types/economy';
-import { Coaster, CoasterTrain, CoasterCar, TrackDirection, TrackHeight, TrackPiece, TrackPieceType, CoasterType, COASTER_TYPE_STATS, getStrutStyleForCoasterType, getCoasterCategory, areCoasterTypesCompatible } from '@/games/coaster/types/tracks';
+import { Coaster, CoasterTrain, CoasterCar, TrackDirection, TrackHeight, TrackPiece, TrackPieceType, CoasterType, COASTER_TYPE_STATS, getDefaultBankAngle, getStrutStyleForCoasterType, getCoasterCategory, areCoasterTypesCompatible, isLeftTurnPiece, isRightTurnPiece, isTurnPiece } from '@/games/coaster/types/tracks';
 import { Building, BuildingType } from '@/games/coaster/types/buildings';
 import { spawnGuests, updateGuest } from '@/components/coaster/guests';
 import { perlinNoise } from '@/lib/simulation';
@@ -713,7 +713,7 @@ function calculateStaffWages(staff: Staff[]): number {
 function getExitDirection(piece: TrackPiece): TrackDirection {
   const { type, direction } = piece;
   
-  if (type === 'turn_right_flat' || type === 'turn_right_large_flat') {
+  if (isRightTurnPiece(type)) {
     // Right turn: north->east, east->south, south->west, west->north
     const rightTurn: Record<TrackDirection, TrackDirection> = {
       north: 'east', east: 'south', south: 'west', west: 'north'
@@ -721,7 +721,7 @@ function getExitDirection(piece: TrackPiece): TrackDirection {
     return rightTurn[direction];
   }
   
-  if (type === 'turn_left_flat' || type === 'turn_left_large_flat') {
+  if (isLeftTurnPiece(type)) {
     // Left turn: north->west, west->south, south->east, east->north
     const leftTurn: Record<TrackDirection, TrackDirection> = {
       north: 'west', west: 'south', south: 'east', east: 'north'
@@ -764,7 +764,7 @@ function calculateCorrectDirection(
   const { type } = piece;
   
   // For turns, we need to calculate based on entry direction
-  if (type === 'turn_left_flat' || type === 'turn_right_flat' || type === 'turn_left_large_flat' || type === 'turn_right_large_flat') {
+  if (isTurnPiece(type)) {
     if (prevTile) {
       // Calculate entry direction (where we came FROM)
       const dx = currTile.x - prevTile.x;
@@ -2144,6 +2144,8 @@ export function CoasterProvider({
         'coaster_track',
         'coaster_turn_left',
         'coaster_turn_right',
+        'coaster_turn_banked_left',
+        'coaster_turn_banked_right',
         'coaster_slope_up',
         'coaster_slope_down',
         'coaster_loop',
@@ -2193,18 +2195,14 @@ export function CoasterProvider({
               
               // Calculate entry and exit directions for the adjacent piece
               // Turns store entry direction; straights/slopes store exit direction.
-              const isFlatTurn =
-                adjPiece.type === 'turn_left_flat' ||
-                adjPiece.type === 'turn_right_flat' ||
-                adjPiece.type === 'turn_left_large_flat' ||
-                adjPiece.type === 'turn_right_large_flat';
-              const entryDir = isFlatTurn ? adjPiece.direction : OPPOSITE_DIRECTION[adjPiece.direction];
+              const isTurn = isTurnPiece(adjPiece.type);
+              const entryDir = isTurn ? adjPiece.direction : OPPOSITE_DIRECTION[adjPiece.direction];
               
               // Exit direction depends on track type
               let exitDir = adjPiece.direction;
-              if (adjPiece.type === 'turn_left_flat' || adjPiece.type === 'turn_left_large_flat') {
+              if (isLeftTurnPiece(adjPiece.type)) {
                 exitDir = rotateDirection(adjPiece.direction, 'left');
-              } else if (adjPiece.type === 'turn_right_flat' || adjPiece.type === 'turn_right_large_flat') {
+              } else if (isRightTurnPiece(adjPiece.type)) {
                 exitDir = rotateDirection(adjPiece.direction, 'right');
               }
               
@@ -2292,9 +2290,11 @@ export function CoasterProvider({
         let startHeight = adjacentHeight;
         let endHeight = adjacentHeight;
         let chainLift = false;
+        let bankAngle: TrackPiece['bankAngle'] = 0;
         
-        if (tool === 'coaster_turn_left') {
-          pieceType = 'turn_left_flat';
+        if (tool === 'coaster_turn_left' || tool === 'coaster_turn_banked_left') {
+          pieceType = tool === 'coaster_turn_left' ? 'turn_left_flat' : 'turn_banked_left';
+          bankAngle = getDefaultBankAngle(pieceType);
           // For turns, the drawing code interprets direction as "entering FROM" (not traveling TO)
           if (adjacentDirection) {
             if (connectingToEntry) {
@@ -2309,8 +2309,9 @@ export function CoasterProvider({
             }
           }
           endDirection = rotateDirection(startDirection, 'left');
-        } else if (tool === 'coaster_turn_right') {
-          pieceType = 'turn_right_flat';
+        } else if (tool === 'coaster_turn_right' || tool === 'coaster_turn_banked_right') {
+          pieceType = tool === 'coaster_turn_right' ? 'turn_right_flat' : 'turn_banked_right';
+          bankAngle = getDefaultBankAngle(pieceType);
           if (adjacentDirection) {
             if (connectingToEntry) {
               // For turn_right: exit = rotateDirection(entry, 'right')
@@ -2390,7 +2391,7 @@ export function CoasterProvider({
               direction: entryDir,
               startHeight: clampHeight(prev.buildingCoasterHeight),
               endHeight: clampHeight(prev.buildingCoasterHeight),
-              bankAngle: 0,
+              bankAngle: getDefaultBankAngle(turnType),
               chainLift: false,
               boosted: false,
               strutStyle: getStrutStyleForCoasterType(coasterTypeForStrut),
@@ -2450,7 +2451,7 @@ export function CoasterProvider({
           direction: startDirection,
           startHeight: clampHeight(startHeight),
           endHeight: clampHeight(endHeight),
-          bankAngle: 0,
+          bankAngle,
           chainLift,
           boosted: false,
           strutStyle: getStrutStyleForCoasterType(coasterTypeForStyle),
@@ -3190,9 +3191,9 @@ export function CoasterProvider({
               let exitDir = adjPiece.direction;
               
               // For turns, calculate the actual exit direction
-              if (adjPiece.type === 'turn_left_flat') {
+              if (isLeftTurnPiece(adjPiece.type)) {
                 exitDir = rotateDirection(adjPiece.direction, 'left');
-              } else if (adjPiece.type === 'turn_right_flat') {
+              } else if (isRightTurnPiece(adjPiece.type)) {
                 exitDir = rotateDirection(adjPiece.direction, 'right');
               }
               
@@ -3277,7 +3278,7 @@ export function CoasterProvider({
           direction: direction,
           startHeight: clampHeight(currentHeight),
           endHeight: clampHeight(currentHeight),
-          bankAngle: 0,
+          bankAngle: getDefaultBankAngle(pieceType),
           chainLift: false,
           boosted: false,
           strutStyle: strutStyleForLine,

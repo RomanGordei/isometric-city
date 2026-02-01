@@ -3,7 +3,7 @@
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useCoaster } from '@/context/CoasterContext';
 import { Tile, Tool, TOOL_INFO } from '@/games/coaster/types';
-import { getCoasterCategory, CoasterCategory, CoasterType } from '@/games/coaster/types/tracks';
+import { getCoasterCategory, CoasterCategory, CoasterType, TrackPiece, getDefaultBankAngle, isLeftTurnPiece, isRightTurnPiece, isTurnPiece } from '@/games/coaster/types/tracks';
 import { getSpriteInfo, getSpriteRect, COASTER_SPRITE_PACK } from '@/games/coaster/lib/coasterRenderConfig';
 
 // Helper to get building size for a tool (defaults to 1x1)
@@ -1568,11 +1568,13 @@ function drawTrackSegment(
   const effectiveStrutStyle = strutStyle ?? 'metal';
   // Use provided track color or default
   const effectiveTrackColor = trackColor;
+  const bankAngle = trackPiece.bankAngle || getDefaultBankAngle(type);
   
   if (type === 'straight_flat' || type === 'lift_hill_start' || type === 'lift_hill_middle' || type === 'lift_hill_end') {
     drawStraightTrack(ctx, x, y, direction, startHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick);
-  } else if (type === 'turn_left_flat' || type === 'turn_right_flat') {
-    drawCurvedTrack(ctx, x, y, direction, type === 'turn_right_flat', startHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick);
+  } else if (isTurnPiece(type)) {
+    const turnRight = isRightTurnPiece(type);
+    drawCurvedTrack(ctx, x, y, direction, turnRight, startHeight, bankAngle, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick);
   } else if (type === 'slope_up_small' || type === 'slope_down_small') {
     drawSlopeTrack(ctx, x, y, direction, startHeight, endHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick);
   } else if (type === 'loop_vertical') {
@@ -1604,7 +1606,7 @@ function getTrackPoint(
   centerX: number,
   centerY: number,
   t: number
-): { x: number; y: number; pitch: number } {
+): { x: number; y: number; pitch: number; roll: number } {
   const w = TILE_WIDTH;
   const h = TILE_HEIGHT;
   
@@ -1622,9 +1624,10 @@ function getTrackPoint(
   const center = { x: startX + w / 2, y: startY + h / 2 - heightOffset };
   
   const { type, direction } = trackPiece;
+  const bankAngle = trackPiece.bankAngle || getDefaultBankAngle(type);
   
-  if (type === 'turn_left_flat' || type === 'turn_right_flat') {
-    const turnRight = type === 'turn_right_flat';
+  if (isTurnPiece(type)) {
+    const turnRight = isRightTurnPiece(type);
     
     // Determine which edges to connect based on direction and turn
     // This MUST match drawCurvedTrack logic exactly
@@ -1647,10 +1650,16 @@ function getTrackPoint(
     
     // Quadratic bezier with center as control point (same as drawCurvedTrack)
     const u = 1 - t;
+    const bankAngleRad = (bankAngle * Math.PI) / 180;
+    const roll = bankAngleRad === 0
+      ? 0
+      : Math.sin(Math.PI * t) * bankAngleRad * (turnRight ? 1 : -1);
+    
     return {
       x: u * u * fromEdge.x + 2 * u * t * center.x + t * t * toEdge.x,
       y: u * u * fromEdge.y + 2 * u * t * center.y + t * t * toEdge.y,
       pitch: 0, // Flat turns have no pitch
+      roll,
     };
   }
   
@@ -1707,6 +1716,7 @@ function getTrackPoint(
       x: forwardX + bulgeX,
       y: forwardY + bulgeY - loopHeightOffset - elevation,
       pitch: loopPitch,
+      roll: 0,
     };
   }
   
@@ -1727,28 +1737,28 @@ function getTrackPoint(
     const fromY = startY + h * 0.25 - trackPiece.startHeight * HEIGHT_UNIT;
     const toX = startX + w * 0.75;
     const toY = startY + h * 0.75 - trackPiece.endHeight * HEIGHT_UNIT;
-    return { x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t, pitch: slopePitch };
+    return { x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t, pitch: slopePitch, roll: 0 };
   } else if (direction === 'north') {
     // North: enter from south edge (bottom-right), exit to north edge (top-left)
     const fromX = startX + w * 0.75;
     const fromY = startY + h * 0.75 - trackPiece.startHeight * HEIGHT_UNIT;
     const toX = startX + w * 0.25;
     const toY = startY + h * 0.25 - trackPiece.endHeight * HEIGHT_UNIT;
-    return { x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t, pitch: slopePitch };
+    return { x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t, pitch: slopePitch, roll: 0 };
   } else if (direction === 'west') {
     // West: enter from east edge (top-right), exit to west edge (bottom-left)
     const fromX = startX + w * 0.75;
     const fromY = startY + h * 0.25 - trackPiece.startHeight * HEIGHT_UNIT;
     const toX = startX + w * 0.25;
     const toY = startY + h * 0.75 - trackPiece.endHeight * HEIGHT_UNIT;
-    return { x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t, pitch: slopePitch };
+    return { x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t, pitch: slopePitch, roll: 0 };
   } else {
     // East: enter from west edge (bottom-left), exit to east edge (top-right)
     const fromX = startX + w * 0.25;
     const fromY = startY + h * 0.75 - trackPiece.startHeight * HEIGHT_UNIT;
     const toX = startX + w * 0.75;
     const toY = startY + h * 0.25 - trackPiece.endHeight * HEIGHT_UNIT;
-    return { x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t, pitch: slopePitch };
+    return { x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t, pitch: slopePitch, roll: 0 };
   }
 }
 
@@ -2299,6 +2309,7 @@ function drawCoasterCar(
   y: number, 
   direction: string,
   pitch: number = 0,
+  roll: number = 0,
   carIndex: number = 0,
   isLoading: boolean = false,
   guestCount: number = 4,
@@ -2318,6 +2329,12 @@ function drawCoasterCar(
   ctx.save();
   ctx.translate(x, y + pitchYOffset);
   ctx.rotate(yawAngle);
+  
+  if (Math.abs(roll) > 0.001) {
+    const rollScale = Math.max(0.6, Math.cos(roll));
+    const rollShear = Math.tan(roll) * 0.25;
+    ctx.transform(1, 0, rollShear, rollScale, 0, 0);
+  }
   
   if (Math.abs(pitch) > 0.01) {
     ctx.scale(1, Math.max(0.3, pitchScale));
@@ -2411,17 +2428,17 @@ export function CoasterGrid({
   }, [coasters]);
   
   // Helper functions for track direction calculations (matching CoasterContext.tsx logic)
-  const getExitDirection = useCallback((piece: { type: string; direction: 'north' | 'east' | 'south' | 'west' }): 'north' | 'east' | 'south' | 'west' => {
+  const getExitDirection = useCallback((piece: Pick<TrackPiece, 'type' | 'direction'>): 'north' | 'east' | 'south' | 'west' => {
     const { type, direction } = piece;
     
-    if (type === 'turn_right_flat' || type === 'turn_right_large_flat') {
+    if (isRightTurnPiece(type)) {
       const rightTurn: Record<'north' | 'east' | 'south' | 'west', 'north' | 'east' | 'south' | 'west'> = {
         north: 'east', east: 'south', south: 'west', west: 'north'
       };
       return rightTurn[direction];
     }
     
-    if (type === 'turn_left_flat' || type === 'turn_left_large_flat') {
+    if (isLeftTurnPiece(type)) {
       const leftTurn: Record<'north' | 'east' | 'south' | 'west', 'north' | 'east' | 'south' | 'west'> = {
         north: 'west', west: 'south', south: 'east', east: 'north'
       };
@@ -2675,6 +2692,7 @@ export function CoasterGrid({
       y: number;
       direction: string;
       pitch: number; // Pitch angle in radians for slopes
+      roll: number; // Roll angle in radians for banked turns
       carIndex: number;
       isLoading: boolean;
       guestCount: number;
@@ -2780,6 +2798,7 @@ export function CoasterGrid({
             x: pos.x, 
             y: pos.y,
             pitch: pos.pitch,
+            roll: pos.roll,
             direction: travelDirection,
             carIndex: carIdx,
             isLoading,
@@ -2959,7 +2978,7 @@ const tile = grid[y][x];
         const cars = carsByTile.get(`${x},${y}`);
         if (cars) {
           cars.forEach(car => {
-            drawCoasterCar(ctx, car.x, car.y, car.direction, car.pitch, car.carIndex, car.isLoading, car.guestCount, tick, car.coasterType, car.primaryColor);
+            drawCoasterCar(ctx, car.x, car.y, car.direction, car.pitch, car.roll, car.carIndex, car.isLoading, car.guestCount, tick, car.coasterType, car.primaryColor);
           });
         }
         

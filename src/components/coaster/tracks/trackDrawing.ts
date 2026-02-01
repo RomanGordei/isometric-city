@@ -464,6 +464,7 @@ export function drawCurvedTrack(
   startDir: TrackDirection,
   turnRight: boolean,
   height: number,
+  bankAngle: number = 0,
   trackColor: string = COLORS.rail,
   strutStyle: StrutStyle = 'metal',
   coasterCategory?: CoasterCategory,
@@ -479,6 +480,16 @@ export function drawCurvedTrack(
   const southEdge = { x: startX + w * 0.75, y: startY + h * 0.75 - heightOffset };
   const westEdge = { x: startX + w * 0.25, y: startY + h * 0.75 - heightOffset };
   const center = { x: startX + w / 2, y: startY + h / 2 - heightOffset };
+
+  const bankAngleRad = (bankAngle * Math.PI) / 180;
+  const bankOffset = Math.sin(bankAngleRad) * TRACK_WIDTH * 0.8;
+  const hasBank = Math.abs(bankOffset) > 0.001;
+  const bankSide = turnRight ? 1 : -1;
+  const getBankYOffset = (side: number, t: number) => {
+    if (!hasBank) return 0;
+    const blend = Math.sin(Math.PI * t);
+    return -bankOffset * blend * side * bankSide;
+  };
   
   // Determine which edges to connect based on direction and turn
   // startDir is the direction the track is coming FROM
@@ -542,9 +553,18 @@ export function drawCurvedTrack(
     const perpX = -tangent.y / len;
     const perpY = tangent.x / len;
     
+    const leftBank = getBankYOffset(-1, t);
+    const rightBank = getBankYOffset(1, t);
+    
     ctx.beginPath();
-    ctx.moveTo(pt.x - perpX * TIE_LENGTH / 2, pt.y - perpY * TIE_LENGTH / 2);
-    ctx.lineTo(pt.x + perpX * TIE_LENGTH / 2, pt.y + perpY * TIE_LENGTH / 2);
+    ctx.moveTo(
+      pt.x - perpX * TIE_LENGTH / 2,
+      pt.y - perpY * TIE_LENGTH / 2 + leftBank
+    );
+    ctx.lineTo(
+      pt.x + perpX * TIE_LENGTH / 2,
+      pt.y + perpY * TIE_LENGTH / 2 + rightBank
+    );
     ctx.stroke();
   }
   
@@ -579,8 +599,9 @@ export function drawCurvedTrack(
       const perpX = -tangent.y / len;
       const perpY = tangent.x / len;
       
+      const bankYOffset = getBankYOffset(side, t);
       const rx = pt.x + perpX * railOffset * side;
-      const ry = pt.y + perpY * railOffset * side;
+      const ry = pt.y + perpY * railOffset * side + bankYOffset;
       
       if (i === 0) {
         ctx.moveTo(rx, ry);

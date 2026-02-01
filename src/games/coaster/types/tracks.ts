@@ -116,6 +116,51 @@ export interface TrackPiece {
   strutStyle: StrutStyle; // Support structure material (wood or metal)
 }
 
+const LEFT_TURN_TYPES = new Set<TrackPieceType>([
+  'turn_left_flat',
+  'turn_left_large_flat',
+  'turn_banked_left',
+  'turn_banked_left_large',
+]);
+
+const RIGHT_TURN_TYPES = new Set<TrackPieceType>([
+  'turn_right_flat',
+  'turn_right_large_flat',
+  'turn_banked_right',
+  'turn_banked_right_large',
+]);
+
+export function isLeftTurnPiece(type: TrackPieceType): boolean {
+  return LEFT_TURN_TYPES.has(type);
+}
+
+export function isRightTurnPiece(type: TrackPieceType): boolean {
+  return RIGHT_TURN_TYPES.has(type);
+}
+
+export function isTurnPiece(type: TrackPieceType): boolean {
+  return isLeftTurnPiece(type) || isRightTurnPiece(type);
+}
+
+export function isBankedTurnPiece(type: TrackPieceType): boolean {
+  return (
+    type === 'turn_banked_left' ||
+    type === 'turn_banked_right' ||
+    type === 'turn_banked_left_large' ||
+    type === 'turn_banked_right_large'
+  );
+}
+
+export function getDefaultBankAngle(type: TrackPieceType): BankAngle {
+  if (type === 'turn_banked_left_large' || type === 'turn_banked_right_large') {
+    return 45;
+  }
+  if (type === 'turn_banked_left' || type === 'turn_banked_right') {
+    return 30;
+  }
+  return 0;
+}
+
 // =============================================================================
 // COASTER TYPE DEFINITIONS
 // =============================================================================

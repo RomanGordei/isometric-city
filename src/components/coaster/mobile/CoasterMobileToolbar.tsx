@@ -251,8 +251,16 @@ function CoasterTrackToolsPanel({ onClose }: CoasterTrackToolsProps) {
   const { selectedTool, finances, buildingCoasterType } = state;
   
   const trackTools: Tool[] = [
-    'coaster_build', 'coaster_track', 'coaster_turn_left', 'coaster_turn_right',
-    'coaster_slope_up', 'coaster_slope_down', 'coaster_loop', 'coaster_station'
+    'coaster_build',
+    'coaster_track',
+    'coaster_turn_left',
+    'coaster_turn_right',
+    'coaster_turn_banked_left',
+    'coaster_turn_banked_right',
+    'coaster_slope_up',
+    'coaster_slope_down',
+    'coaster_loop',
+    'coaster_station',
   ];
   
   if (!buildingCoasterType) return null;
