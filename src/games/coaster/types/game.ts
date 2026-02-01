@@ -171,8 +171,8 @@ export const TOOL_INFO: Record<Tool, ToolInfo> = {
   
   coaster_build: { name: 'Coaster Build Mode', cost: 0, description: 'Start building a coaster', category: 'coasters' },
   coaster_track: { name: 'Track: Straight', cost: 20, description: 'Place straight track segments', category: 'coasters' },
-  coaster_turn_left: { name: 'Track: Left Turn', cost: 25, description: 'Place a left turn segment', category: 'coasters' },
-  coaster_turn_right: { name: 'Track: Right Turn', cost: 25, description: 'Place a right turn segment', category: 'coasters' },
+  coaster_turn_left: { name: 'Track: Banked Left Turn', cost: 25, description: 'Place a banked left turn segment', category: 'coasters' },
+  coaster_turn_right: { name: 'Track: Banked Right Turn', cost: 25, description: 'Place a banked right turn segment', category: 'coasters' },
   coaster_slope_up: { name: 'Track: Slope Up', cost: 30, description: 'Place a rising track segment', category: 'coasters' },
   coaster_slope_down: { name: 'Track: Slope Down', cost: 30, description: 'Place a descending track segment', category: 'coasters' },
   coaster_loop: { name: 'Track: Loop', cost: 150, description: 'Place a vertical loop element', category: 'coasters' },

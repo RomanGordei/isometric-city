@@ -83,6 +83,9 @@ export type TrackPieceType =
 /** Bank angle for turns */
 export type BankAngle = 0 | 15 | 30 | 45 | 60 | 90;
 
+/** Default bank angle for turn pieces */
+export const DEFAULT_BANK_ANGLE: BankAngle = 30;
+
 /** Strut/support material style */
 export type StrutStyle = 'wood' | 'metal';
 

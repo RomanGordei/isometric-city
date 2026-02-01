@@ -3,7 +3,7 @@
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useCoaster } from '@/context/CoasterContext';
 import { Tile, Tool, TOOL_INFO } from '@/games/coaster/types';
-import { getCoasterCategory, CoasterCategory, CoasterType } from '@/games/coaster/types/tracks';
+import { getCoasterCategory, CoasterCategory, CoasterType, DEFAULT_BANK_ANGLE } from '@/games/coaster/types/tracks';
 import { getSpriteInfo, getSpriteRect, COASTER_SPRITE_PACK } from '@/games/coaster/lib/coasterRenderConfig';
 
 // Helper to get building size for a tool (defaults to 1x1)
@@ -42,6 +42,24 @@ const SCENERY_DRAG_TOOLS: Tool[] = [
   // Flowers
   'flowers_bed', 'flowers_planter', 'flowers_hanging', 'flowers_wild', 'ground_cover',
 ];
+
+const TURN_LEFT_TYPES = new Set([
+  'turn_left_flat',
+  'turn_left_large_flat',
+  'turn_banked_left',
+  'turn_banked_left_large',
+]);
+
+const TURN_RIGHT_TYPES = new Set([
+  'turn_right_flat',
+  'turn_right_large_flat',
+  'turn_banked_right',
+  'turn_banked_right_large',
+]);
+
+const isLeftTurnType = (type: string) => TURN_LEFT_TYPES.has(type);
+const isRightTurnType = (type: string) => TURN_RIGHT_TYPES.has(type);
+const isTurnType = (type: string) => isLeftTurnType(type) || isRightTurnType(type);
 
 // =============================================================================
 // CONSTANTS (shared with isocity)
@@ -1571,8 +1589,24 @@ function drawTrackSegment(
   
   if (type === 'straight_flat' || type === 'lift_hill_start' || type === 'lift_hill_middle' || type === 'lift_hill_end') {
     drawStraightTrack(ctx, x, y, direction, startHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick);
-  } else if (type === 'turn_left_flat' || type === 'turn_right_flat') {
-    drawCurvedTrack(ctx, x, y, direction, type === 'turn_right_flat', startHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick);
+  } else if (isTurnType(type)) {
+    const turnRight = isRightTurnType(type);
+    const effectiveBankAngle = trackPiece.bankAngle !== undefined
+      ? trackPiece.bankAngle
+      : (type.includes('turn_banked') ? DEFAULT_BANK_ANGLE : 0);
+    drawCurvedTrack(
+      ctx,
+      x,
+      y,
+      direction,
+      turnRight,
+      startHeight,
+      effectiveTrackColor,
+      effectiveStrutStyle,
+      effectiveBankAngle,
+      coasterCategory,
+      tick
+    );
   } else if (type === 'slope_up_small' || type === 'slope_down_small') {
     drawSlopeTrack(ctx, x, y, direction, startHeight, endHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick);
   } else if (type === 'loop_vertical') {
@@ -1623,8 +1657,8 @@ function getTrackPoint(
   
   const { type, direction } = trackPiece;
   
-  if (type === 'turn_left_flat' || type === 'turn_right_flat') {
-    const turnRight = type === 'turn_right_flat';
+  if (isTurnType(type)) {
+    const turnRight = isRightTurnType(type);
     
     // Determine which edges to connect based on direction and turn
     // This MUST match drawCurvedTrack logic exactly
@@ -2414,14 +2448,14 @@ export function CoasterGrid({
   const getExitDirection = useCallback((piece: { type: string; direction: 'north' | 'east' | 'south' | 'west' }): 'north' | 'east' | 'south' | 'west' => {
     const { type, direction } = piece;
     
-    if (type === 'turn_right_flat' || type === 'turn_right_large_flat') {
+    if (isRightTurnType(type)) {
       const rightTurn: Record<'north' | 'east' | 'south' | 'west', 'north' | 'east' | 'south' | 'west'> = {
         north: 'east', east: 'south', south: 'west', west: 'north'
       };
       return rightTurn[direction];
     }
     
-    if (type === 'turn_left_flat' || type === 'turn_left_large_flat') {
+    if (isLeftTurnType(type)) {
       const leftTurn: Record<'north' | 'east' | 'south' | 'west', 'north' | 'east' | 'south' | 'west'> = {
         north: 'west', west: 'south', south: 'east', east: 'north'
       };

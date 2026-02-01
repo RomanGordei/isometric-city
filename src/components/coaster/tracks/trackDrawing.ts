@@ -466,6 +466,7 @@ export function drawCurvedTrack(
   height: number,
   trackColor: string = COLORS.rail,
   strutStyle: StrutStyle = 'metal',
+  bankAngle: number = 0,
   coasterCategory?: CoasterCategory,
   _tick: number = 0
 ) {
@@ -498,6 +499,15 @@ export function drawCurvedTrack(
     fromEdge = westEdge;
     toEdge = turnRight ? northEdge : southEdge;
   }
+
+  const bankRadians = Math.abs(bankAngle) * Math.PI / 180;
+  const bankScale = Math.cos(bankRadians);
+  const bankLift = Math.sin(bankRadians);
+  const bankSign = bankAngle === 0 ? 0 : (turnRight ? 1 : -1);
+  const getBankedOffset = (perpX: number, perpY: number, offset: number, side: number) => ({
+    x: perpX * bankScale * offset * side,
+    y: perpY * bankScale * offset * side - bankSign * bankLift * offset * side,
+  });
   
   // Draw support if elevated - place under the curve midpoint
   if (height > 0) {
@@ -543,8 +553,10 @@ export function drawCurvedTrack(
     const perpY = tangent.x / len;
     
     ctx.beginPath();
-    ctx.moveTo(pt.x - perpX * TIE_LENGTH / 2, pt.y - perpY * TIE_LENGTH / 2);
-    ctx.lineTo(pt.x + perpX * TIE_LENGTH / 2, pt.y + perpY * TIE_LENGTH / 2);
+    const leftTie = getBankedOffset(perpX, perpY, TIE_LENGTH / 2, 1);
+    const rightTie = getBankedOffset(perpX, perpY, TIE_LENGTH / 2, -1);
+    ctx.moveTo(pt.x + leftTie.x, pt.y + leftTie.y);
+    ctx.lineTo(pt.x + rightTie.x, pt.y + rightTie.y);
     ctx.stroke();
   }
   
@@ -579,8 +591,9 @@ export function drawCurvedTrack(
       const perpX = -tangent.y / len;
       const perpY = tangent.x / len;
       
-      const rx = pt.x + perpX * railOffset * side;
-      const ry = pt.y + perpY * railOffset * side;
+      const bankedOffset = getBankedOffset(perpX, perpY, railOffset, side);
+      const rx = pt.x + bankedOffset.x;
+      const ry = pt.y + bankedOffset.y;
       
       if (i === 0) {
         ctx.moveTo(rx, ry);
