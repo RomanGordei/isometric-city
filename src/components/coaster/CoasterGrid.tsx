@@ -1569,10 +1569,22 @@ function drawTrackSegment(
   // Use provided track color or default
   const effectiveTrackColor = trackColor;
   
+  // Get bank angle from track piece
+  const bankAngle = trackPiece.bankAngle ?? 0;
+  
   if (type === 'straight_flat' || type === 'lift_hill_start' || type === 'lift_hill_middle' || type === 'lift_hill_end') {
     drawStraightTrack(ctx, x, y, direction, startHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick);
   } else if (type === 'turn_left_flat' || type === 'turn_right_flat') {
-    drawCurvedTrack(ctx, x, y, direction, type === 'turn_right_flat', startHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick);
+    // Flat turns have no banking
+    drawCurvedTrack(ctx, x, y, direction, type === 'turn_right_flat', startHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick, 0);
+  } else if (type === 'turn_banked_left' || type === 'turn_banked_right') {
+    // Banked turns - use the bankAngle from the track piece (default to 45 degrees for standard banked turns)
+    const effectiveBankAngle = bankAngle > 0 ? bankAngle : 45;
+    drawCurvedTrack(ctx, x, y, direction, type === 'turn_banked_right', startHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick, effectiveBankAngle);
+  } else if (type === 'turn_banked_left_large' || type === 'turn_banked_right_large') {
+    // Large banked turns - similar to regular banked turns but may have different banking
+    const effectiveBankAngle = bankAngle > 0 ? bankAngle : 30;  // Slightly less banking for larger turns
+    drawCurvedTrack(ctx, x, y, direction, type === 'turn_banked_right_large', startHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick, effectiveBankAngle);
   } else if (type === 'slope_up_small' || type === 'slope_down_small') {
     drawSlopeTrack(ctx, x, y, direction, startHeight, endHeight, effectiveTrackColor, effectiveStrutStyle, coasterCategory, tick);
   } else if (type === 'loop_vertical') {
