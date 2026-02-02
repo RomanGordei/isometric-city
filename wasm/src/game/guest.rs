@@ -1,7 +1,5 @@
 //! Guest types and data
 
-use std::fmt;
-
 /// Guest state in the park
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GuestState {
@@ -180,11 +178,5 @@ impl Guest {
             has_hat: rng() > 0.7,
             walk_offset: rng() as f32 * std::f32::consts::PI * 2.0,
         }
-    }
-}
-
-impl fmt::Display for Guest {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Guest {} at ({}, {})", self.id, self.tile_x, self.tile_y)
     }
 }

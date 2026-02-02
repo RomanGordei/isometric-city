@@ -882,16 +882,12 @@ impl BuildingType {
 #[derive(Clone)]
 pub struct Building {
     pub building_type: BuildingType,
-    pub variant: u8,
-    pub age: u32,
 }
 
 impl Building {
     pub fn new(building_type: BuildingType) -> Self {
         Building {
             building_type,
-            variant: 0,
-            age: 0,
         }
     }
 }
