@@ -82,12 +82,12 @@ impl Canvas {
     
     /// Set fill color
     pub fn set_fill_color(&self, color: &str) {
-        self.ctx.set_fill_style(&JsValue::from_str(color));
+        self.ctx.set_fill_style_str(color);
     }
     
     /// Set stroke color
     pub fn set_stroke_color(&self, color: &str) {
-        self.ctx.set_stroke_style(&JsValue::from_str(color));
+        self.ctx.set_stroke_style_str(color);
     }
     
     /// Set line width
