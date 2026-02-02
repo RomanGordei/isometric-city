@@ -131,8 +131,11 @@ fn draw_track_piece(
     secondary_color: &str,
 ) -> Result<(), JsValue> {
     match piece_type {
-        TrackPieceType::StraightFlat | TrackPieceType::Station => {
+        TrackPieceType::StraightFlat => {
             draw_straight_track(canvas, x, y, direction, primary_color, secondary_color)?;
+        }
+        TrackPieceType::Station => {
+            draw_station_track(canvas, x, y, direction, primary_color, secondary_color)?;
         }
         TrackPieceType::TurnLeftFlat => {
             draw_curved_track(canvas, x, y, direction, true, primary_color)?;
@@ -142,6 +145,9 @@ fn draw_track_piece(
         }
         TrackPieceType::SlopeUpSmall | TrackPieceType::SlopeUpMedium | TrackPieceType::LiftHill => {
             draw_slope_track(canvas, x, y, direction, true, primary_color, secondary_color)?;
+            if matches!(piece_type, TrackPieceType::LiftHill) {
+                draw_chain_lift(canvas, x, y, direction)?;
+            }
         }
         TrackPieceType::SlopeDownSmall | TrackPieceType::SlopeDownMedium => {
             draw_slope_track(canvas, x, y, direction, false, primary_color, secondary_color)?;
@@ -149,9 +155,11 @@ fn draw_track_piece(
         TrackPieceType::LoopVertical => {
             draw_loop_track(canvas, x, y, primary_color)?;
         }
-        _ => {
-            // Default: draw straight
-            draw_straight_track(canvas, x, y, direction, primary_color, secondary_color)?;
+        TrackPieceType::Brakes => {
+            draw_brake_track(canvas, x, y, direction, primary_color, secondary_color)?;
+        }
+        TrackPieceType::Corkscrew => {
+            draw_corkscrew_track(canvas, x, y, direction, primary_color)?;
         }
     }
     
@@ -205,6 +213,32 @@ fn draw_straight_track(
     canvas.stroke();
     
     Ok(())
+}
+
+/// Draw station track segment with platform
+fn draw_station_track(
+    canvas: &Canvas,
+    x: f64,
+    y: f64,
+    direction: &TrackDirection,
+    primary_color: &str,
+    secondary_color: &str,
+) -> Result<(), JsValue> {
+    // Platform base
+    let platform_width = TILE_WIDTH * 0.7;
+    let platform_height = TILE_HEIGHT * 0.3;
+
+    canvas.set_fill_color("#6b7280");
+    canvas.begin_path();
+    canvas.move_to(x, y - platform_height / 2.0);
+    canvas.line_to(x + platform_width / 2.0, y);
+    canvas.line_to(x, y + platform_height / 2.0);
+    canvas.line_to(x - platform_width / 2.0, y);
+    canvas.close_path();
+    canvas.fill();
+
+    // Draw rails on top
+    draw_straight_track(canvas, x, y, direction, primary_color, secondary_color)
 }
 
 /// Draw curved track segment
@@ -294,6 +328,37 @@ fn draw_slope_track(
     Ok(())
 }
 
+/// Draw chain lift details on a slope
+fn draw_chain_lift(
+    canvas: &Canvas,
+    x: f64,
+    y: f64,
+    direction: &TrackDirection,
+) -> Result<(), JsValue> {
+    let chain_color = "#9ca3af";
+    let track_length = TILE_WIDTH * 0.7;
+
+    let (dx, dy) = match direction {
+        TrackDirection::North | TrackDirection::South => (1.0, 0.6),
+        TrackDirection::East | TrackDirection::West => (-1.0, 0.6),
+    };
+
+    canvas.set_stroke_color(chain_color);
+    canvas.set_line_width(1.0);
+
+    let link_count = 6;
+    for i in 0..link_count {
+        let t = (i as f64 + 0.5) / link_count as f64;
+        let link_x = x - track_length / 2.0 * dx + track_length * dx * t;
+        let link_y = y - track_length / 2.0 * dy + track_length * dy * t;
+        canvas.begin_path();
+        canvas.arc(link_x, link_y, 1.0, 0.0, std::f64::consts::PI * 2.0)?;
+        canvas.stroke();
+    }
+
+    Ok(())
+}
+
 /// Draw vertical loop
 fn draw_loop_track(
     canvas: &Canvas,
@@ -316,6 +381,71 @@ fn draw_loop_track(
     canvas.arc(x, y - radius, radius - 4.0, 0.0, std::f64::consts::PI * 2.0)?;
     canvas.stroke();
     
+    Ok(())
+}
+
+/// Draw brake segment with red markers
+fn draw_brake_track(
+    canvas: &Canvas,
+    x: f64,
+    y: f64,
+    direction: &TrackDirection,
+    primary_color: &str,
+    secondary_color: &str,
+) -> Result<(), JsValue> {
+    draw_straight_track(canvas, x, y, direction, primary_color, secondary_color)?;
+
+    let marker_color = "#b91c1c";
+    let track_length = TILE_WIDTH * 0.6;
+
+    let (dx, dy) = match direction {
+        TrackDirection::North | TrackDirection::South => (1.0, 0.6),
+        TrackDirection::East | TrackDirection::West => (-1.0, 0.6),
+    };
+
+    canvas.set_stroke_color(marker_color);
+    canvas.set_line_width(2.0);
+
+    for i in 0..3 {
+        let t = (i as f64 + 1.0) / 4.0;
+        let mark_x = x - track_length / 2.0 * dx + track_length * dx * t;
+        let mark_y = y - track_length / 2.0 * dy + track_length * dy * t;
+        canvas.begin_path();
+        canvas.move_to(mark_x - 4.0, mark_y - 2.0);
+        canvas.line_to(mark_x + 4.0, mark_y + 2.0);
+        canvas.stroke();
+    }
+
+    Ok(())
+}
+
+/// Draw a simple corkscrew (S-curve)
+fn draw_corkscrew_track(
+    canvas: &Canvas,
+    x: f64,
+    y: f64,
+    direction: &TrackDirection,
+    color: &str,
+) -> Result<(), JsValue> {
+    let radius = TILE_WIDTH * 0.25;
+    let offset = TILE_WIDTH * 0.15;
+
+    canvas.set_stroke_color(color);
+    canvas.set_line_width(3.0);
+
+    let (sign_x, sign_y) = match direction {
+        TrackDirection::North | TrackDirection::South => (1.0, 1.0),
+        TrackDirection::East | TrackDirection::West => (-1.0, 1.0),
+    };
+
+    canvas.begin_path();
+    canvas.arc(x - offset * sign_x, y - offset * sign_y, radius, std::f64::consts::PI, std::f64::consts::PI * 2.0)?;
+    canvas.stroke();
+
+    canvas.begin_path();
+    canvas.arc(x + offset * sign_x, y + offset * sign_y, radius, 0.0, std::f64::consts::PI)?;
+    canvas.stroke();
+
     Ok(())
 }
 

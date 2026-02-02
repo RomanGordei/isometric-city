@@ -12,6 +12,10 @@ const SPRITE_SHEETS = [
   { id: 'rides_small', src: '/assets/coaster/rides_small.webp', cols: 5, rows: 6 },
   { id: 'rides_large', src: '/assets/coaster/rides_large.webp', cols: 5, rows: 6 },
   { id: 'path_furniture', src: '/assets/coaster/path_furniture.webp', cols: 5, rows: 6 },
+  { id: 'queue_elements', src: '/assets/coaster/queue_elements.webp', cols: 5, rows: 6 },
+  { id: 'theme_classic', src: '/assets/coaster/theme_classic.webp', cols: 5, rows: 6 },
+  { id: 'theme_modern', src: '/assets/coaster/theme_modern.webp', cols: 5, rows: 6 },
+  { id: 'infrastructure', src: '/assets/coaster/infrastructure.webp', cols: 5, rows: 6 },
 ];
 
 // Tool categories for the sidebar
@@ -68,6 +72,17 @@ const TOOL_CATEGORIES = [
     tools: [
       { id: 'fountain_small_1', name: 'Small Fountain', icon: '⛲' },
       { id: 'fountain_medium_1', name: 'Medium Fountain', icon: '💧' },
+    ],
+  },
+  {
+    name: 'Coaster',
+    tools: [
+      { id: 'coaster_station', name: 'Station', icon: '🚉' },
+      { id: 'coaster_track_straight', name: 'Straight Track', icon: '➖' },
+      { id: 'coaster_track_turn_left', name: 'Turn Left', icon: '↩️' },
+      { id: 'coaster_track_turn_right', name: 'Turn Right', icon: '↪️' },
+      { id: 'coaster_track_slope_up', name: 'Slope Up', icon: '⬆️' },
+      { id: 'coaster_track_slope_down', name: 'Slope Down', icon: '⬇️' },
     ],
   },
 ];

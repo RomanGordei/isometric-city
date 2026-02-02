@@ -3,7 +3,7 @@
 use super::tile::{Tile, Terrain};
 use super::building::{Building, BuildingType};
 use super::guest::Guest;
-use super::coaster::Coaster;
+use super::coaster::{Coaster, CoasterType, TrackDirection, TrackPiece, TrackPieceType};
 use super::tool::Tool;
 
 /// Main game state
@@ -23,6 +23,7 @@ pub struct GameState {
     // Entities
     pub guests: Vec<Guest>,
     pub coasters: Vec<Coaster>,
+    pub active_coaster_id: Option<String>,
     
     // Economy
     pub cash: i64,
@@ -51,6 +52,7 @@ impl GameState {
             minute: 0.0,
             guests: Vec::new(),
             coasters: Vec::new(),
+            active_coaster_id: None,
             cash: 50000,
             park_rating: 500,
             selected_tool: Tool::Select,
@@ -60,6 +62,7 @@ impl GameState {
         
         state.initialize_grid();
         state.generate_lakes();
+        state.setup_default_park();
         
         state
     }
@@ -136,6 +139,144 @@ impl GameState {
             }
         }
     }
+
+    /// Set up a basic starter park with paths, entrance, and demo coaster
+    fn setup_default_park(&mut self) {
+        let mid = (self.grid_size as i32) / 2;
+
+        // Create a main path from the edge inward
+        for x in 0..8 {
+            let tile_x = x as i32;
+            if let Some(tile) = self.get_tile_mut(tile_x, mid) {
+                tile.terrain = Terrain::Grass;
+                tile.path = true;
+            }
+        }
+
+        // Vertical branch path
+        for offset in -4..=4 {
+            let tile_y = mid + offset;
+            if let Some(tile) = self.get_tile_mut(5, tile_y) {
+                tile.terrain = Terrain::Grass;
+                tile.path = true;
+            }
+        }
+
+        // Place a park entrance building near the path
+        if let Some(tile) = self.get_tile_mut(2, mid - 1) {
+            tile.terrain = Terrain::Grass;
+            tile.building = Some(Building::new(BuildingType::ParkEntrance));
+        }
+
+        // Place a starter food stand
+        if let Some(tile) = self.get_tile_mut(6, mid - 1) {
+            tile.terrain = Terrain::Grass;
+            tile.building = Some(Building::new(BuildingType::FoodHotdog));
+        }
+
+        // Create a demo coaster loop for immediate rendering
+        self.create_demo_coaster();
+    }
+
+    /// Create a demo coaster with a simple loop
+    fn create_demo_coaster(&mut self) {
+        let base_x = (self.grid_size as i32) / 2 + 6;
+        let base_y = (self.grid_size as i32) / 2 - 8;
+        let loop_size = 6;
+
+        let mut track_tiles: Vec<(i32, i32)> = Vec::new();
+
+        // Top edge
+        for x in 0..loop_size {
+            track_tiles.push((base_x + x, base_y));
+        }
+        // Right edge
+        for y in 1..loop_size {
+            track_tiles.push((base_x + loop_size - 1, base_y + y));
+        }
+        // Bottom edge
+        for x in (0..(loop_size - 1)).rev() {
+            track_tiles.push((base_x + x, base_y + loop_size - 1));
+        }
+        // Left edge
+        for y in (1..(loop_size - 1)).rev() {
+            track_tiles.push((base_x, base_y + y));
+        }
+
+        if track_tiles.is_empty() {
+            return;
+        }
+
+        let mut coaster = Coaster::new(
+            "demo-coaster".to_string(),
+            "Steel Loop".to_string(),
+            CoasterType::SteelSitDown,
+        );
+
+        coaster.station_tile = track_tiles[0];
+
+        let mut track_pieces: Vec<TrackPiece> = Vec::new();
+        let mut last_direction = TrackDirection::East;
+
+        for i in 0..track_tiles.len() {
+            let current = track_tiles[i];
+            let next = track_tiles[(i + 1) % track_tiles.len()];
+            let dx = next.0 - current.0;
+            let dy = next.1 - current.1;
+
+            let direction = match (dx, dy) {
+                (1, 0) => TrackDirection::East,
+                (-1, 0) => TrackDirection::West,
+                (0, 1) => TrackDirection::South,
+                (0, -1) => TrackDirection::North,
+                _ => last_direction,
+            };
+
+            let piece_type = if i == 0 {
+                TrackPieceType::Station
+            } else if direction == last_direction {
+                TrackPieceType::StraightFlat
+            } else {
+                // Determine turn direction
+                let turn_left = matches!(
+                    (last_direction, direction),
+                    (TrackDirection::North, TrackDirection::West)
+                        | (TrackDirection::West, TrackDirection::South)
+                        | (TrackDirection::South, TrackDirection::East)
+                        | (TrackDirection::East, TrackDirection::North)
+                );
+
+                if turn_left {
+                    TrackPieceType::TurnLeftFlat
+                } else {
+                    TrackPieceType::TurnRightFlat
+                }
+            };
+
+            let mut piece = TrackPiece::new(piece_type, direction, 0);
+            piece.strut_style = coaster.coaster_type.strut_style();
+            track_pieces.push(piece);
+            last_direction = direction;
+        }
+
+        coaster.track_tiles = track_tiles.clone();
+        coaster.track_pieces = track_pieces;
+        coaster.operating = true;
+        coaster.add_trains(1, 3);
+
+        // Mark tiles
+        for (x, y) in track_tiles {
+            if let Some(tile) = self.get_tile_mut(x, y) {
+                tile.terrain = Terrain::Grass;
+                tile.has_coaster_track = true;
+                tile.coaster_track_id = Some(coaster.id.clone());
+            }
+        }
+
+        let coaster_id = coaster.id.clone();
+        self.coasters.push(coaster);
+        self.active_coaster_id = Some(coaster_id);
+    }
     
     /// Simple random number generator
     pub fn random(&mut self) -> f64 {
@@ -196,44 +337,72 @@ impl GameState {
         if x >= self.grid_size || y >= self.grid_size {
             return;
         }
-        
-        let tile = &self.grid[y][x];
+
         let cost = self.selected_tool.cost();
-        
+
         match self.selected_tool {
             Tool::Select => {
                 // Just selection, no action
             }
-            
+
             Tool::Bulldoze => {
                 let tile = &mut self.grid[y][x];
                 if tile.building.is_some() {
                     tile.building = None;
-                    // Refund partial cost (could be added)
                 } else if tile.path {
                     tile.path = false;
                 } else if tile.queue {
                     tile.queue = false;
                     tile.queue_ride_id = None;
+                } else if tile.has_coaster_track {
+                    tile.has_coaster_track = false;
+                    tile.coaster_track_id = None;
                 }
             }
-            
+
             Tool::Path => {
+                let tile = &self.grid[y][x];
                 if tile.can_place_path() && self.cash >= cost as i64 {
                     self.grid[y][x].path = true;
                     self.cash -= cost as i64;
                 }
             }
-            
+
             Tool::Queue => {
+                let tile = &self.grid[y][x];
                 if tile.can_place_path() && self.cash >= cost as i64 {
                     self.grid[y][x].queue = true;
                     self.cash -= cost as i64;
                 }
             }
-            
+
+            Tool::CoasterStation => {
+                self.place_coaster_station(grid_x, grid_y, cost);
+            }
+
+            Tool::CoasterTrackStraight => {
+                self.place_coaster_track(grid_x, grid_y, TrackPieceType::StraightFlat, cost);
+            }
+
+            Tool::CoasterTrackTurnLeft => {
+                self.place_coaster_track(grid_x, grid_y, TrackPieceType::TurnLeftFlat, cost);
+            }
+
+            Tool::CoasterTrackTurnRight => {
+                self.place_coaster_track(grid_x, grid_y, TrackPieceType::TurnRightFlat, cost);
+            }
+
+            Tool::CoasterTrackSlopeUp => {
+                self.place_coaster_track(grid_x, grid_y, TrackPieceType::SlopeUpSmall, cost);
+            }
+
+            Tool::CoasterTrackSlopeDown => {
+                self.place_coaster_track(grid_x, grid_y, TrackPieceType::SlopeDownSmall, cost);
+            }
+
             _ => {
                 // Building placement
+                let tile = &self.grid[y][x];
                 if let Some(building_type) = self.selected_tool.building_type() {
                     if tile.can_build() && self.cash >= cost as i64 {
                         self.grid[y][x].building = Some(Building::new(building_type));
@@ -241,6 +410,121 @@ impl GameState {
                     }
                 }
             }
+        }
+    }
+
+    fn place_coaster_station(&mut self, grid_x: i32, grid_y: i32, cost: i32) {
+        if self.cash < cost as i64 {
+            return;
+        }
+
+        let tile = match self.get_tile(grid_x, grid_y) {
+            Some(tile) => tile,
+            None => return,
+        };
+
+        if tile.terrain == Terrain::Water || tile.building.is_some() || tile.has_coaster_track {
+            return;
+        }
+
+        let coaster_id = format!("coaster-{}", self.coasters.len() + 1);
+        let mut coaster = Coaster::new(
+            coaster_id.clone(),
+            format!("Custom Coaster {}", self.coasters.len() + 1),
+            CoasterType::SteelSitDown,
+        );
+        coaster.station_tile = (grid_x, grid_y);
+
+        let mut piece = TrackPiece::new(TrackPieceType::Station, TrackDirection::East, 0);
+        piece.strut_style = coaster.coaster_type.strut_style();
+        coaster.track_tiles.push((grid_x, grid_y));
+        coaster.track_pieces.push(piece);
+
+        self.coasters.push(coaster);
+        self.active_coaster_id = Some(coaster_id.clone());
+
+        if let Some(tile) = self.get_tile_mut(grid_x, grid_y) {
+            tile.has_coaster_track = true;
+            tile.coaster_track_id = Some(coaster_id);
+        }
+
+        self.cash -= cost as i64;
+    }
+
+    fn place_coaster_track(&mut self, grid_x: i32, grid_y: i32, piece_type: TrackPieceType, cost: i32) {
+        if self.cash < cost as i64 {
+            return;
+        }
+
+        let tile = match self.get_tile(grid_x, grid_y) {
+            Some(tile) => tile,
+            None => return,
+        };
+
+        if tile.terrain == Terrain::Water || tile.building.is_some() || tile.has_coaster_track {
+            return;
+        }
+
+        let coaster_id = {
+            let coaster = match self.get_active_coaster_mut() {
+                Some(coaster) => coaster,
+                None => return,
+            };
+
+            if coaster.track_tiles.is_empty() {
+                return;
+            }
+
+            let last_tile = *coaster.track_tiles.last().unwrap();
+            let dx = grid_x - last_tile.0;
+            let dy = grid_y - last_tile.1;
+
+            if dx.abs() + dy.abs() != 1 {
+                return;
+            }
+
+            let direction = match (dx, dy) {
+                (1, 0) => TrackDirection::East,
+                (-1, 0) => TrackDirection::West,
+                (0, 1) => TrackDirection::South,
+                (0, -1) => TrackDirection::North,
+                _ => TrackDirection::East,
+            };
+
+            let start_height = coaster
+                .track_pieces
+                .last()
+                .map(|piece| piece.end_height)
+                .unwrap_or(0);
+
+            let mut piece = TrackPiece::new(piece_type, direction, start_height);
+            piece.strut_style = coaster.coaster_type.strut_style();
+
+            coaster.track_tiles.push((grid_x, grid_y));
+            coaster.track_pieces.push(piece);
+
+            if coaster.is_complete() {
+                coaster.operating = true;
+                coaster.add_trains(1, 3);
+            }
+
+            coaster.id.clone()
+        };
+
+        if let Some(tile) = self.get_tile_mut(grid_x, grid_y) {
+            tile.has_coaster_track = true;
+            tile.coaster_track_id = Some(coaster_id);
+        }
+
+        self.cash -= cost as i64;
+    }
+
+    fn get_active_coaster_mut(&mut self) -> Option<&mut Coaster> {
+        let active_id = self.active_coaster_id.clone();
+        if let Some(id) = active_id {
+            self.coasters.iter_mut().find(|coaster| coaster.id == id)
+        } else {
+            self.coasters.first_mut()
         }
     }
     

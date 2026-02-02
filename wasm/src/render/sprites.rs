@@ -423,6 +423,26 @@ fn create_default_sprites(sheet_id: &str, cols: u32, rows: u32) -> HashMap<Strin
             sprites.insert("trash_can_basic".to_string(), SpriteInfo::new("trash_can_basic", 2, 0).with_offset(0.0, -6.0).with_scale(0.42));
             sprites.insert("trash_can_fancy".to_string(), SpriteInfo::new("trash_can_fancy", 2, 1).with_offset(0.0, -6.0).with_scale(0.42));
         },
+        "infrastructure" => {
+            // Row 0: Entrances
+            sprites.insert("infra_main_entrance".to_string(), SpriteInfo::new("infra_main_entrance", 0, 0).with_offset(-8.0, -22.0).with_scale(0.82));
+            sprites.insert("infra_themed_entrance".to_string(), SpriteInfo::new("infra_themed_entrance", 0, 1).with_offset(-6.0, -24.0).with_scale(0.84));
+            sprites.insert("infra_vip_entrance".to_string(), SpriteInfo::new("infra_vip_entrance", 0, 2).with_offset(-5.0, -22.0).with_scale(0.8));
+            sprites.insert("infra_exit_gate".to_string(), SpriteInfo::new("infra_exit_gate", 0, 3).with_offset(0.0, -22.0).with_scale(0.78));
+            sprites.insert("infra_turnstile".to_string(), SpriteInfo::new("infra_turnstile", 0, 4).with_offset(0.0, -12.0).with_scale(0.6));
+            // Row 1: Admin
+            sprites.insert("infra_office".to_string(), SpriteInfo::new("infra_office", 1, 0).with_offset(-6.0, -14.0).with_scale(0.72));
+            sprites.insert("infra_maintenance".to_string(), SpriteInfo::new("infra_maintenance", 1, 1).with_offset(0.0, -20.0).with_scale(0.78));
+            sprites.insert("infra_warehouse".to_string(), SpriteInfo::new("infra_warehouse", 1, 2).with_offset(0.0, -22.0).with_scale(0.82));
+            sprites.insert("infra_security".to_string(), SpriteInfo::new("infra_security", 1, 3).with_offset(0.0, -18.0).with_scale(0.75));
+            sprites.insert("infra_break_room".to_string(), SpriteInfo::new("infra_break_room", 1, 4).with_offset(0.0, -18.0).with_scale(0.75));
+            // Row 2: Guest services
+            sprites.insert("infra_guest_relations".to_string(), SpriteInfo::new("infra_guest_relations", 2, 0).with_offset(0.0, -18.0).with_scale(0.78));
+            sprites.insert("infra_lost_found".to_string(), SpriteInfo::new("infra_lost_found", 2, 1).with_offset(0.0, -16.0).with_scale(0.72));
+            sprites.insert("infra_package_pickup".to_string(), SpriteInfo::new("infra_package_pickup", 2, 2).with_offset(0.0, -16.0).with_scale(0.72));
+            sprites.insert("infra_ticket_booth".to_string(), SpriteInfo::new("infra_ticket_booth", 2, 3).with_offset(0.0, -14.0).with_scale(0.68));
+            sprites.insert("infra_season_pass".to_string(), SpriteInfo::new("infra_season_pass", 2, 4).with_offset(0.0, -14.0).with_scale(0.68));
+        },
         _ => {}
     }
     
