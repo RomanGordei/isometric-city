@@ -214,6 +214,12 @@ pub enum BuildingType {
     ThemeHauntedTree,
     ThemeCircusTent,
     ThemeGeometric,
+
+    // Queue Decor
+    QueuePostMetal,
+    QueueRope,
+    QueueWaitSign,
+    QueueCanopy,
     
     // Coaster Stations
     StationWooden1,
@@ -349,6 +355,10 @@ impl BuildingType {
             BuildingType::ThemeHauntedTree | BuildingType::ThemeCircusTent | BuildingType::ThemeGeometric => {
                 Some("theme_modern")
             }
+
+            // Queue Decor
+            BuildingType::QueuePostMetal | BuildingType::QueueRope | BuildingType::QueueWaitSign |
+            BuildingType::QueueCanopy => Some("queue_elements"),
             
             // Stations
             BuildingType::StationWooden1 | BuildingType::StationWooden2 | BuildingType::StationWooden3 |
@@ -565,6 +575,10 @@ impl BuildingType {
             BuildingType::ThemeHauntedTree => "theme_haunted_tree",
             BuildingType::ThemeCircusTent => "theme_circus_tent",
             BuildingType::ThemeGeometric => "theme_geometric",
+            BuildingType::QueuePostMetal => "queue_post_metal",
+            BuildingType::QueueRope => "queue_rope",
+            BuildingType::QueueWaitSign => "queue_wait_sign",
+            BuildingType::QueueCanopy => "queue_canopy",
             BuildingType::StationWooden1 => "station_wooden_1",
             BuildingType::StationWooden2 => "station_wooden_2",
             BuildingType::StationWooden3 => "station_wooden_3",
@@ -762,6 +776,11 @@ impl BuildingType {
             BuildingType::ThemeHauntedTree => 400,
             BuildingType::ThemeCircusTent => 800,
             BuildingType::ThemeGeometric => 450,
+            // Queue Decor
+            BuildingType::QueuePostMetal => 60,
+            BuildingType::QueueRope => 40,
+            BuildingType::QueueWaitSign => 80,
+            BuildingType::QueueCanopy => 200,
             // Stations
             BuildingType::StationWooden1 | BuildingType::StationWooden2 | BuildingType::StationWooden3 |
             BuildingType::StationWooden4 | BuildingType::StationWooden5 => 500,

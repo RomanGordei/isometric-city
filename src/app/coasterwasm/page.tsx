@@ -103,6 +103,15 @@ const TOOL_CATEGORIES = [
     ],
   },
   {
+    name: 'Queue Decor',
+    tools: [
+      { id: 'queue_post_metal', name: 'Queue Post', icon: '🚧' },
+      { id: 'queue_rope', name: 'Queue Rope', icon: '🧵' },
+      { id: 'queue_wait_sign', name: 'Wait Sign', icon: '🪧' },
+      { id: 'queue_canopy', name: 'Queue Canopy', icon: '⛱️' },
+    ],
+  },
+  {
     name: 'Coaster',
     tools: [
       { id: 'coaster_station', name: 'Station', icon: '🚉' },
