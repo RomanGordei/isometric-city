@@ -27,6 +27,8 @@ import { GameState as CoasterGameState } from '@/games/coaster/types';
 // Background color to filter from sprite sheets (red)
 const BACKGROUND_COLOR = { r: 255, g: 0, b: 0 };
 const COLOR_THRESHOLD = 155;
+const ISO_CITY_URL = 'https://iso-city.com';
+const ISO_COASTER_DOMAIN = 'iso-coaster.com';
 
 // Filter red background from sprite sheet
 function filterBackgroundColor(img: HTMLImageElement): HTMLCanvasElement {
@@ -278,6 +280,14 @@ function CoasterPageContent() {
   const [showCoopModal, setShowCoopModal] = useState(false);
   const [pendingRoomCode, setPendingRoomCode] = useState<string | null>(null);
 
+  const handleBackToIsoCity = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hostname.includes(ISO_COASTER_DOMAIN)) {
+      event.preventDefault();
+      window.location.assign(ISO_CITY_URL);
+    }
+  }, []);
+
   const refreshSavedParks = useCallback(() => {
     let parks = readSavedParksIndex();
     const autosaveState = loadCoasterStateFromStorage(COASTER_AUTOSAVE_KEY);
@@ -423,6 +433,7 @@ function CoasterPageContent() {
 
                 <a
                   href="/"
+                  onClick={handleBackToIsoCity}
                   className="w-full text-center py-2 text-sm font-light tracking-wide text-white/40 hover:text-white/70 transition-colors duration-200"
                 >
                   Back to IsoCity
