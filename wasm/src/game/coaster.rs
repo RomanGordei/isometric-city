@@ -86,25 +86,54 @@ impl CoasterType {
     /// Get primary color for this coaster type
     pub fn default_primary_color(&self) -> &'static str {
         match self {
-            CoasterType::WoodenClassic | CoasterType::WoodenTwister => "#8b4513",
-            CoasterType::SteelInverted => "#dc2626",
-            CoasterType::SteelFloorless => "#7c3aed",
-            CoasterType::SteelWing => "#0ea5e9",
-            CoasterType::SteelFlying => "#f97316",
-            CoasterType::MineTrain => "#78350f",
-            CoasterType::WaterCoaster => "#0284c7",
-            CoasterType::LaunchCoaster => "#ef4444",
-            CoasterType::HyperCoaster => "#22c55e",
-            CoasterType::GigaCoaster => "#eab308",
-            _ => "#3b82f6",
+            CoasterType::WoodenClassic => "#8B4513",
+            CoasterType::WoodenTwister => "#A0522D",
+            CoasterType::SteelSitDown => "#dc2626",
+            CoasterType::SteelInverted => "#2563eb",
+            CoasterType::SteelFloorless => "#059669",
+            CoasterType::SteelWing => "#ea580c",
+            CoasterType::SteelFlying => "#0891b2",
+            CoasterType::MineTrain => "#92400e",
+            CoasterType::WaterCoaster => "#0ea5e9",
+            CoasterType::LaunchCoaster => "#e11d48",
+            CoasterType::HyperCoaster => "#0d9488",
+            CoasterType::GigaCoaster => "#4f46e5",
         }
     }
     
     /// Get secondary color for this coaster type  
     pub fn default_secondary_color(&self) -> &'static str {
         match self {
-            CoasterType::WoodenClassic | CoasterType::WoodenTwister => "#d2691e",
-            _ => "#1e293b",
+            CoasterType::WoodenClassic => "#D2691E",
+            CoasterType::WoodenTwister => "#CD853F",
+            CoasterType::SteelSitDown => "#fbbf24",
+            CoasterType::SteelInverted => "#60a5fa",
+            CoasterType::SteelFloorless => "#34d399",
+            CoasterType::SteelWing => "#fb923c",
+            CoasterType::SteelFlying => "#22d3ee",
+            CoasterType::MineTrain => "#fcd34d",
+            CoasterType::WaterCoaster => "#38bdf8",
+            CoasterType::LaunchCoaster => "#fda4af",
+            CoasterType::HyperCoaster => "#5eead4",
+            CoasterType::GigaCoaster => "#a5b4fc",
+        }
+    }
+
+    /// Get supports color for this coaster type
+    pub fn default_support_color(&self) -> &'static str {
+        match self {
+            CoasterType::WoodenClassic => "#5C3317",
+            CoasterType::WoodenTwister => "#654321",
+            CoasterType::SteelSitDown => "#374151",
+            CoasterType::SteelInverted => "#1e3a8a",
+            CoasterType::SteelFloorless => "#064e3b",
+            CoasterType::SteelWing => "#7c2d12",
+            CoasterType::SteelFlying => "#164e63",
+            CoasterType::MineTrain => "#451a03",
+            CoasterType::WaterCoaster => "#0c4a6e",
+            CoasterType::LaunchCoaster => "#9f1239",
+            CoasterType::HyperCoaster => "#134e4a",
+            CoasterType::GigaCoaster => "#312e81",
         }
     }
 }
@@ -237,7 +266,7 @@ impl Coaster {
         let color = CoasterColor {
             primary: coaster_type.default_primary_color().to_string(),
             secondary: coaster_type.default_secondary_color().to_string(),
-            supports: "#6b7280".to_string(),
+            supports: coaster_type.default_support_color().to_string(),
         };
         
         Coaster {
