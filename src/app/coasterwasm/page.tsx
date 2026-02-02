@@ -33,10 +33,20 @@ const TOOL_CATEGORIES = [
     name: 'Trees',
     tools: [
       { id: 'tree_oak', name: 'Oak Tree', icon: '🌳' },
+      { id: 'tree_maple', name: 'Maple Tree', icon: '🍁' },
       { id: 'tree_pine', name: 'Pine Tree', icon: '🌲' },
       { id: 'tree_palm', name: 'Palm Tree', icon: '🌴' },
+      { id: 'tree_cherry', name: 'Cherry Tree', icon: '🌸' },
       { id: 'bush_hedge', name: 'Hedge', icon: '🌿' },
       { id: 'flowers_bed', name: 'Flowers', icon: '🌸' },
+    ],
+  },
+  {
+    name: 'Furniture',
+    tools: [
+      { id: 'bench_wooden', name: 'Bench', icon: '🪑' },
+      { id: 'lamp_victorian', name: 'Lamp', icon: '💡' },
+      { id: 'trash_can_basic', name: 'Trash Can', icon: '🗑️' },
     ],
   },
   {
@@ -65,6 +75,8 @@ const TOOL_CATEGORIES = [
       { id: 'ride_teacups', name: 'Teacups', icon: '☕' },
       { id: 'ride_ferris_classic', name: 'Ferris Wheel', icon: '🎡' },
       { id: 'ride_bumper_cars', name: 'Bumper Cars', icon: '🚗' },
+      { id: 'ride_drop_tower', name: 'Drop Tower', icon: '🗼' },
+      { id: 'ride_log_flume', name: 'Log Flume', icon: '🛶' },
     ],
   },
   {
