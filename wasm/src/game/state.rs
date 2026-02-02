@@ -346,17 +346,26 @@ impl GameState {
             }
 
             Tool::Bulldoze => {
-                let tile = &mut self.grid[y][x];
-                if tile.building.is_some() {
-                    tile.building = None;
-                } else if tile.path {
-                    tile.path = false;
-                } else if tile.queue {
-                    tile.queue = false;
-                    tile.queue_ride_id = None;
-                } else if tile.has_coaster_track {
-                    tile.has_coaster_track = false;
-                    tile.coaster_track_id = None;
+                let has_building = self.grid[y][x].building.is_some();
+                let has_path = self.grid[y][x].path;
+                let has_queue = self.grid[y][x].queue;
+
+                if has_building {
+                    self.grid[y][x].building = None;
+                } else if has_path {
+                    self.grid[y][x].path = false;
+                } else if has_queue {
+                    self.grid[y][x].queue = false;
+                    self.grid[y][x].queue_ride_id = None;
+                } else {
+                    if !self.clear_track_tile(grid_x, grid_y) {
+                        let neighbors = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+                        for (dx, dy) in neighbors {
+                            if self.clear_track_tile(grid_x + dx, grid_y + dy) {
+                                break;
+                            }
+                        }
+                    }
                 }
             }
 
@@ -517,6 +526,62 @@ impl GameState {
         }
 
         self.cash -= cost as i64;
+    }
+
+    fn remove_coaster_track_piece(&mut self, coaster_id: &str, grid_x: i32, grid_y: i32) {
+        if let Some(coaster) = self.coasters.iter_mut().find(|c| c.id == coaster_id) {
+            let mut new_tiles = Vec::new();
+            let mut new_pieces = Vec::new();
+            let mut removed_station = false;
+
+            for (idx, &(tx, ty)) in coaster.track_tiles.iter().enumerate() {
+                if tx == grid_x && ty == grid_y {
+                    if coaster.station_tile == (tx, ty) {
+                        removed_station = true;
+                    }
+                    continue;
+                }
+
+                if let Some(piece) = coaster.track_pieces.get(idx) {
+                    new_tiles.push((tx, ty));
+                    new_pieces.push(piece.clone());
+                }
+            }
+
+            coaster.track_tiles = new_tiles;
+            coaster.track_pieces = new_pieces;
+
+            if removed_station {
+                if let Some(&(tx, ty)) = coaster.track_tiles.first() {
+                    coaster.station_tile = (tx, ty);
+                }
+            }
+
+            if coaster.track_tiles.len() < 2 || !coaster.is_complete() {
+                coaster.operating = false;
+                coaster.trains.clear();
+            }
+        }
+    }
+
+    fn clear_track_tile(&mut self, grid_x: i32, grid_y: i32) -> bool {
+        if !self.in_bounds(grid_x, grid_y) {
+            return false;
+        }
+
+        let track_id = self.grid[grid_y as usize][grid_x as usize].coaster_track_id.clone();
+        if !self.grid[grid_y as usize][grid_x as usize].has_coaster_track {
+            return false;
+        }
+
+        self.grid[grid_y as usize][grid_x as usize].has_coaster_track = false;
+        self.grid[grid_y as usize][grid_x as usize].coaster_track_id = None;
+
+        if let Some(track_id) = track_id {
+            self.remove_coaster_track_piece(&track_id, grid_x, grid_y);
+        }
+
+        true
     }
 
     fn get_active_coaster_mut(&mut self) -> Option<&mut Coaster> {

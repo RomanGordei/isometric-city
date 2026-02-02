@@ -10,7 +10,9 @@ pub mod render;
 pub mod sim;
 
 use game::state::GameState;
+use game::tool::Tool;
 use render::canvas::Canvas;
+use render::isometric::{grid_to_screen, TILE_HEIGHT, TILE_WIDTH};
 use render::sprites::SpriteManager;
 
 /// Console logging macro for debugging
@@ -173,6 +175,32 @@ impl Game {
         
         Ok(())
     }
+
+    fn find_nearest_track_tile(&self, world_x: f64, world_y: f64) -> Option<(i32, i32)> {
+        let mut best_tile: Option<(i32, i32, f64)> = None;
+        let max_distance = TILE_WIDTH * 0.9;
+        let max_distance_sq = max_distance * max_distance;
+
+        for coaster in &self.state.coasters {
+            for &(tile_x, tile_y) in &coaster.track_tiles {
+                let (screen_x, screen_y) = grid_to_screen(tile_x, tile_y);
+                let center_x = screen_x + TILE_WIDTH / 2.0;
+                let center_y = screen_y + TILE_HEIGHT / 2.0;
+                let dx = world_x - center_x;
+                let dy = world_y - center_y;
+                let distance_sq = dx * dx + dy * dy;
+
+                if distance_sq <= max_distance_sq {
+                    match best_tile {
+                        Some((_, _, best_distance)) if distance_sq >= best_distance => {}
+                        _ => best_tile = Some((tile_x, tile_y, distance_sq)),
+                    }
+                }
+            }
+        }
+
+        best_tile.map(|(tile_x, tile_y, _)| (tile_x, tile_y))
+    }
     
     /// Handle mouse click at screen coordinates
     pub fn handle_click(&mut self, screen_x: f64, screen_y: f64) {
@@ -186,6 +214,23 @@ impl Game {
             && (grid_x as usize) < self.state.grid_size 
             && (grid_y as usize) < self.state.grid_size 
         {
+            if matches!(self.state.selected_tool, Tool::Bulldoze) {
+                if let Some(tile) = self.state.get_tile(grid_x, grid_y) {
+                    let is_empty = tile.building.is_none()
+                        && !tile.path
+                        && !tile.queue
+                        && !tile.has_coaster_track;
+                    if is_empty {
+                        if let Some((track_x, track_y)) =
+                            self.find_nearest_track_tile(adjusted_x, adjusted_y)
+                        {
+                            self.state.apply_tool(track_x, track_y);
+                            return;
+                        }
+                    }
+                }
+            }
+
             // Apply current tool
             self.state.apply_tool(grid_x, grid_y);
         }
