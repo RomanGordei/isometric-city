@@ -4,7 +4,10 @@ use wasm_bindgen::prelude::*;
 use crate::game::state::GameState;
 use crate::game::building::BuildingType;
 use super::canvas::Canvas;
-use super::isometric::tile_center;
+use super::isometric::{grid_to_screen_offset, tile_center};
+
+const GREY_TILE_TOP: &str = "#6b7280";
+const GREY_TILE_STROKE: &str = "#374151";
 use super::sprites::SpriteManager;
 
 /// Render all buildings
@@ -13,7 +16,7 @@ pub fn render_buildings(
     state: &GameState,
     offset_x: f64,
     offset_y: f64,
-    _zoom: f64,
+    zoom: f64,
     sprites: &SpriteManager,
 ) -> Result<(), JsValue> {
     let grid_size = state.grid_size;
@@ -31,6 +34,15 @@ pub fn render_buildings(
             if let Some(ref building) = tile.building {
                 if building.building_type == BuildingType::Empty {
                     continue;
+                }
+
+                let (screen_x, screen_y) = grid_to_screen_offset(x as i32, y as i32, offset_x, offset_y);
+
+                if building.building_type.needs_grey_base() && !tile.has_coaster_track {
+                    canvas.fill_isometric_tile(screen_x, screen_y, GREY_TILE_TOP);
+                    if zoom >= 0.6 {
+                        canvas.stroke_isometric_tile(screen_x, screen_y, GREY_TILE_STROKE, 0.5);
+                    }
                 }
                 
                 let (cx, cy) = tile_center(x as i32, y as i32, offset_x, offset_y);

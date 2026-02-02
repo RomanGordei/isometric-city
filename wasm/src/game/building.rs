@@ -809,6 +809,25 @@ impl BuildingType {
             BuildingType::ShowDolphin | BuildingType::ShowAmphitheater | BuildingType::ShowParadeFloat
         )
     }
+
+    /// Check if this building should render a grey base tile
+    pub fn needs_grey_base(&self) -> bool {
+        self.is_food()
+            || self.is_shop()
+            || self.is_ride()
+            || matches!(
+                self,
+                BuildingType::FountainLarge1
+                    | BuildingType::FountainLarge2
+                    | BuildingType::FountainLarge3
+                    | BuildingType::FountainLarge4
+                    | BuildingType::FountainLarge5
+                    | BuildingType::PondLarge
+                    | BuildingType::DancingFountain
+                    | BuildingType::ParkEntrance
+                    | BuildingType::StaffBuilding
+            )
+    }
 }
 
 /// A placed building instance
