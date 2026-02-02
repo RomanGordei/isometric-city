@@ -58,7 +58,7 @@ export class Game {
     /**
      * Load a sprite sheet image
      */
-    load_sprite_sheet(id: string, image: HTMLImageElement, cols: number, rows: number): void;
+    load_sprite_sheet(id: string, image: HTMLImageElement, dimensions: any): void;
     /**
      * Load the water texture
      */
@@ -106,7 +106,7 @@ export interface InitOutput {
     readonly game_handle_mouse_move: (a: number, b: number, c: number) => void;
     readonly game_handle_mouse_up: (a: number, b: number, c: number) => void;
     readonly game_handle_wheel: (a: number, b: number, c: number, d: number) => void;
-    readonly game_load_sprite_sheet: (a: number, b: number, c: number, d: any, e: number, f: number) => [number, number];
+    readonly game_load_sprite_sheet: (a: number, b: number, c: number, d: any, e: any) => [number, number];
     readonly game_load_water_texture: (a: number, b: any) => [number, number];
     readonly game_new: (a: any, b: number, c: number) => [number, number, number];
     readonly game_render: (a: number) => [number, number];

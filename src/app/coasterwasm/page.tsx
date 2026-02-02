@@ -401,7 +401,7 @@ export default function CoasterWasmPage() {
         for (const sheet of SPRITE_SHEETS) {
           try {
             const img = await loadImage(sheet.src);
-            game.load_sprite_sheet(sheet.id, img, sheet.cols, sheet.rows);
+            game.load_sprite_sheet(sheet.id, img, { cols: sheet.cols, rows: sheet.rows });
           } catch (e) {
             console.warn(`Failed to load sprite sheet ${sheet.id}:`, e);
           }

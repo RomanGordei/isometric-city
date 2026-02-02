@@ -131,13 +131,12 @@ export class Game {
      * Load a sprite sheet image
      * @param {string} id
      * @param {HTMLImageElement} image
-     * @param {number} cols
-     * @param {number} rows
+     * @param {any} dimensions
      */
-    load_sprite_sheet(id, image, cols, rows) {
+    load_sprite_sheet(id, image, dimensions) {
         const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.game_load_sprite_sheet(this.__wbg_ptr, ptr0, len0, image, cols, rows);
+        const ret = wasm.game_load_sprite_sheet(this.__wbg_ptr, ptr0, len0, image, dimensions);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -217,6 +216,12 @@ function __wbg_get_imports() {
             const ret = arg0 === undefined;
             return ret;
         },
+        __wbg___wbindgen_number_get_8ff4255516ccad3e: function(arg0, arg1) {
+            const obj = arg1;
+            const ret = typeof(obj) === 'number' ? obj : undefined;
+            getDataViewMemory0().setFloat64(arg0 + 8 * 1, isLikeNone(ret) ? 0 : ret, true);
+            getDataViewMemory0().setInt32(arg0 + 4 * 0, !isLikeNone(ret), true);
+        },
         __wbg___wbindgen_throw_be289d5034ed271b: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
@@ -284,6 +289,10 @@ function __wbg_get_imports() {
         }, arguments); },
         __wbg_getImageData_24d72830c218154d: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
             const ret = arg0.getImageData(arg1, arg2, arg3, arg4);
+            return ret;
+        }, arguments); },
+        __wbg_get_b3ed3ad4be2bc8ac: function() { return handleError(function (arg0, arg1) {
+            const ret = Reflect.get(arg0, arg1);
             return ret;
         }, arguments); },
         __wbg_height_38750dc6de41ee75: function(arg0) {

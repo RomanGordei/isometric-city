@@ -3,6 +3,7 @@
 //! This module provides the main game entry point and WASM bindings.
 
 use wasm_bindgen::prelude::*;
+use js_sys::Reflect;
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
 pub mod game;
@@ -82,7 +83,14 @@ impl Game {
     }
     
     /// Load a sprite sheet image
-    pub fn load_sprite_sheet(&mut self, id: &str, image: HtmlImageElement, cols: u32, rows: u32) -> Result<(), JsValue> {
+    pub fn load_sprite_sheet(&mut self, id: &str, image: HtmlImageElement, dimensions: JsValue) -> Result<(), JsValue> {
+        let cols = Reflect::get(&dimensions, &JsValue::from_str("cols"))?
+            .as_f64()
+            .ok_or_else(|| JsValue::from_str("Sprite sheet cols missing"))? as u32;
+        let rows = Reflect::get(&dimensions, &JsValue::from_str("rows"))?
+            .as_f64()
+            .ok_or_else(|| JsValue::from_str("Sprite sheet rows missing"))? as u32;
+
         self.sprites.load_sheet(id, image, cols, rows, &self.canvas)?;
         console_log!("Loaded sprite sheet: {} ({}x{})", id, cols, rows);
         Ok(())
