@@ -180,46 +180,152 @@ fn draw_rock_tile(canvas: &Canvas, x: f64, y: f64, zoom: f64) {
 fn draw_path_tile(canvas: &Canvas, x: f64, y: f64, grid_x: i32, grid_y: i32, state: &GameState) {
     let w = TILE_WIDTH;
     let h = TILE_HEIGHT;
-    
-    // Draw path surface with slight inset
-    let inset = 4.0;
-    canvas.set_fill_color(PATH_SURFACE);
-    canvas.begin_path();
-    canvas.move_to(x + w / 2.0, y + inset);
-    canvas.line_to(x + w - inset, y + h / 2.0);
-    canvas.line_to(x + w / 2.0, y + h - inset);
-    canvas.line_to(x + inset, y + h / 2.0);
-    canvas.close_path();
-    canvas.fill();
-    
-    // Draw edge
-    canvas.set_stroke_color(PATH_EDGE);
-    canvas.set_line_width(1.0);
-    canvas.stroke();
-    
-    // Check for adjacent paths and draw connections
+    let cx = x + w / 2.0;
+    let cy = y + h / 2.0;
+
+    draw_grass_tile(canvas, x, y, 1.0);
+
     let size = state.grid_size as i32;
-    let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
-    
-    for (dx, dy) in dirs {
-        let nx = grid_x + dx;
-        let ny = grid_y + dy;
-        
-        if nx >= 0 && ny >= 0 && nx < size && ny < size {
-            let neighbor = &state.grid[ny as usize][nx as usize];
-            if neighbor.path || neighbor.queue {
-                // Draw connection (thicker line toward neighbor)
-                canvas.set_stroke_color(PATH_SURFACE);
-                canvas.set_line_width(8.0);
-                canvas.begin_path();
-                canvas.move_to(x + w / 2.0, y + h / 2.0);
-                
-                let end_x = x + w / 2.0 + (dx - dy) as f64 * (w / 4.0);
-                let end_y = y + h / 2.0 + (dx + dy) as f64 * (h / 4.0);
-                canvas.line_to(end_x, end_y);
-                canvas.stroke();
-            }
+    let has_path = |gx: i32, gy: i32| -> bool {
+        if gx < 0 || gy < 0 || gx >= size || gy >= size {
+            return false;
         }
+        let tile = &state.grid[gy as usize][gx as usize];
+        tile.path || tile.queue
+    };
+
+    let has_visitable_building = |gx: i32, gy: i32| -> bool {
+        if gx < 0 || gy < 0 || gx >= size || gy >= size {
+            return false;
+        }
+        let tile = &state.grid[gy as usize][gx as usize];
+        if let Some(building) = &tile.building {
+            building.building_type.is_food() || building.building_type.is_shop()
+        } else {
+            false
+        }
+    };
+
+    let north = has_path(grid_x - 1, grid_y);
+    let east = has_path(grid_x, grid_y - 1);
+    let south = has_path(grid_x + 1, grid_y);
+    let west = has_path(grid_x, grid_y + 1);
+
+    let north_building = has_visitable_building(grid_x - 1, grid_y);
+    let east_building = has_visitable_building(grid_x, grid_y - 1);
+    let south_building = has_visitable_building(grid_x + 1, grid_y);
+    let west_building = has_visitable_building(grid_x, grid_y + 1);
+
+    let path_width_ratio = 0.18;
+    let path_w = w * path_width_ratio;
+    let half_width = path_w * 0.5;
+    let edge_stop = 1.15;
+
+    let north_edge_x = x + w * 0.25;
+    let north_edge_y = y + h * 0.25;
+    let east_edge_x = x + w * 0.75;
+    let east_edge_y = y + h * 0.25;
+    let south_edge_x = x + w * 0.75;
+    let south_edge_y = y + h * 0.75;
+    let west_edge_x = x + w * 0.25;
+    let west_edge_y = y + h * 0.75;
+
+    let north_len = ((north_edge_x - cx).powi(2) + (north_edge_y - cy).powi(2)).sqrt();
+    let east_len = ((east_edge_x - cx).powi(2) + (east_edge_y - cy).powi(2)).sqrt();
+    let south_len = ((south_edge_x - cx).powi(2) + (south_edge_y - cy).powi(2)).sqrt();
+    let west_len = ((west_edge_x - cx).powi(2) + (west_edge_y - cy).powi(2)).sqrt();
+
+    let north_dx = (north_edge_x - cx) / north_len;
+    let north_dy = (north_edge_y - cy) / north_len;
+    let east_dx = (east_edge_x - cx) / east_len;
+    let east_dy = (east_edge_y - cy) / east_len;
+    let south_dx = (south_edge_x - cx) / south_len;
+    let south_dy = (south_edge_y - cy) / south_len;
+    let west_dx = (west_edge_x - cx) / west_len;
+    let west_dy = (west_edge_y - cy) / west_len;
+
+    let get_perp = |dx: f64, dy: f64| -> (f64, f64) { (-dy, dx) };
+
+    let draw_segment = |dir_dx: f64, dir_dy: f64, edge_x: f64, edge_y: f64| {
+        let (perp_x, perp_y) = get_perp(dir_dx, dir_dy);
+        let stop_x = cx + (edge_x - cx) * edge_stop;
+        let stop_y = cy + (edge_y - cy) * edge_stop;
+
+        canvas.set_fill_color(PATH_SURFACE);
+        canvas.begin_path();
+        canvas.move_to(cx + perp_x * half_width, cy + perp_y * half_width);
+        canvas.line_to(stop_x + perp_x * half_width, stop_y + perp_y * half_width);
+        canvas.line_to(stop_x - perp_x * half_width, stop_y - perp_y * half_width);
+        canvas.line_to(cx - perp_x * half_width, cy - perp_y * half_width);
+        canvas.close_path();
+        canvas.fill();
+
+    };
+
+    if north {
+        draw_segment(north_dx, north_dy, north_edge_x, north_edge_y);
+    }
+    if east {
+        draw_segment(east_dx, east_dy, east_edge_x, east_edge_y);
+    }
+    if south {
+        draw_segment(south_dx, south_dy, south_edge_x, south_edge_y);
+    }
+    if west {
+        draw_segment(west_dx, west_dy, west_edge_x, west_edge_y);
+    }
+
+    if north_building && !north {
+        draw_segment(north_dx, north_dy, north_edge_x, north_edge_y);
+    }
+    if east_building && !east {
+        draw_segment(east_dx, east_dy, east_edge_x, east_edge_y);
+    }
+    if south_building && !south {
+        draw_segment(south_dx, south_dy, south_edge_x, south_edge_y);
+    }
+    if west_building && !west {
+        draw_segment(west_dx, west_dy, west_edge_x, west_edge_y);
+    }
+
+    // Draw edge lines after all segments for crisp edges
+    let draw_edges = |dir_dx: f64, dir_dy: f64, edge_x: f64, edge_y: f64| {
+        let (perp_x, perp_y) = get_perp(dir_dx, dir_dy);
+        let stop_x = cx + (edge_x - cx) * edge_stop;
+        let stop_y = cy + (edge_y - cy) * edge_stop;
+
+        canvas.set_stroke_color(PATH_EDGE);
+        canvas.set_line_width(0.8);
+        canvas.begin_path();
+        canvas.move_to(cx + perp_x * half_width, cy + perp_y * half_width);
+        canvas.line_to(stop_x + perp_x * half_width, stop_y + perp_y * half_width);
+        canvas.stroke();
+
+        canvas.begin_path();
+        canvas.move_to(cx - perp_x * half_width, cy - perp_y * half_width);
+        canvas.line_to(stop_x - perp_x * half_width, stop_y - perp_y * half_width);
+        canvas.stroke();
+    };
+
+    if north {
+        draw_edges(north_dx, north_dy, north_edge_x, north_edge_y);
+    }
+    if east {
+        draw_edges(east_dx, east_dy, east_edge_x, east_edge_y);
+    }
+    if south {
+        draw_edges(south_dx, south_dy, south_edge_x, south_edge_y);
+    }
+    if west {
+        draw_edges(west_dx, west_dy, west_edge_x, west_edge_y);
+    }
+
+    let connection_count = (north as i32 + east as i32 + south as i32 + west as i32) as i32;
+    if connection_count == 0 {
+        canvas.set_fill_color(PATH_SURFACE);
+        canvas.begin_path();
+        let _ = canvas.arc(cx, cy, half_width, 0.0, std::f64::consts::PI * 2.0);
+        canvas.fill();
     }
 }
 
