@@ -5,6 +5,11 @@ use crate::game::guest::{Guest, GuestState, Direction, TargetKind};
 use crate::game::building::BuildingType;
 use super::pathfinding::find_path_to_building;
 
+const ENTRY_FEE: i32 = 20;
+const RIDE_FEE: i32 = 15;
+const FOOD_FEE: i32 = 12;
+const SHOP_FEE: i32 = 10;
+
 /// Update all guests
 pub fn update_guests(state: &mut GameState) {
     let delta_time = 1.0; // 1 game minute per tick
@@ -149,22 +154,41 @@ fn update_guest(guest: &mut Guest, state: &mut GameState, delta_time: f32, grid_
             } else {
                 // Path complete
                 if let Some(target_kind) = guest.target_building_kind {
-                    match target_kind {
-                        TargetKind::Ride => {
-                            guest.state = GuestState::Queuing;
-                            guest.queue_timer = 30.0 + state.random() as f32 * 60.0;
+                    let fee = match target_kind {
+                        TargetKind::Ride => RIDE_FEE,
+                        TargetKind::Food => FOOD_FEE,
+                        TargetKind::Shop => SHOP_FEE,
+                    };
+
+                    if guest.cash >= fee {
+                        guest.cash -= fee;
+                        guest.total_spent += fee;
+                        state.cash += fee as i64;
+
+                        match target_kind {
+                            TargetKind::Ride => {
+                                guest.state = GuestState::Queuing;
+                                guest.queue_timer = 30.0 + state.random() as f32 * 60.0;
+                            }
+                            TargetKind::Food => {
+                                guest.state = GuestState::Eating;
+                                guest.queue_timer = 8.0 + state.random() as f32 * 12.0;
+                            }
+                            TargetKind::Shop => {
+                                guest.state = GuestState::Shopping;
+                                guest.queue_timer = 6.0 + state.random() as f32 * 10.0;
+                            }
                         }
-                        TargetKind::Food => {
-                            guest.state = GuestState::Eating;
-                            guest.queue_timer = 8.0 + state.random() as f32 * 12.0;
-                        }
-                        TargetKind::Shop => {
-                            guest.state = GuestState::Shopping;
-                            guest.queue_timer = 6.0 + state.random() as f32 * 10.0;
-                        }
+                        guest.path.clear();
+                        guest.path_index = 0;
+                    } else {
+                        guest.target_building_id = None;
+                        guest.target_building_kind = None;
+                        guest.state = GuestState::Walking;
+                        guest.decision_cooldown = 30.0;
+                        guest.path.clear();
+                        guest.path_index = 0;
                     }
-                    guest.path.clear();
-                    guest.path_index = 0;
                 } else {
                     // Wander
                     guest.state = GuestState::Walking;
@@ -297,7 +321,13 @@ pub fn spawn_guests(state: &mut GameState) {
             let mut rng = || state.random();
             let guest = Guest::new(id, ex, ey, grid_size, &mut rng);
             
-            state.guests.push(guest);
+            if guest.cash >= ENTRY_FEE {
+                let mut guest = guest;
+                guest.cash -= ENTRY_FEE;
+                guest.total_spent += ENTRY_FEE;
+                state.cash += ENTRY_FEE as i64;
+                state.guests.push(guest);
+            }
         }
     }
 }
