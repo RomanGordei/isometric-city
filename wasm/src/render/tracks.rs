@@ -539,7 +539,7 @@ fn render_coaster_trains(
     }
     
     for train in &coaster.trains {
-        for (car_idx, car) in train.cars.iter().enumerate() {
+        for (car_idx, car) in train.cars.iter().enumerate().rev() {
             // Calculate position on track
             let progress = car.track_progress % track_len;
             let track_idx = progress.floor() as usize;
