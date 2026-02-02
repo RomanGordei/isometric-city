@@ -328,6 +328,12 @@ const TOOL_CATEGORIES = [
       { id: 'coaster_track_turn_right', name: 'Turn Right', icon: '↪️' },
       { id: 'coaster_track_slope_up', name: 'Slope Up', icon: '⬆️' },
       { id: 'coaster_track_slope_down', name: 'Slope Down', icon: '⬇️' },
+      { id: 'coaster_track_slope_up_medium', name: 'Slope Up (Medium)', icon: '⛰️' },
+      { id: 'coaster_track_slope_down_medium', name: 'Slope Down (Medium)', icon: '⛰️' },
+      { id: 'coaster_track_lift_hill', name: 'Lift Hill', icon: '⛓️' },
+      { id: 'coaster_track_loop', name: 'Loop', icon: '🔄' },
+      { id: 'coaster_track_corkscrew', name: 'Corkscrew', icon: '🌀' },
+      { id: 'coaster_track_brakes', name: 'Brakes', icon: '🛑' },
     ],
   },
 ];

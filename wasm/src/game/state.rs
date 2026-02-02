@@ -409,6 +409,30 @@ impl GameState {
                 self.place_coaster_track(grid_x, grid_y, TrackPieceType::SlopeDownSmall, cost);
             }
 
+            Tool::CoasterTrackSlopeUpMedium => {
+                self.place_coaster_track(grid_x, grid_y, TrackPieceType::SlopeUpMedium, cost);
+            }
+
+            Tool::CoasterTrackSlopeDownMedium => {
+                self.place_coaster_track(grid_x, grid_y, TrackPieceType::SlopeDownMedium, cost);
+            }
+
+            Tool::CoasterTrackLiftHill => {
+                self.place_coaster_track(grid_x, grid_y, TrackPieceType::LiftHill, cost);
+            }
+
+            Tool::CoasterTrackLoop => {
+                self.place_coaster_track(grid_x, grid_y, TrackPieceType::LoopVertical, cost);
+            }
+
+            Tool::CoasterTrackCorkscrew => {
+                self.place_coaster_track(grid_x, grid_y, TrackPieceType::Corkscrew, cost);
+            }
+
+            Tool::CoasterTrackBrakes => {
+                self.place_coaster_track(grid_x, grid_y, TrackPieceType::Brakes, cost);
+            }
+
             _ => {
                 // Building placement
                 let tile = &self.grid[y][x];

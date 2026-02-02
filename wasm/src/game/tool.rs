@@ -270,6 +270,12 @@ pub enum Tool {
     CoasterTrackTurnRight,
     CoasterTrackSlopeUp,
     CoasterTrackSlopeDown,
+    CoasterTrackSlopeUpMedium,
+    CoasterTrackSlopeDownMedium,
+    CoasterTrackLiftHill,
+    CoasterTrackLoop,
+    CoasterTrackCorkscrew,
+    CoasterTrackBrakes,
 }
 
 impl Default for Tool {
@@ -521,6 +527,12 @@ impl fmt::Display for Tool {
             Tool::CoasterTrackTurnRight => "coaster_track_turn_right",
             Tool::CoasterTrackSlopeUp => "coaster_track_slope_up",
             Tool::CoasterTrackSlopeDown => "coaster_track_slope_down",
+            Tool::CoasterTrackSlopeUpMedium => "coaster_track_slope_up_medium",
+            Tool::CoasterTrackSlopeDownMedium => "coaster_track_slope_down_medium",
+            Tool::CoasterTrackLiftHill => "coaster_track_lift_hill",
+            Tool::CoasterTrackLoop => "coaster_track_loop",
+            Tool::CoasterTrackCorkscrew => "coaster_track_corkscrew",
+            Tool::CoasterTrackBrakes => "coaster_track_brakes",
         };
         write!(f, "{}", name)
     }
@@ -770,6 +782,12 @@ impl Tool {
             "coaster_track_turn_right" => Some(Tool::CoasterTrackTurnRight),
             "coaster_track_slope_up" => Some(Tool::CoasterTrackSlopeUp),
             "coaster_track_slope_down" => Some(Tool::CoasterTrackSlopeDown),
+            "coaster_track_slope_up_medium" => Some(Tool::CoasterTrackSlopeUpMedium),
+            "coaster_track_slope_down_medium" => Some(Tool::CoasterTrackSlopeDownMedium),
+            "coaster_track_lift_hill" => Some(Tool::CoasterTrackLiftHill),
+            "coaster_track_loop" => Some(Tool::CoasterTrackLoop),
+            "coaster_track_corkscrew" => Some(Tool::CoasterTrackCorkscrew),
+            "coaster_track_brakes" => Some(Tool::CoasterTrackBrakes),
             _ => None,
         }
     }
@@ -779,7 +797,10 @@ impl Tool {
         match self {
             Tool::Select | Tool::Bulldoze | Tool::Path | Tool::Queue => None,
             Tool::CoasterStation | Tool::CoasterTrackStraight | Tool::CoasterTrackTurnLeft |
-            Tool::CoasterTrackTurnRight | Tool::CoasterTrackSlopeUp | Tool::CoasterTrackSlopeDown => None,
+            Tool::CoasterTrackTurnRight | Tool::CoasterTrackSlopeUp | Tool::CoasterTrackSlopeDown |
+            Tool::CoasterTrackSlopeUpMedium | Tool::CoasterTrackSlopeDownMedium |
+            Tool::CoasterTrackLiftHill | Tool::CoasterTrackLoop |
+            Tool::CoasterTrackCorkscrew | Tool::CoasterTrackBrakes => None,
             
             Tool::TreeOak => Some(BuildingType::TreeOak),
             Tool::TreeMaple => Some(BuildingType::TreeMaple),
@@ -1022,7 +1043,10 @@ impl Tool {
             Tool::Path => 10,
             Tool::Queue => 15,
             Tool::CoasterStation | Tool::CoasterTrackStraight | Tool::CoasterTrackTurnLeft |
-            Tool::CoasterTrackTurnRight | Tool::CoasterTrackSlopeUp | Tool::CoasterTrackSlopeDown => 50,
+            Tool::CoasterTrackTurnRight | Tool::CoasterTrackSlopeUp | Tool::CoasterTrackSlopeDown |
+            Tool::CoasterTrackSlopeUpMedium | Tool::CoasterTrackSlopeDownMedium |
+            Tool::CoasterTrackLiftHill | Tool::CoasterTrackLoop |
+            Tool::CoasterTrackCorkscrew | Tool::CoasterTrackBrakes => 50,
             _ => self.building_type().map(|b| b.cost()).unwrap_or(0),
         }
     }
