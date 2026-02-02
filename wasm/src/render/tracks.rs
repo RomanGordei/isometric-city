@@ -7,6 +7,9 @@ use super::canvas::Canvas;
 use super::isometric::{tile_center, TILE_WIDTH, TILE_HEIGHT, HEIGHT_UNIT};
 use super::sprites::SpriteManager;
 
+const TIE_COLOR_METAL: &str = "#2d3748";
+const TIE_COLOR_WOOD: &str = "#654321";
+
 /// Render all coaster tracks
 pub fn render_tracks(
     canvas: &Canvas,
@@ -61,7 +64,6 @@ fn render_coaster_track(
             cy - height_offset,
             piece,
             &coaster.color.primary,
-            &coaster.color.secondary,
         )?;
 
         if piece.piece_type == TrackPieceType::Station {
@@ -144,16 +146,15 @@ fn draw_track_piece(
     y: f64,
     piece: &TrackPiece,
     primary_color: &str,
-    secondary_color: &str,
 ) -> Result<(), JsValue> {
     let height_delta = (piece.end_height - piece.start_height) as f64 * HEIGHT_UNIT;
 
     match piece.piece_type {
         TrackPieceType::StraightFlat => {
-            draw_straight_track(canvas, x, y, &piece.direction, primary_color, secondary_color)?;
+            draw_straight_track(canvas, x, y, &piece.direction, &piece.strut_style, primary_color)?;
         }
         TrackPieceType::Station => {
-            draw_station_track(canvas, x, y, &piece.direction, primary_color, secondary_color)?;
+            draw_station_track(canvas, x, y, &piece.direction, &piece.strut_style, primary_color)?;
         }
         TrackPieceType::TurnLeftFlat => {
             draw_curved_track(canvas, x, y, &piece.direction, true, primary_color)?;
@@ -162,19 +163,19 @@ fn draw_track_piece(
             draw_curved_track(canvas, x, y, &piece.direction, false, primary_color)?;
         }
         TrackPieceType::SlopeUpSmall | TrackPieceType::SlopeUpMedium | TrackPieceType::LiftHill => {
-            draw_slope_track(canvas, x, y, &piece.direction, height_delta, primary_color, secondary_color)?;
+            draw_slope_track(canvas, x, y, &piece.direction, height_delta, primary_color)?;
             if matches!(piece.piece_type, TrackPieceType::LiftHill) {
                 draw_chain_lift(canvas, x, y, &piece.direction)?;
             }
         }
         TrackPieceType::SlopeDownSmall | TrackPieceType::SlopeDownMedium => {
-            draw_slope_track(canvas, x, y, &piece.direction, height_delta, primary_color, secondary_color)?;
+            draw_slope_track(canvas, x, y, &piece.direction, height_delta, primary_color)?;
         }
         TrackPieceType::LoopVertical => {
             draw_loop_track(canvas, x, y, primary_color)?;
         }
         TrackPieceType::Brakes => {
-            draw_brake_track(canvas, x, y, &piece.direction, primary_color, secondary_color)?;
+            draw_brake_track(canvas, x, y, &piece.direction, &piece.strut_style, primary_color)?;
         }
         TrackPieceType::Corkscrew => {
             draw_corkscrew_track(canvas, x, y, &piece.direction, primary_color)?;
@@ -190,8 +191,8 @@ fn draw_straight_track(
     x: f64,
     y: f64,
     direction: &TrackDirection,
+    strut_style: &StrutStyle,
     primary_color: &str,
-    secondary_color: &str,
 ) -> Result<(), JsValue> {
     let rail_width = 2.0;
     let rail_spacing = 8.0;
@@ -204,7 +205,11 @@ fn draw_straight_track(
     };
     
     // Draw ties (cross pieces)
-    canvas.set_fill_color(secondary_color);
+    let tie_color = match strut_style {
+        StrutStyle::Wood => TIE_COLOR_WOOD,
+        StrutStyle::Metal => TIE_COLOR_METAL,
+    };
+    canvas.set_fill_color(tie_color);
     let tie_count = 4;
     for i in 0..tie_count {
         let t = (i as f64 + 0.5) / tie_count as f64;
@@ -239,8 +244,8 @@ fn draw_station_track(
     x: f64,
     y: f64,
     direction: &TrackDirection,
+    strut_style: &StrutStyle,
     primary_color: &str,
-    secondary_color: &str,
 ) -> Result<(), JsValue> {
     // Platform base
     let platform_width = TILE_WIDTH * 0.7;
@@ -256,7 +261,7 @@ fn draw_station_track(
     canvas.fill();
 
     // Draw rails on top
-    draw_straight_track(canvas, x, y, direction, primary_color, secondary_color)
+    draw_straight_track(canvas, x, y, direction, strut_style, primary_color)
 }
 
 /// Draw curved track segment
@@ -317,7 +322,6 @@ fn draw_slope_track(
     direction: &TrackDirection,
     height_delta: f64,
     primary_color: &str,
-    _secondary_color: &str,
 ) -> Result<(), JsValue> {
     let rail_spacing = 8.0;
     let track_length = TILE_WIDTH * 0.8;
@@ -408,10 +412,10 @@ fn draw_brake_track(
     x: f64,
     y: f64,
     direction: &TrackDirection,
+    strut_style: &StrutStyle,
     primary_color: &str,
-    secondary_color: &str,
 ) -> Result<(), JsValue> {
-    draw_straight_track(canvas, x, y, direction, primary_color, secondary_color)?;
+    draw_straight_track(canvas, x, y, direction, strut_style, primary_color)?;
 
     let marker_color = "#b91c1c";
     let track_length = TILE_WIDTH * 0.6;
