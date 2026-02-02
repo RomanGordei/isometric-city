@@ -346,7 +346,26 @@ fn create_default_sprites(sheet_id: &str, _cols: u32, _rows: u32) -> HashMap<Str
             // Row 2: Inverted
             for i in 0..5 {
                 let name = format!("station_inverted_{}", i + 1);
-                sprites.insert(name.clone(), SpriteInfo::new(&name, 2, i).with_offset(0.0, -30.0).with_scale(0.9));
+                let offset_y = if i == 4 { -28.0 } else { -30.0 };
+                let scale = if i == 4 { 0.88 } else { 0.9 };
+                sprites.insert(name.clone(), SpriteInfo::new(&name, 2, i).with_offset(0.0, offset_y).with_scale(scale));
+            }
+            // Row 3: Water
+            for i in 0..5 {
+                let name = format!("station_water_{}", i + 1);
+                let offset_x = if i == 4 { -3.0 } else { 0.0 };
+                let scale = if i == 4 { 0.88 } else { 0.9 };
+                sprites.insert(name.clone(), SpriteInfo::new(&name, 3, i).with_offset(offset_x, -30.0).with_scale(scale));
+            }
+            // Row 4: Mine
+            for i in 0..5 {
+                let name = format!("station_mine_{}", i + 1);
+                sprites.insert(name.clone(), SpriteInfo::new(&name, 4, i).with_offset(0.0, -30.0).with_scale(0.9));
+            }
+            // Row 5: Futuristic
+            for i in 0..5 {
+                let name = format!("station_futuristic_{}", i + 1);
+                sprites.insert(name.clone(), SpriteInfo::new(&name, 5, i).with_offset(0.0, -32.0).with_scale(0.92));
             }
         },
         "rides_small" => {
