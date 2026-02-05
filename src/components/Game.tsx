@@ -81,6 +81,13 @@ export default function Game({ onExit }: { onExit?: () => void }) {
   } = useMultiplayerSync();
   
   const { copied: copiedRoomLink, handleCopyRoomLink } = useCopyRoomLink(roomCode, 'coop');
+  
+  // Memoize selected tile data to avoid repeated grid lookups on every render
+  const selectedTileData = useMemo(() => {
+    if (!selectedTile || state.selectedTool !== 'select') return null;
+    return state.grid[selectedTile.y]?.[selectedTile.x] ?? null;
+  }, [selectedTile, state.selectedTool, state.grid]);
+  
   const initialSelectedToolRef = useRef<Tool | null>(null);
   const previousSelectedToolRef = useRef<Tool | null>(null);
   const hasCapturedInitialTool = useRef(false);
@@ -244,7 +251,7 @@ export default function Game({ onExit }: { onExit?: () => void }) {
         <div className="w-full h-full overflow-hidden bg-background flex flex-col">
           {/* Mobile Top Bar */}
           <MobileTopBar 
-            selectedTile={selectedTile && state.selectedTool === 'select' ? state.grid[selectedTile.y][selectedTile.x] : null}
+            selectedTile={selectedTileData}
             services={state.services}
             onCloseTile={() => setSelectedTile(null)}
             onShare={() => setShowShareModal(true)}
