@@ -755,14 +755,16 @@ export const SPRITE_PACKS: SpritePack[] = [
 const spriteIndexCache = new WeakMap<SpritePack, Map<string, number>>();
 
 function getSpriteIndexMap(pack: SpritePack): Map<string, number> {
-  let indexMap = spriteIndexCache.get(pack);
-  if (!indexMap) {
-    indexMap = new Map<string, number>();
-    pack.spriteOrder.forEach((spriteKey, index) => {
-      indexMap.set(spriteKey, index);
-    });
-    spriteIndexCache.set(pack, indexMap);
+  const cachedMap = spriteIndexCache.get(pack);
+  if (cachedMap) {
+    return cachedMap;
   }
+
+  const indexMap = new Map<string, number>();
+  pack.spriteOrder.forEach((spriteKey, index) => {
+    indexMap.set(spriteKey, index);
+  });
+  spriteIndexCache.set(pack, indexMap);
   return indexMap;
 }
 
