@@ -752,6 +752,20 @@ export const SPRITE_PACKS: SpritePack[] = [
   SPRITE_PACK_SPRITES4_CHINA,
 ];
 
+const spriteIndexCache = new WeakMap<SpritePack, Map<string, number>>();
+
+function getSpriteIndexMap(pack: SpritePack): Map<string, number> {
+  let indexMap = spriteIndexCache.get(pack);
+  if (!indexMap) {
+    indexMap = new Map<string, number>();
+    pack.spriteOrder.forEach((spriteKey, index) => {
+      indexMap.set(spriteKey, index);
+    });
+    spriteIndexCache.set(pack, indexMap);
+  }
+  return indexMap;
+}
+
 // Default sprite pack ID
 export const DEFAULT_SPRITE_PACK_ID = 'sprites4';
 
@@ -829,8 +843,8 @@ export function getSpriteCoords(
   if (!spriteKey) return null;
   
   // Find index in sprite order
-  const index = activePack.spriteOrder.indexOf(spriteKey);
-  if (index === -1) return null;
+  const index = getSpriteIndexMap(activePack).get(spriteKey);
+  if (index === undefined) return null;
   
   // Calculate tile dimensions
   const tileWidth = Math.floor(spriteSheetWidth / activePack.cols);
