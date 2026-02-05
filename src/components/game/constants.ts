@@ -300,6 +300,10 @@ export const FIREWORK_MIN_ZOOM = 0.3;             // Minimum zoom to show firewo
 // PERF: Pre-computed building type sets for O(1) lookups during lighting calculations
 // These are module-level constants to avoid allocating on every render frame
 export const NON_LIT_BUILDING_TYPES = new Set(['grass', 'empty', 'water', 'road', 'tree', 'park', 'park_large', 'tennis']);
+
+// PERF: Pre-computed tool sets for O(1) lookups during rendering
+// Tools that show the drag grid/rectangle selection visualization
+export const DRAG_GRID_TOOLS = new Set(['zone_residential', 'zone_commercial', 'zone_industrial', 'zone_dezone']);
 export const RESIDENTIAL_BUILDING_TYPES = new Set(['house_small', 'house_medium', 'mansion', 'apartment_low', 'apartment_high']);
 export const COMMERCIAL_BUILDING_TYPES = new Set(['shop_small', 'shop_medium', 'office_low', 'office_high', 'mall']);
 

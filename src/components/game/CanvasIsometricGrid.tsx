@@ -41,6 +41,7 @@ import {
   WATER_ASSET_PATH,
   AIRPLANE_SPRITE_SRC,
   TRAIN_MIN_ZOOM,
+  DRAG_GRID_TOOLS,
 } from '@/components/game/constants';
 import {
   gridToScreen,
@@ -297,7 +298,8 @@ export function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile
 
   // Only zoning tools show the grid/rectangle selection visualization
   // Note: zone_water uses supportsDragPlace behavior (place on click/drag) instead of rectangle selection
-  const showsDragGrid = ['zone_residential', 'zone_commercial', 'zone_industrial', 'zone_dezone'].includes(selectedTool);
+  // PERF: Uses pre-computed Set for O(1) lookup instead of Array.includes()
+  const showsDragGrid = DRAG_GRID_TOOLS.has(selectedTool);
   
   // Roads, bulldoze, and other tools support drag-to-place but don't show the grid
   const supportsDragPlace = selectedTool !== 'select';
